@@ -82,6 +82,8 @@ def youtube_callback_handler(req: https_fn.Request) -> https_fn.Response:
         <!DOCTYPE html>
         <html>
         <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>YouTube Connecté</title>
             <style>
                 body {{
@@ -131,7 +133,9 @@ def youtube_callback_handler(req: https_fn.Request) -> https_fn.Response:
         </html>
         """
         
-        return https_fn.Response(html, headers={'Content-Type': 'text/html'})
+        return https_fn.Response(html, headers={
+            'Content-Type': 'text/html; charset=utf-8'
+        })
         
     except Exception as e:
         print(f'Erreur youtube_callback: {str(e)}')
@@ -174,6 +178,7 @@ def tiktok_connect(req: https_fn.Request) -> https_fn.Response:
     
     try:
         auth_url = connect_tiktok(user_id)
+        print(f'TikTok auth URL generated: {auth_url}')
         # Rediriger vers TikTok
         return https_fn.Response(
             status=302,
@@ -181,6 +186,8 @@ def tiktok_connect(req: https_fn.Request) -> https_fn.Response:
         )
     except Exception as e:
         print(f'Erreur tiktok_connect: {str(e)}')
+        import traceback
+        traceback.print_exc()
         return https_fn.Response(f'Error: {str(e)}', status=500)
 
 
@@ -207,6 +214,8 @@ def tiktok_callback_handler(req: https_fn.Request) -> https_fn.Response:
         <!DOCTYPE html>
         <html>
         <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>TikTok Connecté</title>
             <style>
                 body {{
@@ -254,7 +263,9 @@ def tiktok_callback_handler(req: https_fn.Request) -> https_fn.Response:
         </html>
         """
         
-        return https_fn.Response(html, headers={'Content-Type': 'text/html'})
+        return https_fn.Response(html, headers={
+            'Content-Type': 'text/html; charset=utf-8'
+        })
         
     except Exception as e:
         print(f'Erreur tiktok_callback: {str(e)}')

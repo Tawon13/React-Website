@@ -54,8 +54,8 @@ const Navbar = () => {
                     <div className='absolute top-0 right-0 pt-14 text-base font-medium text-gray-600 z-20 hidden group-hover:block'>
                         <div className='min-w-48 bg-stone-100 rounded flex flex-col gap-4 p-4'>
                             <p className='text-sm text-gray-500 truncate max-w-[180px]'>{currentUser.email}</p>
-                            <p onClick={()=>navigate('/my-profil')} className='hover:text-black cursor-pointer'>Mon Profil</p>
-                            <p onClick={()=>navigate('/my-appointments')}className='hover:text-black cursor-pointer'>Mes Rendez-vous</p>
+                            <p onClick={()=>navigate('/my-profile')} className='hover:text-black cursor-pointer'>Mon Profil</p>
+                            <p onClick={()=>navigate('/my-appointments')}className='hover:text-black cursor-pointer'>Mes Messages</p>
                             <p onClick={handleLogout} className='hover:text-black cursor-pointer'>Se déconnecter</p>
                         </div>
                     </div>
@@ -101,6 +101,17 @@ const Navbar = () => {
                 <NavLink onClick={() => setShowMenu(false)} to='/talents' className='px-4 py-2 rounded text-right'>NOS TALENTS</NavLink>
                 <NavLink onClick={() => setShowMenu(false)} to='/about' className='px-4 py-2 rounded text-right'>À PROPOS</NavLink>
                 <NavLink onClick={() => setShowMenu(false)} to='/contact' className='px-4 py-2 rounded text-right'>CONTACT</NavLink>
+                
+                {/* User Options for Mobile */}
+                {currentUser && (
+                    <>
+                        <hr className='w-full border-gray-300 my-2' />
+                        <p className='px-4 text-sm text-gray-500 text-right truncate max-w-[250px]'>{currentUser.email}</p>
+                        <p onClick={() => { navigate('/my-profile'); setShowMenu(false); }} className='px-4 py-2 rounded text-right cursor-pointer hover:text-primary'>Mon Profil</p>
+                        <p onClick={() => { navigate('/my-messages'); setShowMenu(false); }} className='px-4 py-2 rounded text-right cursor-pointer hover:text-primary'>Mes Messages</p>
+                        <p onClick={() => { handleLogout(); setShowMenu(false); }} className='px-4 py-2 rounded text-right cursor-pointer hover:text-primary'>Se déconnecter</p>
+                    </>
+                )}
             </ul>
         </div>
     </div>

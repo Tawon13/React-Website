@@ -5,6 +5,7 @@ Gestion de l'OAuth et récupération des statistiques
 
 import os
 import requests
+from urllib.parse import urlencode
 from firebase_admin import firestore
 from datetime import datetime, timedelta
 
@@ -29,11 +30,9 @@ def connect_tiktok(user_id: str) -> str:
     Returns:
         URL d'autorisation OAuth
     """
-    # Scopes TikTok
+    # Scopes TikTok - Mode Sandbox (scopes minimaux)
     scopes = [
         'user.info.basic',      # Pseudo, avatar
-        'user.info.stats',      # Abonnés, likes, vidéos
-        'video.list'            # Liste des vidéos
     ]
     
     # Construction de l'URL d'autorisation
@@ -45,9 +44,8 @@ def connect_tiktok(user_id: str) -> str:
         'state': user_id  # Passer l'user_id dans le state
     }
     
-    # Construire l'URL
-    query_string = '&'.join([f'{k}={v}' for k, v in params.items()])
-    authorization_url = f'{TIKTOK_AUTH_URL}?{query_string}'
+    # Construire l'URL avec URL encoding
+    authorization_url = f'{TIKTOK_AUTH_URL}?{urlencode(params)}'
     
     return authorization_url
 
@@ -85,40 +83,57 @@ def tiktok_callback(code: str, user_id: str) -> dict:
     token_response.raise_for_status()
     token_json = token_response.json()
     
-    if token_json.get('error'):
-        raise Exception(f"TikTok OAuth error: {token_json.get('error_description')}")
+    print(f"TikTok token response: {token_json}")
     
-    access_token = token_json['data']['access_token']
-    refresh_token = token_json['data']['refresh_token']
-    expires_in = token_json['data']['expires_in']  # Secondes
+    # Vérifier la structure de la réponse
+    if 'error' in token_json:
+        error_msg = token_json.get('error_description', token_json.get('error'))
+        raise Exception(f"TikTok OAuth error: {error_msg}")
     
-    # Récupérer les infos utilisateur
-    user_headers = {
-        'Authorization': f'Bearer {access_token}'
-    }
+    # TikTok retourne les tokens directement (pas dans un champ 'data')
+    access_token = token_json.get('access_token')
+    refresh_token = token_json.get('refresh_token')
+    expires_in = token_json.get('expires_in', 3600)
+    open_id = token_json.get('open_id')
     
-    user_response = requests.get(
-        TIKTOK_USER_INFO_URL,
-        headers=user_headers,
-        params={'fields': 'open_id,union_id,avatar_url,display_name,follower_count,following_count,likes_count,video_count'}
-    )
+    if not access_token:
+        raise Exception(f"No access_token in response. Response: {token_json}")
     
-    user_response.raise_for_status()
-    user_json = user_response.json()
+    # Récupérer les infos utilisateur (optionnel en Sandbox)
+    display_name = 'TikTok User'
+    avatar_url = ''
+    follower_count = 0
     
-    if user_json.get('error'):
-        raise Exception(f"TikTok User Info error: {user_json.get('error').get('message')}")
-    
-    user_data = user_json['data']['user']
-    
-    # Extraire les données
-    open_id = user_data.get('open_id')
-    display_name = user_data.get('display_name')
-    avatar_url = user_data.get('avatar_url')
-    follower_count = user_data.get('follower_count', 0)
-    following_count = user_data.get('following_count', 0)
-    likes_count = user_data.get('likes_count', 0)
-    video_count = user_data.get('video_count', 0)
+    # Essayer de récupérer les infos utilisateur (peut échouer en Sandbox)
+    try:
+        user_headers = {
+            'Authorization': f'Bearer {access_token}'
+        }
+        
+        user_response = requests.get(
+            TIKTOK_USER_INFO_URL,
+            headers=user_headers,
+            params={'fields': 'open_id,union_id,avatar_url,display_name'}
+        )
+        
+        if user_response.status_code == 200:
+            user_json = user_response.json()
+            print(f"TikTok user info response: {user_json}")
+            
+            # TikTok peut retourner data.user ou directement les données
+            if 'data' in user_json and 'user' in user_json['data']:
+                user_data = user_json['data']['user']
+            elif 'data' in user_json:
+                user_data = user_json['data']
+            else:
+                user_data = user_json
+            
+            display_name = user_data.get('display_name', 'TikTok User')
+            avatar_url = user_data.get('avatar_url', '')
+            follower_count = user_data.get('follower_count', 0)
+    except Exception as e:
+        print(f"Could not fetch user info (normal in Sandbox): {str(e)}")
+        # Continue avec les données minimales
     
     # Calculer l'expiration du token
     expires_at = datetime.now() + timedelta(seconds=expires_in)
@@ -134,9 +149,9 @@ def tiktok_callback(code: str, user_id: str) -> dict:
             'username': display_name,
             'avatarUrl': avatar_url,
             'followers': follower_count,
-            'following': following_count,
-            'likes': likes_count,
-            'videoCount': video_count,
+            'following': 0,
+            'likes': 0,
+            'videoCount': 0,
             'lastUpdated': firestore.SERVER_TIMESTAMP
         },
         'tokens.tiktok': {
@@ -151,7 +166,7 @@ def tiktok_callback(code: str, user_id: str) -> dict:
         'success': True,
         'username': display_name,
         'followers': follower_count,
-        'videoCount': video_count
+        'videoCount': 0
     }
 
 

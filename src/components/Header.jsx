@@ -8,7 +8,7 @@ const Header = () => {
             style={{ backgroundImage: `url(${assets.photo_back})` }}
         >
             {/* overlay with blur */}
-            <div className='absolute inset-0 bg-black/20 backdrop-blur-md rounded-lg' />
+            <div className='absolute inset-0 bg-black/20 rounded-lg' style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }} />
             
             <div className='md:w-1/2 flex flex-col items-start justify-center gap-3 sm:gap-4 py-8 sm:py-10 md:py-[10vw] md:mb-[30px] relative z-10 text-left'>
                 <p className='text-2xl sm:text-3xl md:text-4xl lg:text-5xl text-white font-semibold leading-tight'>

@@ -7,6 +7,11 @@ const MyProfile = () => {
     const { currentUser, userData, userType } = useAuth()
     const [loading, setLoading] = useState(false)
     const [message, setMessage] = useState({ type: '', text: '' })
+    
+    console.log('MyProfile - currentUser:', currentUser)
+    console.log('MyProfile - userData:', userData)
+    console.log('MyProfile - userType:', userType)
+    
     const [socialAccounts, setSocialAccounts] = useState({
         instagram: {
             connected: false,
@@ -30,7 +35,27 @@ const MyProfile = () => {
 
     useEffect(() => {
         if (userData?.socialAccounts) {
-            setSocialAccounts(userData.socialAccounts)
+            // Merger les données avec les valeurs par défaut
+            setSocialAccounts({
+                instagram: {
+                    connected: userData.socialAccounts.instagram?.connected || false,
+                    username: userData.socialAccounts.instagram?.username || '',
+                    followers: userData.socialAccounts.instagram?.followers || 0,
+                    lastUpdated: userData.socialAccounts.instagram?.lastUpdated || null
+                },
+                tiktok: {
+                    connected: userData.socialAccounts.tiktok?.connected || false,
+                    username: userData.socialAccounts.tiktok?.username || '',
+                    followers: userData.socialAccounts.tiktok?.followers || 0,
+                    lastUpdated: userData.socialAccounts.tiktok?.lastUpdated || null
+                },
+                youtube: {
+                    connected: userData.socialAccounts.youtube?.connected || false,
+                    username: userData.socialAccounts.youtube?.username || '',
+                    followers: userData.socialAccounts.youtube?.followers || 0,
+                    lastUpdated: userData.socialAccounts.youtube?.lastUpdated || null
+                }
+            })
         }
     }, [userData])
 
@@ -78,7 +103,7 @@ const MyProfile = () => {
         setMessage({ type: '', text: '' })
         
         try {
-            const functionUrl = `${import.meta.env.VITE_FIREBASE_FUNCTIONS_URL}/connectTikTok`
+            const functionUrl = `${import.meta.env.VITE_FIREBASE_FUNCTIONS_URL}/tiktok_connect`
             
             const width = 500
             const height = 600
@@ -112,7 +137,7 @@ const MyProfile = () => {
         setMessage({ type: '', text: '' })
         
         try {
-            const functionUrl = `${import.meta.env.VITE_FIREBASE_FUNCTIONS_URL}/connectYouTube`
+            const functionUrl = `${import.meta.env.VITE_FIREBASE_FUNCTIONS_URL}/youtube_connect`
             
             const width = 500
             const height = 600

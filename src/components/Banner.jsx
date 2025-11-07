@@ -7,7 +7,7 @@ const Banner = () => {
     const navigate = useNavigate()
   return (
     <div className='relative flex rounded-lg px-6 sm:px-10 md:px-14 lg:px-12 my-20 md:mx-10 overflow-hidden' style={{ backgroundImage: `url(${assets.photo_back})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
-        <div className='absolute inset-0 bg-black/20 backdrop-blur-md rounded-lg' />
+        <div className='absolute inset-0 bg-black/20 rounded-lg' style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }} />
         
         <div className='relative flex-1 py-8 sm:py-10 md:py-16 lg:py-24 lg:pl-5 z-10'>
             <div className='text-xl sm:text-2xl md:text-3xl lg:text-5xl font-semibold text-white' >
