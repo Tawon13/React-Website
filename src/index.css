@@ -7,15 +7,37 @@
 @tailwind utilities;
 
 * {
-  font-family: Poppins,
+  font-family: Poppins;
+}
+
+/* Prevent horizontal scroll */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 .active hr {
   @apply block;
 }
 
+/* Hide scrollbar but keep functionality */
 ::-webkit-scrollbar {
   @apply hidden;
+}
+
+/* Scrollbar hide utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Smooth transitions */
+* {
+  @apply transition-colors duration-200;
 }
 
 
