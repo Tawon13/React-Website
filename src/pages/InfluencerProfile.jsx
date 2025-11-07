@@ -12,6 +12,7 @@ const InfluencerProfile = () => {
     const { doctors } = useContext(AppContext)
     const [influencer, setInfluencer] = useState(null)
     const [socialData, setSocialData] = useState(null)
+    const [currentImageIndex, setCurrentImageIndex] = useState(0)
 
     useEffect(() => {
         const foundInfluencer = doctors.find(doc => doc._id === influencerId)
@@ -44,61 +45,139 @@ const InfluencerProfile = () => {
     }
 
     return (
-        <div className='max-w-6xl mx-auto py-10'>
-            {/* Header with title and action buttons */}
-            <div className='flex justify-between items-center mb-6'>
-                <h1 className='text-2xl font-semibold'>MODEL, ACTRESS AND LIFESTYLE VLOGGER!</h1>
-                <div className='flex gap-4'>
-                    <button className='flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50'>
-                        <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+        <div className='max-w-6xl mx-auto py-6 sm:py-10 px-4 sm:px-6'>
+            {/* Header with title - Boutons visibles uniquement sur Desktop */}
+            <div className='flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4'>
+                <h1 className='text-xl sm:text-2xl font-semibold'>INFLUENCEUR LIFESTYLE!</h1>
+                <div className='hidden sm:flex gap-2 sm:gap-4'>
+                    <button className='flex items-center justify-center gap-2 px-3 sm:px-4 py-2 border rounded-lg hover:bg-gray-50 text-sm'>
+                        <svg className='w-4 h-4 sm:w-5 sm:h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
                             <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z' />
                         </svg>
-                        Share
+                        <span>Partager</span>
                     </button>
-                    <button className='flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50'>
-                        <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                    <button className='flex items-center justify-center gap-2 px-3 sm:px-4 py-2 border rounded-lg hover:bg-gray-50 text-sm'>
+                        <svg className='w-4 h-4 sm:w-5 sm:h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
                             <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z' />
                         </svg>
-                        Save
+                        <span>Enregistrer</span>
                     </button>
                 </div>
             </div>
 
-            {/* Photo Gallery */}
-            <div className='grid grid-cols-3 gap-4 mb-8'>
-                <div className='col-span-1'>
-                    <img 
-                        src={influencer.image} 
-                        alt={influencer.name}
-                        className='w-full h-[400px] object-cover rounded-lg'
-                    />
+            {/* Photo Gallery - Responsive avec défilement */}
+            <div className='relative mb-4'>
+                {/* Desktop: 3 photos en grille */}
+                <div className='hidden lg:grid lg:grid-cols-3 gap-4'>
+                    <div className='col-span-1'>
+                        <img 
+                            src={influencer.image} 
+                            alt={`${influencer.name} 1`}
+                            className='w-full h-[400px] object-cover rounded-lg'
+                        />
+                    </div>
+                    <div className='col-span-1'>
+                        <img 
+                            src={influencer.image} 
+                            alt={`${influencer.name} 2`}
+                            className='w-full h-[400px] object-cover rounded-lg'
+                        />
+                    </div>
+                    <div className='col-span-1 relative'>
+                        <img 
+                            src={influencer.image} 
+                            alt={`${influencer.name} 3`}
+                            className='w-full h-[400px] object-cover rounded-lg'
+                        />
+                        <button className='absolute bottom-4 right-4 bg-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg hover:bg-gray-50 transition-colors'>
+                            <svg className='w-5 h-5' fill='currentColor' viewBox='0 0 20 20'>
+                                <path d='M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z' />
+                            </svg>
+                            Voir Plus
+                        </button>
+                    </div>
                 </div>
-                <div className='col-span-1'>
-                    <img 
-                        src={influencer.image} 
-                        alt={influencer.name}
-                        className='w-full h-[400px] object-cover rounded-lg'
-                    />
+
+                {/* Tablet & Mobile: Carousel avec défilement horizontal - 1 photo à la fois */}
+                <div className='lg:hidden relative'>
+                    <div 
+                        className='flex gap-0 overflow-x-auto scrollbar-hide snap-x snap-mandatory scroll-smooth'
+                        onScroll={(e) => {
+                            const scrollLeft = e.target.scrollLeft;
+                            const imageWidth = e.target.offsetWidth;
+                            const index = Math.round(scrollLeft / imageWidth);
+                            setCurrentImageIndex(index);
+                        }}
+                    >
+                        {/* Photo 1 */}
+                        <div className='flex-shrink-0 w-full snap-center'>
+                            <img 
+                                src={influencer.image} 
+                                alt={`${influencer.name} 1`}
+                                className='w-full h-64 sm:h-80 object-cover rounded-lg'
+                            />
+                        </div>
+                        {/* Photo 2 */}
+                        <div className='flex-shrink-0 w-full snap-center'>
+                            <img 
+                                src={influencer.image} 
+                                alt={`${influencer.name} 2`}
+                                className='w-full h-64 sm:h-80 object-cover rounded-lg'
+                            />
+                        </div>
+                        {/* Photo 3 */}
+                        <div className='flex-shrink-0 w-full snap-center'>
+                            <img 
+                                src={influencer.image} 
+                                alt={`${influencer.name} 3`}
+                                className='w-full h-64 sm:h-80 object-cover rounded-lg'
+                            />
+                        </div>
+                    </div>
+                    
+                    {/* Indicateurs de pagination cliquables */}
+                    <div className='flex justify-center gap-2 mt-4'>
+                        {[0, 1, 2].map((index) => (
+                            <button
+                                key={index}
+                                onClick={() => {
+                                    const container = document.querySelector('.overflow-x-auto');
+                                    if (container) {
+                                        container.scrollTo({
+                                            left: index * container.offsetWidth,
+                                            behavior: 'smooth'
+                                        });
+                                    }
+                                }}
+                                className={`w-2 h-2 rounded-full transition-colors ${
+                                    currentImageIndex === index ? 'bg-gray-800' : 'bg-gray-300'
+                                }`}
+                            />
+                        ))}
+                    </div>
                 </div>
-                <div className='col-span-1 relative'>
-                    <img 
-                        src={influencer.image} 
-                        alt={influencer.name}
-                        className='w-full h-[400px] object-cover rounded-lg'
-                    />
-                    <button className='absolute bottom-4 right-4 bg-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-md hover:bg-gray-50'>
-                        <svg className='w-5 h-5' fill='currentColor' viewBox='0 0 20 20'>
-                            <path d='M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z' />
-                        </svg>
-                        Show All Photos
-                    </button>
-                </div>
+            </div>
+
+            {/* Boutons Partager/Enregistrer sur Mobile - Sous la photo */}
+            <div className='flex sm:hidden gap-2 mb-6'>
+                <button className='flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border rounded-lg hover:bg-gray-50 text-sm'>
+                    <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z' />
+                    </svg>
+                    Partager
+                </button>
+                <button className='flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border rounded-lg hover:bg-gray-50 text-sm'>
+                    <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z' />
+                    </svg>
+                    Enregistrer
+                </button>
             </div>
 
             {/* Content Grid */}
-            <div className='grid grid-cols-3 gap-8'>
+            <div className='grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8'>
                 {/* Left Column - Profile Info */}
-                <div className='col-span-2'>
+                <div className='lg:col-span-2 order-2 lg:order-1'>
                     {/* Profile Header */}
                     <div className='flex items-start gap-4 mb-6'>
                         <img 
@@ -166,28 +245,28 @@ const InfluencerProfile = () => {
                 </div>
 
                 {/* Right Column - Pricing */}
-                <div className='col-span-1'>
-                    <div className='border rounded-lg p-6 sticky top-4'>
-                        <div className='text-3xl font-bold mb-4'>${influencer.fees}</div>
+                <div className='lg:col-span-1 order-1 lg:order-2'>
+                    <div className='border rounded-lg p-4 sm:p-6 lg:sticky lg:top-4'>
+                        <div className='text-2xl sm:text-3xl font-bold mb-4'>${influencer.fees}</div>
                         
                         <div className='mb-4'>
-                            <select className='w-full border rounded-lg px-4 py-3 mb-2 bg-white'>
+                            <select className='w-full border rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 mb-2 bg-white text-sm sm:text-base'>
                                 <option>📷 1 Story Instagram</option>
                                 <option>📸 1 Post Instagram</option>
                                 <option>🎥 1 Vidéo TikTok</option>
                             </select>
-                            <p className='text-xs text-gray-600'>
+                            <p className='text-xs text-gray-600 leading-relaxed'>
                                 Une story ou post comprend votre tag et tout texte que vous souhaitez inclure.
                             </p>
                         </div>
 
-                        <button className='w-full bg-pink-500 text-white py-3 rounded-lg font-semibold hover:bg-pink-600 transition-colors mb-3'>
+                        <button className='w-full bg-pink-500 text-white py-2.5 sm:py-3 rounded-lg text-sm sm:text-base font-semibold hover:bg-pink-600 transition-colors mb-3'>
                             Ajouter au Panier
                         </button>
 
-                        <div className='text-center text-sm text-gray-600 mb-4'>or</div>
+                        <div className='text-center text-xs sm:text-sm text-gray-600 mb-4'>or</div>
 
-                        <button className='w-full border border-gray-300 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors'>
+                        <button className='w-full border border-gray-300 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base font-semibold hover:bg-gray-50 transition-colors'>
                             Négocier un Pack
                         </button>
                     </div>
