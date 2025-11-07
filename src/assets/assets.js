@@ -20,7 +20,7 @@ import lucile from './lucile.png'
 import ovsie from './ovsie.png'
 import armigno from './armigno.png'
 import amimine from './amimine.png'
-import cassoubqq from './cassoubqq.png'
+import cassoubqq from './Cassoubqq.png'
 import like from './like.png'
 
 
