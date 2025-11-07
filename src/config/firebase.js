@@ -13,7 +13,7 @@ const firebaseConfig = {
     storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "collabzzinflu.firebasestorage.app",
     messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "173621950184",
     appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:173621950184:web:0fce0c14f08b9daac91595",
-    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-1WV66ZL9EL"
+    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-1WV66ZL9EV"
 };
 
 // Initialize Firebase
