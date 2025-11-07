@@ -7,7 +7,7 @@
 @tailwind utilities;
 
 * {
-  font-family: Poppins;
+  font-family: Poppins,
 }
 
 .active hr {

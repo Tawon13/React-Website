@@ -1,6 +1,7 @@
 import appointment_img from './appointment_img.png'
 import header_img from './header_img.png'
 import group_profiles from './group_profiles.png'
+import photo_back from './photo_back.png'
 import profile_pic from './profile_pic.png'
 import contact_image from './contact_image.png'
 import about_image from './about_image.png'
@@ -15,33 +16,19 @@ import info_icon from './info_icon.svg'
 import upload_icon from './upload_icon.png'
 import stripe_logo from './stripe_logo.png'
 import razorpay_logo from './razorpay_logo.png'
-import doc1 from './doc1.png'
-import doc2 from './doc2.png'
-import doc3 from './doc3.png'
-import doc4 from './doc4.png'
-import doc5 from './doc5.png'
-import doc6 from './doc6.png'
-import doc7 from './doc7.png'
-import doc8 from './doc8.png'
-import doc9 from './doc9.png'
-import doc10 from './doc10.png'
-import doc11 from './doc11.png'
-import doc12 from './doc12.png'
-import doc13 from './doc13.png'
-import doc14 from './doc14.png'
-import doc15 from './doc15.png'
-import Dermatologist from './Dermatologist.svg'
-import Gastroenterologist from './Gastroenterologist.svg'
-import General_physician from './General_physician.svg'
-import Gynecologist from './Gynecologist.svg'
-import Neurologist from './Neurologist.svg'
-import Pediatricians from './Pediatricians.svg'
+import lucile from './lucile.png'
+import ovsie from './ovsie.png'
+import armigno from './armigno.png'
+import amimine from './amimine.png'
+import cassoubqq from './cassoubqq.png'
+import like from './like.png'
 
 
 export const assets = {
     appointment_img,
     header_img,
     group_profiles,
+    photo_back,
     logo,
     chats_icon,
     verified_icon,
@@ -55,242 +42,116 @@ export const assets = {
     dropdown_icon,
     upload_icon,
     stripe_logo,
-    razorpay_logo
+    razorpay_logo,
+    like
 }
 
-export const specialityData = [
+export const influencers = [
     {
-        speciality: 'General physician',
-        image: General_physician
-    },
-    {
-        speciality: 'Gynecologist',
-        image: Gynecologist
-    },
-    {
-        speciality: 'Dermatologist',
-        image: Dermatologist
-    },
-    {
-        speciality: 'Pediatricians',
-        image: Pediatricians
-    },
-    {
-        speciality: 'Neurologist',
-        image: Neurologist
-    },
-    {
-        speciality: 'Gastroenterologist',
-        image: Gastroenterologist
-    },
-]
-
-export const doctors = [
-    {
-        _id: 'doc1',
-        name: 'Dr. Richard James',
-        image: doc1,
-        speciality: 'General physician',
-        degree: 'MBBS',
+        _id: 'TooMuchLucile',
+        name: 'TooMuchLucile',
+        image: lucile,
+        speciality: 'Fashion',
+        city: 'Paris',
+        country: 'France',
         experience: '4 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 50,
+        about: 'Lucile est une créatrice de contenu mode passionnée, spécialisée dans les tendances urbaines et le lifestyle parisien. Elle collabore avec les plus grandes marques de mode et partage son quotidien avec authenticité. Son approche unique du style et sa personnalité rayonnante font d\'elle une influenceuse de choix pour les campagnes fashion.',
+        fees: 150,
+        rating: 5.0,
+        reviews: 42,
+        followers: {
+            instagram: '285K',
+            tiktok: '420K',
+            youtube: '156K'
+        },
+        address: {
+            line1: '57th Cross, Richmond',
+            line2: 'Circle, Ring Road, London'
+        }
+    },
+    {
+        _id: 'Ovsie',
+        name: 'Ovsie',
+        image: ovsie,
+        speciality: 'Fashion',
+        city: 'Paris',
+        country: 'France',
+        experience: '4 Years',
+        about: 'Ovsie est une influenceuse mode et lifestyle reconnue pour son sens aigu du style et sa créativité. Elle crée du contenu inspirant qui mélange mode contemporaine et touches vintage. Ses collaborations avec des marques internationales ont fait d\'elle une référence dans l\'industrie.',
+        fees: 120,
+        rating: 4.9,
+        reviews: 38,
+        followers: {
+            instagram: '198K',
+            tiktok: '310K',
+            youtube: '89K'
+        },
+        address: {
+            line1: '57th Cross, Richmond',
+            line2: 'Circle, Ring Road, London'
+        }
+    },
+    {
+        _id: 'Armigno',
+        name: 'Armigno',
+        image: armigno,
+        speciality: 'Fashion',
+        city: 'Paris',
+        country: 'France',
+        experience: '4 Years',
+        about: 'Armigno apporte une perspective unique au monde de la mode avec son style méditerranéen et son approche décontractée. Son contenu authentique et ses conseils mode ont conquis une audience fidèle. Il travaille régulièrement avec des marques de streetwear et de lifestyle.',
+        fees: 95,
+        rating: 4.8,
+        reviews: 29,
+        followers: {
+            instagram: '145K',
+            tiktok: '267K',
+            youtube: '72K'
+        },
         address: {
             line1: '17th Cross, Richmond',
             line2: 'Circle, Ring Road, London'
         }
     },
     {
-        _id: 'doc2',
-        name: 'Dr. Emily Larson',
-        image: doc2,
-        speciality: 'Gynecologist',
-        degree: 'MBBS',
+        _id: 'Amimine',
+        name: 'Amimine',
+        image: amimine,
+        speciality: 'Fashion',
+        city: 'Marseille',
+        country: 'France',
         experience: '3 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 60,
+        about: 'Amimine est un créateur de contenu émergent dans le domaine de la mode durable et éthique. Sa mission est de promouvoir une mode responsable tout en restant tendance. Son approche innovante et son engagement envers l\'environnement résonnent avec une communauté engagée.',
+        fees: 85,
+        rating: 4.7,
+        reviews: 24,
+        followers: {
+            instagram: '112K',
+            tiktok: '189K',
+            youtube: '45K'
+        },
         address: {
             line1: '27th Cross, Richmond',
             line2: 'Circle, Ring Road, London'
         }
     },
     {
-        _id: 'doc3',
-        name: 'Dr. Sarah Patel',
-        image: doc3,
-        speciality: 'Dermatologist',
-        degree: 'MBBS',
-        experience: '1 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 30,
-        address: {
-            line1: '37th Cross, Richmond',
-            line2: 'Circle, Ring Road, London'
-        }
-    },
-    {
-        _id: 'doc4',
-        name: 'Dr. Christopher Lee',
-        image: doc4,
-        speciality: 'Pediatricians',
-        degree: 'MBBS',
+        _id: 'Cassoubqq',
+        name: 'Cassoubqq',
+        image: cassoubqq,
+        speciality: 'Fashion',
+        city: 'Toulouse',
+        country: 'France',
         experience: '2 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 40,
-        address: {
-            line1: '47th Cross, Richmond',
-            line2: 'Circle, Ring Road, London'
-        }
-    },
-    {
-        _id: 'doc5',
-        name: 'Dr. Jennifer Garcia',
-        image: doc5,
-        speciality: 'Neurologist',
-        degree: 'MBBS',
-        experience: '4 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 50,
-        address: {
-            line1: '57th Cross, Richmond',
-            line2: 'Circle, Ring Road, London'
-        }
-    },
-    {
-        _id: 'doc6',
-        name: 'Dr. Andrew Williams',
-        image: doc6,
-        speciality: 'Neurologist',
-        degree: 'MBBS',
-        experience: '4 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 50,
-        address: {
-            line1: '57th Cross, Richmond',
-            line2: 'Circle, Ring Road, London'
-        }
-    },
-    {
-        _id: 'doc7',
-        name: 'Dr. Christopher Davis',
-        image: doc7,
-        speciality: 'General physician',
-        degree: 'MBBS',
-        experience: '4 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 50,
-        address: {
-            line1: '17th Cross, Richmond',
-            line2: 'Circle, Ring Road, London'
-        }
-    },
-    {
-        _id: 'doc8',
-        name: 'Dr. Timothy White',
-        image: doc8,
-        speciality: 'Gynecologist',
-        degree: 'MBBS',
-        experience: '3 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 60,
-        address: {
-            line1: '27th Cross, Richmond',
-            line2: 'Circle, Ring Road, London'
-        }
-    },
-    {
-        _id: 'doc9',
-        name: 'Dr. Ava Mitchell',
-        image: doc9,
-        speciality: 'Dermatologist',
-        degree: 'MBBS',
-        experience: '1 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 30,
-        address: {
-            line1: '37th Cross, Richmond',
-            line2: 'Circle, Ring Road, London'
-        }
-    },
-    {
-        _id: 'doc10',
-        name: 'Dr. Jeffrey King',
-        image: doc10,
-        speciality: 'Pediatricians',
-        degree: 'MBBS',
-        experience: '2 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 40,
-        address: {
-            line1: '47th Cross, Richmond',
-            line2: 'Circle, Ring Road, London'
-        }
-    },
-    {
-        _id: 'doc11',
-        name: 'Dr. Zoe Kelly',
-        image: doc11,
-        speciality: 'Neurologist',
-        degree: 'MBBS',
-        experience: '4 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 50,
-        address: {
-            line1: '57th Cross, Richmond',
-            line2: 'Circle, Ring Road, London'
-        }
-    },
-    {
-        _id: 'doc12',
-        name: 'Dr. Patrick Harris',
-        image: doc12,
-        speciality: 'Neurologist',
-        degree: 'MBBS',
-        experience: '4 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 50,
-        address: {
-            line1: '57th Cross, Richmond',
-            line2: 'Circle, Ring Road, London'
-        }
-    },
-    {
-        _id: 'doc13',
-        name: 'Dr. Chloe Evans',
-        image: doc13,
-        speciality: 'General physician',
-        degree: 'MBBS',
-        experience: '4 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 50,
-        address: {
-            line1: '17th Cross, Richmond',
-            line2: 'Circle, Ring Road, London'
-        }
-    },
-    {
-        _id: 'doc14',
-        name: 'Dr. Ryan Martinez',
-        image: doc14,
-        speciality: 'Gynecologist',
-        degree: 'MBBS',
-        experience: '3 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 60,
-        address: {
-            line1: '27th Cross, Richmond',
-            line2: 'Circle, Ring Road, London'
-        }
-    },
-    {
-        _id: 'doc15',
-        name: 'Dr. Amelia Hill',
-        image: doc15,
-        speciality: 'Dermatologist',
-        degree: 'MBBS',
-        experience: '1 Years',
-        about: 'Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies. Dr. Davis has a strong commitment to delivering comprehensive medical care, focusing on preventive medicine, early diagnosis, and effective treatment strategies.',
-        fees: 30,
+        about: 'Cassoubqq est une jeune influenceuse dynamique qui monte rapidement dans le monde de la mode. Son contenu frais et énergique attire une audience jeune et engagée. Elle se spécialise dans la mode accessible et les looks du quotidien qui inspirent ses abonnés.',
+        fees: 65,
+        rating: 4.6,
+        reviews: 18,
+        followers: {
+            instagram: '78K',
+            tiktok: '156K',
+            youtube: '34K'
+        },
         address: {
             line1: '37th Cross, Richmond',
             line2: 'Circle, Ring Road, London'
