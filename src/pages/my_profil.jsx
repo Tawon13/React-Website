@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { doc, updateDoc } from 'firebase/firestore'
-import { db } from '../config/firebase'
+import { db, FUNCTIONS_URL } from '../config/firebase'
 
 const MyProfile = () => {
     const { currentUser, userData, userType } = useAuth()
@@ -66,7 +66,7 @@ const MyProfile = () => {
         
         try {
             // URL de votre Cloud Function
-            const functionUrl = `${import.meta.env.VITE_FIREBASE_FUNCTIONS_URL}/connectInstagram`
+            const functionUrl = `${FUNCTIONS_URL}/connectInstagram`
             
             // Ouvrir popup OAuth Instagram
             const width = 500
@@ -103,7 +103,7 @@ const MyProfile = () => {
         setMessage({ type: '', text: '' })
         
         try {
-            const functionUrl = `${import.meta.env.VITE_FIREBASE_FUNCTIONS_URL}/tiktok_connect`
+            const functionUrl = `${FUNCTIONS_URL}/tiktok_connect`
             
             const width = 500
             const height = 600
@@ -137,7 +137,7 @@ const MyProfile = () => {
         setMessage({ type: '', text: '' })
         
         try {
-            const functionUrl = `${import.meta.env.VITE_FIREBASE_FUNCTIONS_URL}/youtube_connect`
+            const functionUrl = `${FUNCTIONS_URL}/youtube_connect`
             
             const width = 500
             const height = 600

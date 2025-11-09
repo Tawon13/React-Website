@@ -24,4 +24,7 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const analytics = getAnalytics(app);
 
+// Firebase Functions URL
+export const FUNCTIONS_URL = import.meta.env.VITE_FIREBASE_FUNCTIONS_URL || "https://us-central1-collabzzinflu.cloudfunctions.net";
+
 export default app;
