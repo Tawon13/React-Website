@@ -15,9 +15,10 @@ load_dotenv()
 # Initialiser Firebase Admin
 initialize_app()
 
-# Importer les modules YouTube et TikTok
+# Importer les modules YouTube, TikTok et Instagram
 from lib.youtube import connect_youtube, youtube_callback, update_youtube_stats
 from lib.tiktok import connect_tiktok, tiktok_callback, update_tiktok_stats
+from lib.instagram import connect_instagram, instagram_callback, update_instagram_stats
 
 # Configuration globale
 set_global_options(max_instances=10)
@@ -269,6 +270,138 @@ def tiktok_callback_handler(req: https_fn.Request) -> https_fn.Response:
         
     except Exception as e:
         print(f'Erreur tiktok_callback: {str(e)}')
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <body style="font-family: Arial; padding: 40px; text-align: center;">
+            <h1 style="color: red;">❌ Erreur</h1>
+            <p>{str(e)}</p>
+            <button onclick="window.close()">Fermer</button>
+        </body>
+        </html>
+        """
+        return https_fn.Response(html, status=500, headers={'Content-Type': 'text/html'})
+
+
+# ============================================
+# ROUTES HTTP - OAuth Instagram
+# ============================================
+
+@https_fn.on_request()
+def instagram_connect(req: https_fn.Request) -> https_fn.Response:
+    """
+    Étape 1 : Redirige vers l'autorisation Instagram
+    URL: /instagram_connect?userId=xxx
+    """
+    # CORS
+    if req.method == 'OPTIONS':
+        headers = {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST',
+            'Access-Control-Allow-Headers': 'Content-Type',
+        }
+        return https_fn.Response('', status=204, headers=headers)
+    
+    user_id = req.args.get('userId')
+    
+    if not user_id:
+        return https_fn.Response('Missing userId parameter', status=400)
+    
+    try:
+        auth_url = connect_instagram(user_id)
+        print(f'Instagram auth URL generated: {auth_url}')
+        # Rediriger vers Instagram
+        return https_fn.Response(
+            status=302,
+            headers={'Location': auth_url}
+        )
+    except Exception as e:
+        print(f'Erreur instagram_connect: {str(e)}')
+        import traceback
+        traceback.print_exc()
+        return https_fn.Response(f'Error: {str(e)}', status=500)
+
+
+@https_fn.on_request()
+def instagram_callback_handler(req: https_fn.Request) -> https_fn.Response:
+    """
+    Étape 2 : Callback après autorisation Instagram
+    URL: /instagram_callback?code=xxx&state=userId
+    """
+    # CORS headers
+    headers = {'Access-Control-Allow-Origin': '*'}
+    
+    code = req.args.get('code')
+    state = req.args.get('state')  # user_id
+    
+    if not code or not state:
+        return https_fn.Response('Missing code or state', status=400)
+    
+    try:
+        result = instagram_callback(code, state)
+        
+        # Retourner une page HTML qui ferme la popup et notifie le parent
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Instagram Connecté</title>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    height: 100vh;
+                    margin: 0;
+                    background: linear-gradient(135deg, #405DE6, #5B51D8, #833AB4, #C13584, #E1306C, #FD1D1D);
+                    color: white;
+                }}
+                .container {{
+                    text-align: center;
+                    padding: 40px;
+                    background: white;
+                    border-radius: 10px;
+                    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+                    color: #333;
+                }}
+                .success-icon {{
+                    font-size: 64px;
+                    margin-bottom: 20px;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="success-icon">✅</div>
+                <h1>Instagram Connecté !</h1>
+                <p><strong>@{result['username']}</strong></p>
+                <p>{result['mediaCount']} publications</p>
+                <p style="color: #666; margin-top: 20px;">Cette fenêtre va se fermer...</p>
+            </div>
+            <script>
+                // Notifier la fenêtre parente
+                if (window.opener) {{
+                    window.opener.postMessage({{
+                        type: 'instagram-connected',
+                        data: {result}
+                    }}, '*');
+                }}
+                // Fermer la popup après 2 secondes
+                setTimeout(() => window.close(), 2000);
+            </script>
+        </body>
+        </html>
+        """
+        
+        return https_fn.Response(html, headers={
+            'Content-Type': 'text/html; charset=utf-8'
+        })
+        
+    except Exception as e:
+        print(f'Erreur instagram_callback: {str(e)}')
         html = f"""
         <!DOCTYPE html>
         <html>
