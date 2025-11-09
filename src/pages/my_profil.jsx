@@ -66,7 +66,7 @@ const MyProfile = () => {
         
         try {
             // URL de votre Cloud Function
-            const functionUrl = `${FUNCTIONS_URL}/connectInstagram`
+            const functionUrl = `${FUNCTIONS_URL}/instagram_connect`
             
             // Ouvrir popup OAuth Instagram
             const width = 500
