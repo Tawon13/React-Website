@@ -133,8 +133,9 @@ def send_contact_email(user_type, name, email, subject, message):
         user_type_fr = "Marque" if user_type == "marque" else "Influenceur"
         email_subject = f"[{user_type_fr}] {subject}"
         
+        # Utiliser l'email vérifié dans SendGrid comme expéditeur
         message = Mail(
-            from_email=Email('noreply@collabzz.com', 'Collabzz Contact'),
+            from_email=Email(recipient_email, 'Collabzz Contact'),
             to_emails=To(recipient_email),
             subject=email_subject,
             html_content=Content("text/html", html_content)
