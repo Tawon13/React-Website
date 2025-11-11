@@ -19,6 +19,7 @@ initialize_app()
 from lib.youtube import connect_youtube, youtube_callback, update_youtube_stats
 from lib.tiktok import connect_tiktok, tiktok_callback, update_tiktok_stats
 from lib.instagram import connect_instagram, instagram_callback, update_instagram_stats
+from lib.contact import send_contact_email
 
 # Configuration globale
 set_global_options(max_instances=10)
@@ -469,3 +470,74 @@ def daily_stats_update(event: scheduler_fn.ScheduledEvent) -> None:
                     print(f"❌ Erreur TikTok: {result.get('error')}")
     
     print(f"✨ Mise à jour terminée: {update_count} succès, {error_count} erreurs")
+
+
+# ============================================
+# ROUTE HTTP - Formulaire de contact
+# ============================================
+
+@https_fn.on_request()
+def send_contact_email_handler(req: https_fn.Request) -> https_fn.Response:
+    """
+    Envoie un email depuis le formulaire de contact
+    URL: /send_contact_email
+    """
+    # CORS headers
+    headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Content-Type': 'application/json; charset=utf-8'
+    }
+    
+    if req.method == 'OPTIONS':
+        return https_fn.Response('', status=204, headers=headers)
+    
+    if req.method != 'POST':
+        return https_fn.Response(
+            '{"error": "Méthode non autorisée"}',
+            status=405,
+            headers=headers
+        )
+    
+    try:
+        # Récupérer les données du formulaire
+        data = req.get_json()
+        
+        user_type = data.get('userType', '')
+        name = data.get('name', '')
+        email = data.get('email', '')
+        subject = data.get('subject', '')
+        message = data.get('message', '')
+        
+        # Validation des champs requis
+        if not all([user_type, name, email, subject, message]):
+            return https_fn.Response(
+                '{"error": "Tous les champs sont requis"}',
+                status=400,
+                headers=headers
+            )
+        
+        # Envoyer l'email
+        result = send_contact_email(user_type, name, email, subject, message)
+        
+        if result.get('success'):
+            return https_fn.Response(
+                '{"success": true, "message": "Email envoyé avec succès"}',
+                status=200,
+                headers=headers
+            )
+        else:
+            return https_fn.Response(
+                f'{{"error": "{result.get("error", "Erreur inconnue")}"}}',
+                status=500,
+                headers=headers
+            )
+    
+    except Exception as e:
+        print(f"Erreur send_contact_email: {str(e)}")
+        return https_fn.Response(
+            f'{{"error": "Erreur serveur: {str(e)}"}}',
+            status=500,
+            headers=headers
+        )

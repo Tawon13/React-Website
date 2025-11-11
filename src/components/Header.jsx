@@ -24,7 +24,7 @@ const Header = () => {
                 </div>
                 
                 <a 
-                    href="#speciality" 
+                    href="talents" 
                     className='flex items-center gap-2 bg-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-full text-gray-600 text-xs sm:text-sm self-start hover:scale-105 transition-all duration-300'
                 >
                     Découvrir nos talents 
