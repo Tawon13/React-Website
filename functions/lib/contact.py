@@ -3,12 +3,14 @@ Module pour gérer l'envoi d'emails de contact via SendGrid
 """
 
 import os
+from datetime import datetime
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Email, To, Content
+from firebase_admin import firestore
 
 def send_contact_email(user_type, name, email, subject, message):
     """
-    Envoie un email de contact via SendGrid
+    Envoie un email de contact via SendGrid et sauvegarde dans Firestore
     
     Args:
         user_type: Type d'utilisateur ('marque' ou 'influenceur')
@@ -147,6 +149,24 @@ def send_contact_email(user_type, name, email, subject, message):
         # Envoyer l'email
         sg = SendGridAPIClient(sendgrid_api_key)
         response = sg.send(message)
+        
+        # Sauvegarder dans Firestore
+        try:
+            db = firestore.client()
+            contact_data = {
+                'userType': user_type,
+                'name': name,
+                'email': email,
+                'subject': subject,
+                'message': message,
+                'timestamp': firestore.SERVER_TIMESTAMP,
+                'read': False
+            }
+            db.collection('contacts').add(contact_data)
+            print(f"Message de contact sauvegardé dans Firestore")
+        except Exception as db_error:
+            print(f"Erreur lors de la sauvegarde dans Firestore: {str(db_error)}")
+            # On continue même si la sauvegarde échoue
         
         return {
             'success': True,
