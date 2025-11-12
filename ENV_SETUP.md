@@ -23,7 +23,7 @@ firebase functions:config:set \
 
 ## Frontend (React + Vite)
 
-1. Copiez le fichier d'exemple :
+1. Copiez le fichier d'exemple (fourni) :
 ```bash
 cp .env.example .env
 ```
@@ -31,6 +31,8 @@ cp .env.example .env
 2. Remplissez les valeurs dans `.env` :
    - **Firebase Config** : Depuis [Firebase Console](https://console.firebase.google.com/)
    - **Functions URL** : L'URL de vos Cloud Functions
+
+> ⚠️ Le bundle React vérifie désormais la présence de toutes les variables. Le serveur de dev/build échouera si une clé manque, ce qui évite de déployer la configuration par défaut.
 
 ## ⚠️ Sécurité
 
@@ -47,6 +49,12 @@ cp .env.example .env
 - `TIKTOK_CLIENT_KEY`
 - `TIKTOK_CLIENT_SECRET`
 - `TIKTOK_REDIRECT_URI`
+- `INSTAGRAM_CLIENT_ID`
+- `INSTAGRAM_CLIENT_SECRET`
+- `INSTAGRAM_REDIRECT_URI`
+- `SENDGRID_API_KEY`
+- `CONTACT_EMAIL`
+- `STATE_SIGNING_SECRET` (clé aléatoire utilisée pour signer/valider le paramètre `state`)
 
 ### Frontend (`.env`)
 - `VITE_FIREBASE_API_KEY`

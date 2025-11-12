@@ -8,6 +8,7 @@ import requests
 from urllib.parse import urlencode
 from firebase_admin import firestore
 from datetime import datetime, timedelta
+from lib.token_store import save_tokens
 
 # Configuration TikTok OAuth
 TIKTOK_CLIENT_KEY = os.getenv('TIKTOK_CLIENT_KEY')
@@ -20,7 +21,7 @@ TIKTOK_TOKEN_URL = 'https://open.tiktokapis.com/v2/oauth/token/'
 TIKTOK_USER_INFO_URL = 'https://open.tiktokapis.com/v2/user/info/'
 
 
-def connect_tiktok(user_id: str) -> str:
+def connect_tiktok(user_id: str, state_token: str) -> str:
     """
     Génère l'URL d'autorisation TikTok
     
@@ -41,7 +42,7 @@ def connect_tiktok(user_id: str) -> str:
         'response_type': 'code',
         'scope': ','.join(scopes),
         'redirect_uri': TIKTOK_REDIRECT_URI,
-        'state': user_id  # Passer l'user_id dans le state
+        'state': state_token
     }
     
     # Construire l'URL avec URL encoding
@@ -153,13 +154,14 @@ def tiktok_callback(code: str, user_id: str) -> dict:
             'likes': 0,
             'videoCount': 0,
             'lastUpdated': firestore.SERVER_TIMESTAMP
-        },
-        'tokens.tiktok': {
-            'accessToken': access_token,
-            'refreshToken': refresh_token,
-            'expiresAt': expires_at,
-            'createdAt': firestore.SERVER_TIMESTAMP
         }
+    })
+
+    save_tokens(user_id, 'tiktok', {
+        'accessToken': access_token,
+        'refreshToken': refresh_token,
+        'expiresAt': expires_at,
+        'createdAt': firestore.SERVER_TIMESTAMP
     })
     
     return {
@@ -212,6 +214,13 @@ def update_tiktok_stats(user_id: str, tokens: dict) -> dict:
             refresh_token = refresh_json['data']['refresh_token']
             expires_in = refresh_json['data']['expires_in']
             expires_at = datetime.now() + timedelta(seconds=expires_in)
+            save_tokens(user_id, 'tiktok', {
+                **tokens,
+                'accessToken': access_token,
+                'refreshToken': refresh_token,
+                'expiresAt': expires_at,
+                'updatedAt': firestore.SERVER_TIMESTAMP
+            })
         
         # Récupérer les stats mises à jour
         headers = {
@@ -249,13 +258,17 @@ def update_tiktok_stats(user_id: str, tokens: dict) -> dict:
             'socialAccounts.tiktok.lastUpdated': firestore.SERVER_TIMESTAMP
         }
         
-        # Mettre à jour le token si rafraîchi
-        if access_token != tokens.get('accessToken'):
-            update_data['tokens.tiktok.accessToken'] = access_token
-            update_data['tokens.tiktok.refreshToken'] = refresh_token
-            update_data['tokens.tiktok.expiresAt'] = expires_at
-        
         user_ref.update(update_data)
+
+        # Synchroniser le token si une nouvelle valeur est utilisée
+        if access_token != tokens.get('accessToken') or refresh_token != tokens.get('refreshToken'):
+            save_tokens(user_id, 'tiktok', {
+                **tokens,
+                'accessToken': access_token,
+                'refreshToken': refresh_token,
+                'expiresAt': expires_at,
+                'updatedAt': firestore.SERVER_TIMESTAMP
+            })
         
         return {
             'success': True,

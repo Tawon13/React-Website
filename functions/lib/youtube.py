@@ -9,6 +9,7 @@ from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from firebase_admin import firestore
 from datetime import datetime, timezone
+from lib.token_store import save_tokens
 
 # Configuration YouTube OAuth
 YOUTUBE_CLIENT_ID = os.getenv('YOUTUBE_CLIENT_ID')
@@ -38,7 +39,7 @@ def get_oauth_flow():
     return flow
 
 
-def connect_youtube(user_id: str) -> str:
+def connect_youtube(user_id: str, state_token: str) -> str:
     """
     Génère l'URL d'autorisation YouTube
     
@@ -49,10 +50,10 @@ def connect_youtube(user_id: str) -> str:
         URL d'autorisation OAuth
     """
     flow = get_oauth_flow()
-    authorization_url, state = flow.authorization_url(
+    authorization_url, _ = flow.authorization_url(
         access_type='offline',
         include_granted_scopes='true',
-        state=user_id,  # Passer l'user_id dans le state
+        state=state_token,
         prompt='consent'  # Force refresh token
     )
     
@@ -148,16 +149,17 @@ def youtube_callback(code: str, user_id: str):
                 'viewCount': view_count,
                 'lastUpdated': firestore.SERVER_TIMESTAMP,
                 'recentVideos': recent_videos
-            },
-            'tokens.youtube': {
-                'accessToken': credentials.token,
-                'refreshToken': credentials.refresh_token,
-                'tokenUri': credentials.token_uri,
-                'clientId': credentials.client_id,
-                'clientSecret': credentials.client_secret,
-                'scopes': list(credentials.scopes),
-                'createdAt': firestore.SERVER_TIMESTAMP
             }
+        })
+
+        save_tokens(user_id, 'youtube', {
+            'accessToken': credentials.token,
+            'refreshToken': credentials.refresh_token,
+            'tokenUri': credentials.token_uri,
+            'clientId': credentials.client_id,
+            'clientSecret': credentials.client_secret,
+            'scopes': list(credentials.scopes),
+            'createdAt': firestore.SERVER_TIMESTAMP
         })
         
         print(f"[YouTube Callback] Données sauvegardées pour {channel_title}")
@@ -264,8 +266,10 @@ def update_youtube_stats(user_id: str, tokens: dict) -> dict:
         
         # Mettre à jour le token si rafraîchi
         if credentials.token != tokens.get('accessToken'):
-            user_ref.update({
-                'tokens.youtube.accessToken': credentials.token
+            save_tokens(user_id, 'youtube', {
+                **tokens,
+                'accessToken': credentials.token,
+                'updatedAt': firestore.SERVER_TIMESTAMP
             })
         
         return {

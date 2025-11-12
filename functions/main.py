@@ -4,9 +4,13 @@ Intégration YouTube et TikTok avec OAuth et mise à jour automatique
 """
 
 import os
+import time
+import hmac
+import base64
+import hashlib
 from firebase_functions import https_fn, scheduler_fn
 from firebase_functions.options import set_global_options
-from firebase_admin import initialize_app, firestore
+from firebase_admin import initialize_app, firestore, auth as firebase_auth
 from dotenv import load_dotenv
 
 # Charger les variables d'environnement (pour le développement local)
@@ -20,9 +24,78 @@ from lib.youtube import connect_youtube, youtube_callback, update_youtube_stats
 from lib.tiktok import connect_tiktok, tiktok_callback, update_tiktok_stats
 from lib.instagram import connect_instagram, instagram_callback, update_instagram_stats
 from lib.contact import send_contact_email
+from lib.token_store import get_user_tokens
 
 # Configuration globale
 set_global_options(max_instances=10)
+
+STATE_SIGNING_SECRET = os.getenv('STATE_SIGNING_SECRET')
+if not STATE_SIGNING_SECRET:
+    raise ValueError('STATE_SIGNING_SECRET environment variable is required')
+
+STATE_TTL_SECONDS = int(os.getenv('STATE_TTL_SECONDS', '600'))
+
+
+class AuthorizationError(Exception):
+    """Erreur personnalisée pour les problèmes d'authentification."""
+
+    def __init__(self, message: str, status: int = 401):
+        super().__init__(message)
+        self.status = status
+
+
+def _sign_message(message: str) -> str:
+    digest = hmac.new(
+        STATE_SIGNING_SECRET.encode('utf-8'),
+        msg=message.encode('utf-8'),
+        digestmod=hashlib.sha256
+    ).digest()
+    return base64.urlsafe_b64encode(digest).decode('utf-8').rstrip('=')
+
+
+def generate_signed_state(user_id: str) -> str:
+    timestamp = str(int(time.time()))
+    payload = f"{user_id}:{timestamp}"
+    signature = _sign_message(payload)
+    return f"{payload}:{signature}"
+
+
+def verify_signed_state(state_token: str) -> str:
+    try:
+        user_id, issued_at, signature = state_token.split(':', 2)
+    except ValueError:
+        raise AuthorizationError('Invalid state parameter', status=400)
+
+    expected_signature = _sign_message(f"{user_id}:{issued_at}")
+    if not hmac.compare_digest(signature, expected_signature):
+        raise AuthorizationError('Invalid state signature', status=400)
+
+    if time.time() - int(issued_at) > STATE_TTL_SECONDS:
+        raise AuthorizationError('State parameter expired', status=400)
+
+    return user_id
+
+
+def _extract_id_token(req: https_fn.Request) -> str | None:
+    auth_header = req.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer '):
+        return auth_header.split(' ', 1)[1]
+    return req.args.get('idToken')
+
+
+def authenticate_user(req: https_fn.Request, expected_user_id: str) -> str:
+    id_token = _extract_id_token(req)
+    if not id_token:
+        raise AuthorizationError('Missing idToken parameter', status=401)
+    try:
+        decoded = firebase_auth.verify_id_token(id_token)
+    except Exception as exc:
+        raise AuthorizationError('Invalid ID token', status=401) from exc
+
+    uid = decoded.get('uid')
+    if uid != expected_user_id:
+        raise AuthorizationError('Authenticated user mismatch', status=403)
+    return uid
 
 
 # ============================================
@@ -50,12 +123,16 @@ def youtube_connect(req: https_fn.Request) -> https_fn.Response:
         return https_fn.Response('Missing userId parameter', status=400)
     
     try:
-        auth_url = connect_youtube(user_id)
+        authenticate_user(req, user_id)
+        signed_state = generate_signed_state(user_id)
+        auth_url = connect_youtube(user_id, signed_state)
         # Rediriger vers YouTube
         return https_fn.Response(
             status=302,
             headers={'Location': auth_url}
         )
+    except AuthorizationError as auth_err:
+        return https_fn.Response(str(auth_err), status=auth_err.status)
     except Exception as e:
         print(f'Erreur youtube_connect: {str(e)}')
         return https_fn.Response(f'Error: {str(e)}', status=500)
@@ -71,13 +148,14 @@ def youtube_callback_handler(req: https_fn.Request) -> https_fn.Response:
     headers = {'Access-Control-Allow-Origin': '*'}
     
     code = req.args.get('code')
-    state = req.args.get('state')  # user_id
+    state = req.args.get('state')
     
     if not code or not state:
         return https_fn.Response('Missing code or state', status=400)
     
     try:
-        result = youtube_callback(code, state)
+        user_id = verify_signed_state(state)
+        result = youtube_callback(code, user_id)
         
         # Retourner une page HTML qui ferme la popup et notifie le parent
         html = f"""
@@ -139,6 +217,8 @@ def youtube_callback_handler(req: https_fn.Request) -> https_fn.Response:
             'Content-Type': 'text/html; charset=utf-8'
         })
         
+    except AuthorizationError as auth_err:
+        return https_fn.Response(str(auth_err), status=auth_err.status)
     except Exception as e:
         print(f'Erreur youtube_callback: {str(e)}')
         html = f"""
@@ -179,13 +259,17 @@ def tiktok_connect(req: https_fn.Request) -> https_fn.Response:
         return https_fn.Response('Missing userId parameter', status=400)
     
     try:
-        auth_url = connect_tiktok(user_id)
+        authenticate_user(req, user_id)
+        signed_state = generate_signed_state(user_id)
+        auth_url = connect_tiktok(user_id, signed_state)
         print(f'TikTok auth URL generated: {auth_url}')
         # Rediriger vers TikTok
         return https_fn.Response(
             status=302,
             headers={'Location': auth_url}
         )
+    except AuthorizationError as auth_err:
+        return https_fn.Response(str(auth_err), status=auth_err.status)
     except Exception as e:
         print(f'Erreur tiktok_connect: {str(e)}')
         import traceback
@@ -203,13 +287,14 @@ def tiktok_callback_handler(req: https_fn.Request) -> https_fn.Response:
     headers = {'Access-Control-Allow-Origin': '*'}
     
     code = req.args.get('code')
-    state = req.args.get('state')  # user_id
+    state = req.args.get('state')
     
     if not code or not state:
         return https_fn.Response('Missing code or state', status=400)
     
     try:
-        result = tiktok_callback(code, state)
+        user_id = verify_signed_state(state)
+        result = tiktok_callback(code, user_id)
         
         # Page HTML de succès
         html = f"""
@@ -269,6 +354,8 @@ def tiktok_callback_handler(req: https_fn.Request) -> https_fn.Response:
             'Content-Type': 'text/html; charset=utf-8'
         })
         
+    except AuthorizationError as auth_err:
+        return https_fn.Response(str(auth_err), status=auth_err.status)
     except Exception as e:
         print(f'Erreur tiktok_callback: {str(e)}')
         html = f"""
@@ -309,13 +396,17 @@ def instagram_connect(req: https_fn.Request) -> https_fn.Response:
         return https_fn.Response('Missing userId parameter', status=400)
     
     try:
-        auth_url = connect_instagram(user_id)
+        authenticate_user(req, user_id)
+        signed_state = generate_signed_state(user_id)
+        auth_url = connect_instagram(user_id, signed_state)
         print(f'Instagram auth URL generated: {auth_url}')
         # Rediriger vers Instagram
         return https_fn.Response(
             status=302,
             headers={'Location': auth_url}
         )
+    except AuthorizationError as auth_err:
+        return https_fn.Response(str(auth_err), status=auth_err.status)
     except Exception as e:
         print(f'Erreur instagram_connect: {str(e)}')
         import traceback
@@ -333,13 +424,14 @@ def instagram_callback_handler(req: https_fn.Request) -> https_fn.Response:
     headers = {'Access-Control-Allow-Origin': '*'}
     
     code = req.args.get('code')
-    state = req.args.get('state')  # user_id
+    state = req.args.get('state')
     
     if not code or not state:
         return https_fn.Response('Missing code or state', status=400)
     
     try:
-        result = instagram_callback(code, state)
+        user_id = verify_signed_state(state)
+        result = instagram_callback(code, user_id)
         
         # Retourner une page HTML qui ferme la popup et notifie le parent
         html = f"""
@@ -401,6 +493,8 @@ def instagram_callback_handler(req: https_fn.Request) -> https_fn.Response:
             'Content-Type': 'text/html; charset=utf-8'
         })
         
+    except AuthorizationError as auth_err:
+        return https_fn.Response(str(auth_err), status=auth_err.status)
     except Exception as e:
         print(f'Erreur instagram_callback: {str(e)}')
         html = f"""
@@ -441,11 +535,11 @@ def daily_stats_update(event: scheduler_fn.ScheduledEvent) -> None:
         data = influencer.to_dict()
         
         social_accounts = data.get('socialAccounts', {})
-        tokens = data.get('tokens', {})
+        user_tokens = get_user_tokens(user_id)
         
         # Mettre à jour YouTube si connecté
         if social_accounts.get('youtube', {}).get('connected'):
-            youtube_tokens = tokens.get('youtube', {})
+            youtube_tokens = user_tokens.get('youtube', {})
             if youtube_tokens:
                 print(f"📺 Mise à jour YouTube pour {user_id}")
                 result = update_youtube_stats(user_id, youtube_tokens)
@@ -458,7 +552,7 @@ def daily_stats_update(event: scheduler_fn.ScheduledEvent) -> None:
         
         # Mettre à jour TikTok si connecté
         if social_accounts.get('tiktok', {}).get('connected'):
-            tiktok_tokens = tokens.get('tiktok', {})
+            tiktok_tokens = user_tokens.get('tiktok', {})
             if tiktok_tokens:
                 print(f"🎵 Mise à jour TikTok pour {user_id}")
                 result = update_tiktok_stats(user_id, tiktok_tokens)

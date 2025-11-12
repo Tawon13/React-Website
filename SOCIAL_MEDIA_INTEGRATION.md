@@ -7,6 +7,36 @@ Cette fonctionnalité permet aux influenceurs de :
 - Voir leurs statistiques d'abonnés en temps réel
 - Mise à jour automatique quotidienne des statistiques
 
+## 🔒 Sécurité – Roadmap
+
+### Backend
+- [ ] **Audit OAuth** *(En dev)*
+  - [x] Validation de l’ID token Firebase côté Cloud Functions
+  - [x] Signature et vérification du paramètre `state`
+  - [x] Stockage des tokens OAuth uniquement côté serveur (collection sécurisée `oauthTokens`)
+- [ ] **Gouvernance secrets** *(En dev)*
+  - Retirer les fichiers `.env` du dépôt et configurer des variables d’environnement sécurisées
+  - Faire tourner toutes les clés Firebase / SendGrid / APIs sociales déjà exposées
+  - Centraliser la gestion via Secret Manager (Firebase/Google Cloud)
+- [ ] **Règles Firestore / Hosting** *(En dev)*
+  - Règles lecture/écriture limitées au propriétaire du document
+  - Séparation d’une collection `oauthTokens` non exposée au client
+  - Mise en place du monitoring Cloud Logging + alertes d’échec Functions
+- [ ] **Tests & alertes** *(En dev)*
+  - Scripts automatiques (lint config OAuth, scans OWASP ZAP dans CI)
+  - Playbooks documentés pour la rotation des clés et la réponse à incident
+
+### Frontend
+- [ ] **Hygiène front** *(En dev)*
+  - Filtrer `postMessage` par `event.origin` et nettoyer les listeners
+  - Échapper / sérialiser les contenus injectés dans l’HTML (popups, emails)
+  - Ajouter reCAPTCHA + rate limiting côté client pour le formulaire de contact
+
+#### Implémentation en cours
+- `src/pages/my_profil.jsx` filtre désormais les réponses OAuth sur l’`origin`, ferme proprement les popups et empêche l’ajout multiple de listeners.
+- Les popups utilisent toujours `FUNCTIONS_URL`; assurez-vous que sa valeur correspond bien au domaine attendu (sinon les messages sont ignorés).
+- Les Cloud Functions exigent un `idToken` Firebase + un `state` signé (`STATE_SIGNING_SECRET`) et stockent tous les tokens OAuth dans la collection serveur-only `oauthTokens`.
+
 ## 🏗️ Architecture
 
 ```

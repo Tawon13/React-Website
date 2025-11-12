@@ -7,6 +7,7 @@ import os
 import requests
 from firebase_admin import firestore
 from datetime import datetime, timedelta
+from lib.token_store import save_tokens
 
 # Configuration Instagram OAuth
 INSTAGRAM_CLIENT_ID = os.getenv('INSTAGRAM_CLIENT_ID')
@@ -19,7 +20,7 @@ INSTAGRAM_TOKEN_URL = 'https://api.instagram.com/oauth/access_token'
 INSTAGRAM_GRAPH_URL = 'https://graph.instagram.com'
 
 
-def connect_instagram(user_id: str) -> str:
+def connect_instagram(user_id: str, state_token: str) -> str:
     """
     Génère l'URL d'autorisation Instagram
     
@@ -38,7 +39,7 @@ def connect_instagram(user_id: str) -> str:
         'redirect_uri': INSTAGRAM_REDIRECT_URI,
         'scope': scope,
         'response_type': 'code',
-        'state': user_id
+        'state': state_token
     }
     
     query_string = '&'.join([f'{k}={v}' for k, v in params.items()])
@@ -127,12 +128,14 @@ def instagram_callback(code: str, user_id: str) -> dict:
             'followers': followers,
             'mediaCount': media_count,
             'lastUpdated': firestore.SERVER_TIMESTAMP
-        },
-        'tokens.instagram': {
-            'accessToken': access_token,
-            'expiresAt': expires_at,
-            'createdAt': firestore.SERVER_TIMESTAMP
         }
+    })
+
+    save_tokens(user_id, 'instagram', {
+        'accessToken': access_token,
+        'instagramId': user_instagram_id,
+        'expiresAt': expires_at,
+        'createdAt': firestore.SERVER_TIMESTAMP
     })
     
     return {

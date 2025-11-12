@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db, FUNCTIONS_URL } from '../config/firebase'
@@ -7,6 +7,40 @@ const MyProfile = () => {
     const { currentUser, userData, userType } = useAuth()
     const [loading, setLoading] = useState(false)
     const [message, setMessage] = useState({ type: '', text: '' })
+    const popupRef = useRef(null)
+
+    const functionsOrigin = useMemo(() => {
+        try {
+            return new URL(FUNCTIONS_URL).origin
+        } catch (error) {
+            console.error('Invalid FUNCTIONS_URL, cannot validate OAuth responses.', error)
+            return null
+        }
+    }, [])
+
+    useEffect(() => {
+        if (!functionsOrigin) return
+
+        const successMessages = {
+            'instagram-connected': 'Instagram connecté avec succès !',
+            'tiktok-connected': 'TikTok connecté avec succès !',
+            'youtube-connected': 'YouTube connecté avec succès !'
+        }
+
+        const handleMessage = (event) => {
+            if (event.origin !== functionsOrigin) return
+            const { type } = event.data || {}
+            if (!successMessages[type]) return
+
+            popupRef.current?.close()
+            popupRef.current = null
+            setMessage({ type: 'success', text: successMessages[type] })
+            window.location.reload()
+        }
+
+        window.addEventListener('message', handleMessage)
+        return () => window.removeEventListener('message', handleMessage)
+    }, [functionsOrigin])
     
     console.log('MyProfile - currentUser:', currentUser)
     console.log('MyProfile - userData:', userData)
@@ -60,35 +94,41 @@ const MyProfile = () => {
     }, [userData])
 
     // Fonction pour connecter Instagram
+    const openOAuthPopup = async (endpoint, windowName) => {
+        if (!currentUser) {
+            setMessage({ type: 'error', text: 'Vous devez être connecté pour lier un compte.' })
+            return
+        }
+
+        const width = 500
+        const height = 600
+        const left = window.screen.width / 2 - width / 2
+        const top = window.screen.height / 2 - height / 2
+
+        const idToken = await currentUser.getIdToken()
+        const popupUrl = new URL(endpoint)
+        popupUrl.searchParams.set('userId', currentUser.uid)
+        popupUrl.searchParams.set('idToken', idToken)
+
+        const popup = window.open(
+            popupUrl.toString(),
+            windowName,
+            `width=${width},height=${height},left=${left},top=${top}`
+        )
+
+        if (!popup) {
+            throw new Error('Impossible d’ouvrir la fenêtre d’authentification (popup bloquée).')
+        }
+
+        popupRef.current = popup
+    }
+
     const connectInstagram = async () => {
         setLoading(true)
         setMessage({ type: '', text: '' })
         
         try {
-            // URL de votre Cloud Function
-            const functionUrl = `${FUNCTIONS_URL}/instagram_connect`
-            
-            // Ouvrir popup OAuth Instagram
-            const width = 500
-            const height = 600
-            const left = window.screen.width / 2 - width / 2
-            const top = window.screen.height / 2 - height / 2
-            
-            const popup = window.open(
-                `${functionUrl}?userId=${currentUser.uid}`,
-                'Instagram Login',
-                `width=${width},height=${height},left=${left},top=${top}`
-            )
-            
-            // Écouter le message de retour de la popup
-            window.addEventListener('message', async (event) => {
-                if (event.data.type === 'instagram-connected') {
-                    popup?.close()
-                    setMessage({ type: 'success', text: 'Instagram connecté avec succès !' })
-                    // Recharger les données
-                    window.location.reload()
-                }
-            })
+            await openOAuthPopup(`${FUNCTIONS_URL}/instagram_connect`, 'Instagram Login')
         } catch (error) {
             console.error('Error connecting Instagram:', error)
             setMessage({ type: 'error', text: 'Erreur lors de la connexion à Instagram' })
@@ -103,26 +143,7 @@ const MyProfile = () => {
         setMessage({ type: '', text: '' })
         
         try {
-            const functionUrl = `${FUNCTIONS_URL}/tiktok_connect`
-            
-            const width = 500
-            const height = 600
-            const left = window.screen.width / 2 - width / 2
-            const top = window.screen.height / 2 - height / 2
-            
-            const popup = window.open(
-                `${functionUrl}?userId=${currentUser.uid}`,
-                'TikTok Login',
-                `width=${width},height=${height},left=${left},top=${top}`
-            )
-            
-            window.addEventListener('message', async (event) => {
-                if (event.data.type === 'tiktok-connected') {
-                    popup?.close()
-                    setMessage({ type: 'success', text: 'TikTok connecté avec succès !' })
-                    window.location.reload()
-                }
-            })
+            await openOAuthPopup(`${FUNCTIONS_URL}/tiktok_connect`, 'TikTok Login')
         } catch (error) {
             console.error('Error connecting TikTok:', error)
             setMessage({ type: 'error', text: 'Erreur lors de la connexion à TikTok' })
@@ -137,26 +158,7 @@ const MyProfile = () => {
         setMessage({ type: '', text: '' })
         
         try {
-            const functionUrl = `${FUNCTIONS_URL}/youtube_connect`
-            
-            const width = 500
-            const height = 600
-            const left = window.screen.width / 2 - width / 2
-            const top = window.screen.height / 2 - height / 2
-            
-            const popup = window.open(
-                `${functionUrl}?userId=${currentUser.uid}`,
-                'YouTube Login',
-                `width=${width},height=${height},left=${left},top=${top}`
-            )
-            
-            window.addEventListener('message', async (event) => {
-                if (event.data.type === 'youtube-connected') {
-                    popup?.close()
-                    setMessage({ type: 'success', text: 'YouTube connecté avec succès !' })
-                    window.location.reload()
-                }
-            })
+            await openOAuthPopup(`${FUNCTIONS_URL}/youtube_connect`, 'YouTube Login')
         } catch (error) {
             console.error('Error connecting YouTube:', error)
             setMessage({ type: 'error', text: 'Erreur lors de la connexion à YouTube' })
