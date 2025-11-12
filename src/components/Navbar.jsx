@@ -9,6 +9,10 @@ const Navbar = () => {
     const { currentUser, logout, userData } = useAuth()
     const [showDropdown, setShowDropdown] = useState(false)
     const [showMenu, setShowMenu] = useState(false)
+    
+    // Vérifier si l'utilisateur est admin
+    const ADMIN_EMAIL = 'bechagraamine@gmail.com'
+    const isAdmin = currentUser?.email === ADMIN_EMAIL
 
     const handleLogout = async () => {
         try {
@@ -56,6 +60,11 @@ const Navbar = () => {
                             <p className='text-sm text-gray-500 truncate max-w-[180px]'>{currentUser.email}</p>
                             <p onClick={()=>navigate('/my-profile')} className='hover:text-black cursor-pointer'>Mon Profil</p>
                             <p onClick={()=>navigate('/my-appointments')}className='hover:text-black cursor-pointer'>Mes Messages</p>
+                            {isAdmin && (
+                                <p onClick={()=>navigate('/admin')} className='hover:text-black cursor-pointer text-primary font-semibold'>
+                                    🔧 Admin Panel
+                                </p>
+                            )}
                             <p onClick={handleLogout} className='hover:text-black cursor-pointer'>Se déconnecter</p>
                         </div>
                     </div>
@@ -109,6 +118,11 @@ const Navbar = () => {
                         <p className='px-4 text-sm text-gray-500 text-right truncate max-w-[250px]'>{currentUser.email}</p>
                         <p onClick={() => { navigate('/my-profile'); setShowMenu(false); }} className='px-4 py-2 rounded text-right cursor-pointer hover:text-primary'>Mon Profil</p>
                         <p onClick={() => { navigate('/my-messages'); setShowMenu(false); }} className='px-4 py-2 rounded text-right cursor-pointer hover:text-primary'>Mes Messages</p>
+                        {isAdmin && (
+                            <p onClick={() => { navigate('/admin'); setShowMenu(false); }} className='px-4 py-2 rounded text-right cursor-pointer text-primary font-semibold'>
+                                🔧 Admin Panel
+                            </p>
+                        )}
                         <p onClick={() => { handleLogout(); setShowMenu(false); }} className='px-4 py-2 rounded text-right cursor-pointer hover:text-primary'>Se déconnecter</p>
                     </>
                 )}
