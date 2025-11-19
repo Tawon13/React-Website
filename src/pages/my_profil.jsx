@@ -1,13 +1,237 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { doc, updateDoc } from 'firebase/firestore'
+import { doc, updateDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore'
 import { db, FUNCTIONS_URL } from '../config/firebase'
+
+// Composant pour le profil des marques
+const BrandProfile = ({ currentUser, userData }) => {
+    const [purchases, setPurchases] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [activeTab, setActiveTab] = useState('profile')
+
+    useEffect(() => {
+        const loadPurchases = async () => {
+            if (!currentUser) return
+            
+            try {
+                // Charger les achats/collaborations de la marque
+                const q = query(
+                    collection(db, 'collaborations'),
+                    where('brandId', '==', currentUser.uid),
+                    orderBy('createdAt', 'desc')
+                )
+                const querySnapshot = await getDocs(q)
+                const purchasesData = querySnapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }))
+                setPurchases(purchasesData)
+            } catch (error) {
+                console.error('Erreur lors du chargement des achats:', error)
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        loadPurchases()
+    }, [currentUser])
+
+    const totalSpent = purchases.reduce((sum, purchase) => sum + (purchase.amount || 0), 0)
+    const completedPurchases = purchases.filter(p => p.status === 'completed').length
+
+    return (
+        <div className='max-w-6xl mx-auto py-10 px-4'>
+            {/* En-tête du profil */}
+            <div className='bg-white rounded-xl shadow-md p-6 mb-6'>
+                <div className='flex items-center gap-6'>
+                    <div className='w-20 h-20 bg-green-500 rounded-full flex items-center justify-center text-white text-3xl font-bold'>
+                        {userData?.brandName?.charAt(0) || currentUser.email.charAt(0).toUpperCase()}
+                    </div>
+                    <div className='flex-1'>
+                        <h1 className='text-3xl font-bold text-gray-900'>{userData?.brandName || 'Ma Marque'}</h1>
+                        <p className='text-gray-600 mt-1'>{currentUser.email}</p>
+                        <p className='text-sm text-gray-500 mt-2'>{userData?.description || 'Aucune description'}</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Statistiques */}
+            <div className='grid grid-cols-1 md:grid-cols-3 gap-6 mb-6'>
+                <div className='bg-white rounded-xl shadow-md p-6'>
+                    <div className='flex items-center justify-between'>
+                        <div>
+                            <p className='text-gray-500 text-sm'>Total dépensé</p>
+                            <p className='text-3xl font-bold text-gray-900'>{totalSpent.toLocaleString('fr-FR')} €</p>
+                        </div>
+                        <div className='w-12 h-12 bg-green-100 rounded-full flex items-center justify-center'>
+                            <svg className='w-6 h-6 text-green-600' fill='currentColor' viewBox='0 0 20 20'>
+                                <path d='M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z'/>
+                                <path fillRule='evenodd' d='M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z' clipRule='evenodd'/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div className='bg-white rounded-xl shadow-md p-6'>
+                    <div className='flex items-center justify-between'>
+                        <div>
+                            <p className='text-gray-500 text-sm'>Collaborations</p>
+                            <p className='text-3xl font-bold text-gray-900'>{purchases.length}</p>
+                        </div>
+                        <div className='w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center'>
+                            <svg className='w-6 h-6 text-primary' fill='currentColor' viewBox='0 0 20 20'>
+                                <path d='M9 2a1 1 0 000 2h2a1 1 0 100-2H9z'/>
+                                <path fillRule='evenodd' d='M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z' clipRule='evenodd'/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div className='bg-white rounded-xl shadow-md p-6'>
+                    <div className='flex items-center justify-between'>
+                        <div>
+                            <p className='text-gray-500 text-sm'>Terminées</p>
+                            <p className='text-3xl font-bold text-gray-900'>{completedPurchases}</p>
+                        </div>
+                        <div className='w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center'>
+                            <svg className='w-6 h-6 text-blue-600' fill='currentColor' viewBox='0 0 20 20'>
+                                <path fillRule='evenodd' d='M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z' clipRule='evenodd'/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Onglets */}
+            <div className='bg-white rounded-xl shadow-md mb-6'>
+                <div className='border-b border-gray-200'>
+                    <nav className='flex -mb-px'>
+                        <button
+                            onClick={() => setActiveTab('profile')}
+                            className={`py-4 px-6 font-medium text-sm border-b-2 ${
+                                activeTab === 'profile'
+                                    ? 'border-primary text-primary'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            }`}
+                        >
+                            Informations
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('purchases')}
+                            className={`py-4 px-6 font-medium text-sm border-b-2 ${
+                                activeTab === 'purchases'
+                                    ? 'border-primary text-primary'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            }`}
+                        >
+                            Mes Achats ({purchases.length})
+                        </button>
+                    </nav>
+                </div>
+
+                <div className='p-6'>
+                    {activeTab === 'profile' && (
+                        <div className='space-y-4'>
+                            <div>
+                                <label className='block text-sm font-semibold text-gray-700 mb-2'>Nom de la marque</label>
+                                <input
+                                    type='text'
+                                    value={userData?.brandName || ''}
+                                    readOnly
+                                    className='w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50'
+                                />
+                            </div>
+                            <div>
+                                <label className='block text-sm font-semibold text-gray-700 mb-2'>Email</label>
+                                <input
+                                    type='email'
+                                    value={currentUser.email}
+                                    readOnly
+                                    className='w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50'
+                                />
+                            </div>
+                            <div>
+                                <label className='block text-sm font-semibold text-gray-700 mb-2'>Téléphone</label>
+                                <input
+                                    type='text'
+                                    value={userData?.phone || 'Non renseigné'}
+                                    readOnly
+                                    className='w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50'
+                                />
+                            </div>
+                            <div>
+                                <label className='block text-sm font-semibold text-gray-700 mb-2'>Site web</label>
+                                <input
+                                    type='text'
+                                    value={userData?.website || 'Non renseigné'}
+                                    readOnly
+                                    className='w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50'
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'purchases' && (
+                        <div>
+                            {loading ? (
+                                <div className='text-center py-8'>
+                                    <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto'></div>
+                                </div>
+                            ) : purchases.length > 0 ? (
+                                <div className='space-y-4'>
+                                    {purchases.map((purchase) => (
+                                        <div key={purchase.id} className='border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition'>
+                                            <div className='flex justify-between items-start'>
+                                                <div className='flex-1'>
+                                                    <h3 className='font-semibold text-gray-900'>{purchase.influencerName || 'Influenceur'}</h3>
+                                                    <p className='text-sm text-gray-600 mt-1'>{purchase.description || 'Collaboration'}</p>
+                                                    <p className='text-xs text-gray-500 mt-2'>
+                                                        {purchase.createdAt?.toDate?.()?.toLocaleDateString('fr-FR') || 'Date inconnue'}
+                                                    </p>
+                                                </div>
+                                                <div className='text-right'>
+                                                    <p className='font-bold text-gray-900'>{purchase.amount?.toLocaleString('fr-FR') || '0'} €</p>
+                                                    <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full mt-2 ${
+                                                        purchase.status === 'completed' 
+                                                            ? 'bg-green-100 text-green-800'
+                                                            : purchase.status === 'pending'
+                                                            ? 'bg-yellow-100 text-yellow-800'
+                                                            : 'bg-gray-100 text-gray-800'
+                                                    }`}>
+                                                        {purchase.status === 'completed' ? 'Terminé' : 
+                                                         purchase.status === 'pending' ? 'En cours' : 
+                                                         purchase.status || 'N/A'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className='text-center py-12'>
+                                    <svg className='w-16 h-16 text-gray-400 mx-auto mb-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z'/>
+                                    </svg>
+                                    <p className='text-gray-500 text-lg'>Aucun achat pour le moment</p>
+                                    <p className='text-gray-400 text-sm mt-2'>Vos collaborations apparaîtront ici</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    )
+}
 
 const MyProfile = () => {
     const { currentUser, userData, userType } = useAuth()
     const [loading, setLoading] = useState(false)
     const [message, setMessage] = useState({ type: '', text: '' })
     const popupRef = useRef(null)
+    const [activeTab, setActiveTab] = useState('social')
+    const [collaborations, setCollaborations] = useState([])
+    const [loadingCollabs, setLoadingCollabs] = useState(true)
 
     const functionsOrigin = useMemo(() => {
         try {
@@ -92,6 +316,33 @@ const MyProfile = () => {
             })
         }
     }, [userData])
+
+    // Charger les collaborations de l'influenceur
+    useEffect(() => {
+        const loadCollaborations = async () => {
+            if (!currentUser) return
+            
+            try {
+                const q = query(
+                    collection(db, 'collaborations'),
+                    where('influencerId', '==', currentUser.uid),
+                    orderBy('createdAt', 'desc')
+                )
+                const querySnapshot = await getDocs(q)
+                const collabsData = querySnapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }))
+                setCollaborations(collabsData)
+            } catch (error) {
+                console.error('Erreur lors du chargement des collaborations:', error)
+            } finally {
+                setLoadingCollabs(false)
+            }
+        }
+
+        loadCollaborations()
+    }, [currentUser])
 
     // Fonction pour connecter Instagram
     const openOAuthPopup = async (endpoint, windowName) => {
@@ -207,41 +458,108 @@ const MyProfile = () => {
         return new Date(timestamp).toLocaleDateString('fr-FR')
     }
 
+    if (userType === 'brand') {
+        return <BrandProfile currentUser={currentUser} userData={userData} />
+    }
+
     if (userType !== 'influencer') {
         return (
             <div className='max-w-4xl mx-auto py-10'>
                 <div className='bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded'>
-                    Cette fonctionnalité est réservée aux influenceurs
+                    Chargement de votre profil...
                 </div>
             </div>
         )
     }
 
-    return (
-        <div className='max-w-4xl mx-auto py-10'>
-            <h1 className='text-3xl font-bold mb-8'>Mon Profil - Réseaux Sociaux</h1>
-            
-            {/* Message de feedback */}
-            {message.text && (
-                <div className={`mb-6 px-4 py-3 rounded ${
-                    message.type === 'success' 
-                        ? 'bg-green-100 border border-green-400 text-green-700' 
-                        : 'bg-red-100 border border-red-400 text-red-700'
-                }`}>
-                    {message.text}
-                </div>
-            )}
+    const totalReceived = collaborations.reduce((sum, collab) => sum + (collab.amount || 0), 0)
+    const completedCollaborations = collaborations.filter(c => c.status === 'completed').length
+    const pendingCollaborations = collaborations.filter(c => c.status === 'pending').length
 
-            {/* Informations de base */}
-            <div className='bg-white rounded-lg shadow-md p-6 mb-6'>
-                <h2 className='text-xl font-semibold mb-4'>Informations personnelles</h2>
-                <div className='space-y-2'>
-                    <p><span className='font-medium'>Nom:</span> {userData?.name}</p>
-                    <p><span className='font-medium'>Email:</span> {currentUser?.email}</p>
-                    <p><span className='font-medium'>Ville:</span> {userData?.city}, {userData?.country}</p>
-                    <p><span className='font-medium'>Catégorie:</span> {userData?.category}</p>
+    return (
+        <div className='max-w-6xl mx-auto py-10 px-4'>
+            {/* En-tête avec statistiques */}
+            <div className='bg-white rounded-xl shadow-md p-6 mb-6'>
+                <div className='flex items-center gap-6 mb-6'>
+                    <div className='w-20 h-20 bg-primary rounded-full flex items-center justify-center text-white text-3xl font-bold'>
+                        {userData?.name?.charAt(0) || currentUser.email.charAt(0).toUpperCase()}
+                    </div>
+                    <div className='flex-1'>
+                        <h1 className='text-3xl font-bold text-gray-900'>{userData?.name || 'Mon Profil'}</h1>
+                        <p className='text-gray-600 mt-1'>{currentUser.email}</p>
+                        <p className='text-sm text-gray-500 mt-2'>@{userData?.username || 'username'}</p>
+                    </div>
+                </div>
+
+                {/* Statistiques rapides */}
+                <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+                    <div className='bg-green-50 rounded-lg p-4'>
+                        <p className='text-gray-600 text-sm'>Total Reçu</p>
+                        <p className='text-2xl font-bold text-green-600'>{totalReceived.toLocaleString('fr-FR')} €</p>
+                    </div>
+                    <div className='bg-yellow-50 rounded-lg p-4'>
+                        <p className='text-gray-600 text-sm'>Collaborations en cours</p>
+                        <p className='text-2xl font-bold text-yellow-600'>{pendingCollaborations}</p>
+                    </div>
+                    <div className='bg-blue-50 rounded-lg p-4'>
+                        <p className='text-gray-600 text-sm'>Collaborations terminées</p>
+                        <p className='text-2xl font-bold text-blue-600'>{completedCollaborations}</p>
+                    </div>
                 </div>
             </div>
+
+            {/* Onglets */}
+            <div className='bg-white rounded-xl shadow-md mb-6'>
+                <div className='border-b border-gray-200'>
+                    <nav className='flex -mb-px'>
+                        <button
+                            onClick={() => setActiveTab('social')}
+                            className={`py-4 px-6 font-medium text-sm border-b-2 ${
+                                activeTab === 'social'
+                                    ? 'border-primary text-primary'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            }`}
+                        >
+                            Réseaux Sociaux
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('collaborations')}
+                            className={`py-4 px-6 font-medium text-sm border-b-2 ${
+                                activeTab === 'collaborations'
+                                    ? 'border-primary text-primary'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            }`}
+                        >
+                            Mes Collaborations ({collaborations.length})
+                        </button>
+                    </nav>
+                </div>
+            </div>
+            
+            {/* Contenu des onglets */}
+            {activeTab === 'social' && (
+                <div>
+                    {/* Message de feedback */}
+                    {message.text && (
+                        <div className={`mb-6 px-4 py-3 rounded ${
+                            message.type === 'success' 
+                                ? 'bg-green-100 border border-green-400 text-green-700' 
+                                : 'bg-red-100 border border-red-400 text-red-700'
+                        }`}>
+                            {message.text}
+                        </div>
+                    )}
+
+                    {/* Informations de base */}
+                    <div className='bg-white rounded-lg shadow-md p-6 mb-6'>
+                        <h2 className='text-xl font-semibold mb-4'>Informations personnelles</h2>
+                        <div className='space-y-2'>
+                            <p><span className='font-medium'>Nom:</span> {userData?.name}</p>
+                            <p><span className='font-medium'>Email:</span> {currentUser?.email}</p>
+                            <p><span className='font-medium'>Ville:</span> {userData?.city}, {userData?.country}</p>
+                            <p><span className='font-medium'>Catégorie:</span> {userData?.category}</p>
+                        </div>
+                    </div>
 
             {/* Instagram */}
             <div className='bg-white rounded-lg shadow-md p-6 mb-6'>
@@ -425,6 +743,57 @@ const MyProfile = () => {
                     </div>
                 </div>
             </div>
+        </div>
+            )}
+
+            {/* Onglet Collaborations */}
+            {activeTab === 'collaborations' && (
+                <div className='bg-white rounded-lg shadow-md p-6'>
+                    {loadingCollabs ? (
+                        <div className='text-center py-8'>
+                            <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto'></div>
+                        </div>
+                    ) : collaborations.length > 0 ? (
+                        <div className='space-y-4'>
+                            {collaborations.map((collab) => (
+                                <div key={collab.id} className='border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition'>
+                                    <div className='flex justify-between items-start'>
+                                        <div className='flex-1'>
+                                            <h3 className='font-semibold text-gray-900'>{collab.brandName || 'Marque'}</h3>
+                                            <p className='text-sm text-gray-600 mt-1'>{collab.description || 'Collaboration'}</p>
+                                            <p className='text-xs text-gray-500 mt-2'>
+                                                {collab.createdAt?.toDate?.()?.toLocaleDateString('fr-FR') || 'Date inconnue'}
+                                            </p>
+                                        </div>
+                                        <div className='text-right'>
+                                            <p className='font-bold text-green-600'>{collab.amount?.toLocaleString('fr-FR') || '0'} €</p>
+                                            <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full mt-2 ${
+                                                collab.status === 'completed' 
+                                                    ? 'bg-green-100 text-green-800'
+                                                    : collab.status === 'pending'
+                                                    ? 'bg-yellow-100 text-yellow-800'
+                                                    : 'bg-gray-100 text-gray-800'
+                                            }`}>
+                                                {collab.status === 'completed' ? 'Terminé' : 
+                                                 collab.status === 'pending' ? 'En cours' : 
+                                                 collab.status || 'N/A'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className='text-center py-12'>
+                            <svg className='w-16 h-16 text-gray-400 mx-auto mb-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'/>
+                            </svg>
+                            <p className='text-gray-500 text-lg'>Aucune collaboration pour le moment</p>
+                            <p className='text-gray-400 text-sm mt-2'>Vos collaborations avec les marques apparaîtront ici</p>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     )
 }
