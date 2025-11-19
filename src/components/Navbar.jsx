@@ -2,17 +2,21 @@ import React, { useState } from 'react'
 import {assets} from '../assets/assets'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useCart } from '../context/CartContext'
 
 const Navbar = () => {
 
     const navigate = useNavigate();
     const { currentUser, logout, userData } = useAuth()
+    const { getItemCount } = useCart()
     const [showDropdown, setShowDropdown] = useState(false)
     const [showMenu, setShowMenu] = useState(false)
     
     // Vérifier si l'utilisateur est admin
     const ADMIN_EMAIL = 'bechagraamine@gmail.com'
     const isAdmin = currentUser?.email === ADMIN_EMAIL
+
+    const cartItemCount = getItemCount()
 
     const handleLogout = async () => {
         try {
@@ -48,6 +52,21 @@ const Navbar = () => {
         </ul>
         
         <div className='flex items-center gap-2 sm:gap-4 ml-auto'>
+            {/* Icône Panier */}
+            <button 
+                onClick={() => navigate('/cart')}
+                className='relative p-2 hover:bg-gray-100 rounded-full transition'
+            >
+                <svg className='w-6 h-6 text-gray-700' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z'/>
+                </svg>
+                {cartItemCount > 0 && (
+                    <span className='absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center'>
+                        {cartItemCount}
+                    </span>
+                )}
+            </button>
+
             {
                 currentUser
                 ? <div className='flex items-center gap-2 cursor-pointer group relative'>
@@ -59,7 +78,7 @@ const Navbar = () => {
                         <div className='min-w-48 bg-stone-100 rounded flex flex-col gap-4 p-4'>
                             <p className='text-sm text-gray-500 truncate max-w-[180px]'>{currentUser.email}</p>
                             <p onClick={()=>navigate('/my-profile')} className='hover:text-black cursor-pointer'>Mon Profil</p>
-                            <p onClick={()=>navigate('/my-appointments')}className='hover:text-black cursor-pointer'>Mes Messages</p>
+                            <p onClick={()=>navigate('/messages')}className='hover:text-black cursor-pointer'>Mes Messages</p>
                             {isAdmin && (
                                 <p onClick={()=>navigate('/admin')} className='hover:text-black cursor-pointer text-primary font-semibold'>
                                     🔧 Admin Panel
@@ -117,7 +136,7 @@ const Navbar = () => {
                         <hr className='w-full border-gray-300 my-2' />
                         <p className='px-4 text-sm text-gray-500 text-right truncate max-w-[250px]'>{currentUser.email}</p>
                         <p onClick={() => { navigate('/my-profile'); setShowMenu(false); }} className='px-4 py-2 rounded text-right cursor-pointer hover:text-primary'>Mon Profil</p>
-                        <p onClick={() => { navigate('/my-messages'); setShowMenu(false); }} className='px-4 py-2 rounded text-right cursor-pointer hover:text-primary'>Mes Messages</p>
+                        <p onClick={() => { navigate('/messages'); setShowMenu(false); }} className='px-4 py-2 rounded text-right cursor-pointer hover:text-primary'>Mes Messages</p>
                         {isAdmin && (
                             <p onClick={() => { navigate('/admin'); setShowMenu(false); }} className='px-4 py-2 rounded text-right cursor-pointer text-primary font-semibold'>
                                 🔧 Admin Panel

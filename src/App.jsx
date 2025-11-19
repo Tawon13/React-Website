@@ -13,6 +13,8 @@ import InfluencerProfile from './pages/InfluencerProfile'
 import Terms from './pages/Terms'
 import Privacy from './pages/Privacy'
 import Admin from './pages/Admin'
+import Messages from './pages/Messages'
+import Cart from './pages/Cart'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 
@@ -35,6 +37,8 @@ const App = () => {
         <Route path='/terms' element={<Terms />} />
         <Route path='/privacy' element={<Privacy />} />
         <Route path='/admin' element={<Admin />} />
+        <Route path='/messages' element={<Messages />} />
+        <Route path='/cart' element={<Cart />} />
       </Routes>
       <Footer/>
     </div>

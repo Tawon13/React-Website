@@ -39,22 +39,27 @@ const Admin = () => {
     try {
       // Charger les influenceurs
       const influencersSnapshot = await getDocs(collection(db, 'influencers'))
+      console.log('Influencers snapshot size:', influencersSnapshot.size)
       const influencersData = influencersSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         userType: 'influenceur'
       }))
+      console.log('Influencers data:', influencersData)
 
       // Charger les marques
       const brandsSnapshot = await getDocs(collection(db, 'brands'))
+      console.log('Brands snapshot size:', brandsSnapshot.size)
       const brandsData = brandsSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         userType: 'marque'
       }))
+      console.log('Brands data:', brandsData)
 
       // Combiner les deux
       const allUsers = [...influencersData, ...brandsData]
+      console.log('Total users:', allUsers.length)
       setUsers(allUsers)
 
       // Charger les messages de contact
@@ -67,12 +72,14 @@ const Admin = () => {
       setContacts(contactsData)
 
       // Calculer les statistiques
-      setStats({
+      const calculatedStats = {
         totalUsers: allUsers.length,
         totalInfluencers: influencersData.length,
         totalBrands: brandsData.length,
         totalContacts: contactsData.length
-      })
+      }
+      console.log('Calculated stats:', calculatedStats)
+      setStats(calculatedStats)
 
       setLoading(false)
     } catch (error) {

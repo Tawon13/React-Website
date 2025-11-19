@@ -1,18 +1,34 @@
 import React, { useContext, useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { AppContext } from '../context/AppContext'
 import { assets } from '../assets/assets'
 import { useAuth } from '../context/AuthContext'
+import { useCart } from '../context/CartContext'
 import { db } from '../config/firebase'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, addDoc, collection, serverTimestamp, query, where, getDocs } from 'firebase/firestore'
 import RecentInstagramPosts from '../components/RecentInstagramPosts'
 
 const InfluencerProfile = () => {
     const { influencerId } = useParams()
+    const navigate = useNavigate()
     const { doctors } = useContext(AppContext)
+    const { currentUser, userType, userData } = useAuth()
+    const { addToCart } = useCart()
     const [influencer, setInfluencer] = useState(null)
     const [socialData, setSocialData] = useState(null)
     const [currentImageIndex, setCurrentImageIndex] = useState(0)
+    const [selectedPackage, setSelectedPackage] = useState('📸 1 Post Instagram')
+    const [loading, setLoading] = useState(false)
+
+    // Prix basés sur les packages
+    const packagePrices = {
+        '📸 1 Post Instagram': 500,
+        '📖 1 Story Instagram': 200,
+        '🎥 1 Vidéo TikTok': 800
+    }
+
+    // Obtenir le prix actuel selon le package sélectionné
+    const currentPrice = packagePrices[selectedPackage] || 500
 
     useEffect(() => {
         // Scroll vers le haut de la page
@@ -42,6 +58,38 @@ const InfluencerProfile = () => {
             loadSocialData()
         }
     }, [doctors, influencerId])
+
+    // Fonction pour ajouter au panier
+    const handleAddToCart = () => {
+        if (!influencer) return
+
+        const cartItem = {
+            influencerId: influencerId,
+            influencerName: influencer.name,
+            influencerImage: influencer.image,
+            package: selectedPackage,
+            price: currentPrice
+        }
+
+        addToCart(cartItem)
+        
+        // Notification visuelle
+        const notification = document.createElement('div')
+        notification.className = 'fixed top-20 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-bounce'
+        notification.innerHTML = `
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+                <span>Ajouté au panier !</span>
+            </div>
+        `
+        document.body.appendChild(notification)
+        
+        setTimeout(() => {
+            notification.remove()
+        }, 3000)
+    }
 
     if (!influencer) {
         return <div className="text-center py-20">Chargement...</div>
@@ -251,26 +299,40 @@ const InfluencerProfile = () => {
                 {/* Right Column - Pricing */}
                 <div className='lg:col-span-1 order-1 lg:order-2'>
                     <div className='border rounded-lg p-4 sm:p-6 lg:sticky lg:top-4'>
-                        <div className='text-2xl sm:text-3xl font-bold mb-4'>${influencer.fees}</div>
+                        <div className='text-2xl sm:text-3xl font-bold mb-4'>{currentPrice}€</div>
                         
                         <div className='mb-4'>
-                            <select className='w-full border rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 mb-2 bg-white text-sm sm:text-base'>
-                                <option>📷 1 Story Instagram</option>
-                                <option>📸 1 Post Instagram</option>
-                                <option>🎥 1 Vidéo TikTok</option>
+                            <select 
+                                value={selectedPackage}
+                                onChange={(e) => setSelectedPackage(e.target.value)}
+                                className='w-full border rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 mb-2 bg-white text-sm sm:text-base'
+                            >
+                                <option value='📖 1 Story Instagram'>📖 1 Story Instagram</option>
+                                <option value='📸 1 Post Instagram'>📸 1 Post Instagram</option>
+                                <option value='🎥 1 Vidéo TikTok'>🎥 1 Vidéo TikTok</option>
                             </select>
                             <p className='text-xs text-gray-600 leading-relaxed'>
                                 Une story ou post comprend votre tag et tout texte que vous souhaitez inclure.
                             </p>
                         </div>
 
-                        <button className='w-full bg-pink-500 text-white py-2.5 sm:py-3 rounded-lg text-sm sm:text-base font-semibold hover:bg-pink-600 transition-colors mb-3'>
+                        <button 
+                            onClick={handleAddToCart}
+                            disabled={loading}
+                            className='w-full bg-primary text-white py-2.5 sm:py-3 rounded-lg text-sm sm:text-base font-semibold hover:bg-primary/90 transition-colors mb-3 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2'
+                        >
+                            <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z'/>
+                            </svg>
                             Ajouter au Panier
                         </button>
 
-                        <div className='text-center text-xs sm:text-sm text-gray-600 mb-4'>or</div>
+                        <div className='text-center text-xs sm:text-sm text-gray-600 mb-4'>ou</div>
 
-                        <button className='w-full border border-gray-300 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base font-semibold hover:bg-gray-50 transition-colors'>
+                        <button 
+                            onClick={() => navigate('/contact')}
+                            className='w-full border border-gray-300 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base font-semibold hover:bg-gray-50 transition-colors'
+                        >
                             Négocier un Pack
                         </button>
                     </div>
