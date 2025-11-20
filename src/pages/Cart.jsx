@@ -30,8 +30,13 @@ const Cart = () => {
 
         setLoading(true)
         try {
+            console.log('Début du checkout, items:', cartItems)
+            console.log('User data:', userData)
+            
             // Créer les collaborations et conversations pour chaque item
             for (const item of cartItems) {
+                console.log('Traitement de l\'item:', item)
+                
                 // Récupérer les données de l'influenceur
                 const influencerDocRef = doc(db, 'influencers', item.influencerId)
                 const influencerDoc = await getDoc(influencerDocRef)
@@ -42,6 +47,7 @@ const Cart = () => {
                 }
 
                 const influencerData = influencerDoc.data()
+                console.log('Influencer data:', influencerData)
 
                 // Créer plusieurs collaborations si quantité > 1
                 for (let i = 0; i < item.quantity; i++) {
@@ -93,8 +99,10 @@ const Cart = () => {
             alert(`${cartItems.length} collaboration(s) créée(s) avec succès !`)
             navigate('/messages')
         } catch (error) {
-            console.error('Erreur lors de la création:', error)
-            alert('Erreur lors de la création des collaborations')
+            console.error('Erreur complète:', error)
+            console.error('Message d\'erreur:', error.message)
+            console.error('Stack:', error.stack)
+            alert(`Erreur lors de la création des collaborations: ${error.message}`)
         } finally {
             setLoading(false)
         }

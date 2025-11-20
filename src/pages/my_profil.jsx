@@ -17,14 +17,23 @@ const BrandProfile = ({ currentUser, userData }) => {
                 // Charger les achats/collaborations de la marque
                 const q = query(
                     collection(db, 'collaborations'),
-                    where('brandId', '==', currentUser.uid),
-                    orderBy('createdAt', 'desc')
+                    where('brandId', '==', currentUser.uid)
+                    // Temporairement supprimé orderBy en attendant l'index
+                    // orderBy('createdAt', 'desc')
                 )
                 const querySnapshot = await getDocs(q)
-                const purchasesData = querySnapshot.docs.map(doc => ({
+                let purchasesData = querySnapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data()
                 }))
+                
+                // Tri côté client
+                purchasesData.sort((a, b) => {
+                    const aTime = a.createdAt?.toMillis?.() || 0
+                    const bTime = b.createdAt?.toMillis?.() || 0
+                    return bTime - aTime
+                })
+                
                 setPurchases(purchasesData)
             } catch (error) {
                 console.error('Erreur lors du chargement des achats:', error)
@@ -37,6 +46,7 @@ const BrandProfile = ({ currentUser, userData }) => {
     }, [currentUser])
 
     const totalSpent = purchases.reduce((sum, purchase) => sum + (purchase.amount || 0), 0)
+    const pendingPurchases = purchases.filter(p => p.status === 'pending').length
     const completedPurchases = purchases.filter(p => p.status === 'completed').length
 
     return (
@@ -56,7 +66,7 @@ const BrandProfile = ({ currentUser, userData }) => {
             </div>
 
             {/* Statistiques */}
-            <div className='grid grid-cols-1 md:grid-cols-3 gap-6 mb-6'>
+            <div className='grid grid-cols-1 md:grid-cols-4 gap-6 mb-6'>
                 <div className='bg-white rounded-xl shadow-md p-6'>
                     <div className='flex items-center justify-between'>
                         <div>
@@ -75,7 +85,7 @@ const BrandProfile = ({ currentUser, userData }) => {
                 <div className='bg-white rounded-xl shadow-md p-6'>
                     <div className='flex items-center justify-between'>
                         <div>
-                            <p className='text-gray-500 text-sm'>Collaborations</p>
+                            <p className='text-gray-500 text-sm'>Total collaborations</p>
                             <p className='text-3xl font-bold text-gray-900'>{purchases.length}</p>
                         </div>
                         <div className='w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center'>
@@ -90,11 +100,25 @@ const BrandProfile = ({ currentUser, userData }) => {
                 <div className='bg-white rounded-xl shadow-md p-6'>
                     <div className='flex items-center justify-between'>
                         <div>
-                            <p className='text-gray-500 text-sm'>Terminées</p>
-                            <p className='text-3xl font-bold text-gray-900'>{completedPurchases}</p>
+                            <p className='text-gray-500 text-sm'>En cours</p>
+                            <p className='text-3xl font-bold text-orange-600'>{pendingPurchases}</p>
                         </div>
-                        <div className='w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center'>
-                            <svg className='w-6 h-6 text-blue-600' fill='currentColor' viewBox='0 0 20 20'>
+                        <div className='w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center'>
+                            <svg className='w-6 h-6 text-orange-600' fill='currentColor' viewBox='0 0 20 20'>
+                                <path fillRule='evenodd' d='M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z' clipRule='evenodd'/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div className='bg-white rounded-xl shadow-md p-6'>
+                    <div className='flex items-center justify-between'>
+                        <div>
+                            <p className='text-gray-500 text-sm'>Terminées</p>
+                            <p className='text-3xl font-bold text-green-600'>{completedPurchases}</p>
+                        </div>
+                        <div className='w-12 h-12 bg-green-100 rounded-full flex items-center justify-center'>
+                            <svg className='w-6 h-6 text-green-600' fill='currentColor' viewBox='0 0 20 20'>
                                 <path fillRule='evenodd' d='M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z' clipRule='evenodd'/>
                             </svg>
                         </div>
@@ -322,17 +346,29 @@ const MyProfile = () => {
         const loadCollaborations = async () => {
             if (!currentUser) return
             
+            console.log('Chargement collaborations pour influenceur ID:', currentUser.uid)
+            
             try {
                 const q = query(
                     collection(db, 'collaborations'),
-                    where('influencerId', '==', currentUser.uid),
-                    orderBy('createdAt', 'desc')
+                    where('influencerId', '==', currentUser.uid)
+                    // Temporairement supprimé orderBy en attendant l'index
+                    // orderBy('createdAt', 'desc')
                 )
                 const querySnapshot = await getDocs(q)
-                const collabsData = querySnapshot.docs.map(doc => ({
+                let collabsData = querySnapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data()
                 }))
+                
+                // Tri côté client en attendant l'index
+                collabsData.sort((a, b) => {
+                    const aTime = a.createdAt?.toMillis?.() || 0
+                    const bTime = b.createdAt?.toMillis?.() || 0
+                    return bTime - aTime
+                })
+                
+                console.log('Collaborations trouvées:', collabsData)
                 setCollaborations(collabsData)
             } catch (error) {
                 console.error('Erreur lors du chargement des collaborations:', error)

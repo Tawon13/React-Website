@@ -25,6 +25,7 @@ const Messages = () => {
     const [newMessage, setNewMessage] = useState('')
     const [loading, setLoading] = useState(true)
     const [sending, setSending] = useState(false)
+    const [shouldScroll, setShouldScroll] = useState(true)
     const messagesEndRef = useRef(null)
 
     // Rediriger si non connecté
@@ -75,19 +76,49 @@ const Messages = () => {
                         try {
                             if (userType === 'brand') {
                                 // Récupérer l'influenceur
+                                console.log('Recherche influenceur ID:', data.influencerId)
                                 const influencerDoc = await getDoc(doc(db, 'influencers', data.influencerId))
                                 if (influencerDoc.exists()) {
                                     otherUserData = influencerDoc.data()
+                                    console.log('Influenceur trouvé:', otherUserData)
+                                } else {
+                                    console.warn('Influenceur non trouvé, utilisation des données de la conversation')
+                                    // Utiliser les données stockées dans la conversation
+                                    otherUserData = {
+                                        name: data.influencerName || 'Influenceur',
+                                        email: data.influencerEmail || ''
+                                    }
                                 }
                             } else {
                                 // Récupérer la marque
+                                console.log('Recherche marque ID:', data.brandId)
                                 const brandDoc = await getDoc(doc(db, 'brands', data.brandId))
                                 if (brandDoc.exists()) {
                                     otherUserData = brandDoc.data()
+                                    console.log('Marque trouvée:', otherUserData)
+                                } else {
+                                    console.warn('Marque non trouvée, utilisation des données de la conversation')
+                                    // Utiliser les données stockées dans la conversation
+                                    otherUserData = {
+                                        brandName: data.brandName || 'Marque',
+                                        email: data.brandEmail || ''
+                                    }
                                 }
                             }
                         } catch (error) {
                             console.error('Erreur lors de la récupération des données utilisateur:', error)
+                            // En cas d'erreur, utiliser les données de la conversation
+                            if (userType === 'brand') {
+                                otherUserData = {
+                                    name: data.influencerName || 'Influenceur',
+                                    email: data.influencerEmail || ''
+                                }
+                            } else {
+                                otherUserData = {
+                                    brandName: data.brandName || 'Marque',
+                                    email: data.brandEmail || ''
+                                }
+                            }
                         }
 
                         return {
@@ -123,6 +154,9 @@ const Messages = () => {
     useEffect(() => {
         if (!selectedConversation) return
 
+        // Scroll vers le bas lors du changement de conversation
+        setShouldScroll(true)
+
         const messagesRef = collection(db, 'conversations', selectedConversation.id, 'messages')
         const q = query(messagesRef, orderBy('createdAt', 'asc'))
 
@@ -147,10 +181,13 @@ const Messages = () => {
         return () => unsubscribe()
     }, [selectedConversation, currentUser])
 
-    // Scroll automatique vers le bas
+    // Scroll automatique vers le bas seulement si nécessaire
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }, [messages])
+        if (shouldScroll && messages.length > 0) {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+            setShouldScroll(false)
+        }
+    }, [messages, shouldScroll])
 
     const sendMessage = async (e) => {
         e.preventDefault()
@@ -176,6 +213,8 @@ const Messages = () => {
             })
 
             setNewMessage('')
+            // Activer le scroll après l'envoi
+            setShouldScroll(true)
         } catch (error) {
             console.error('Erreur lors de l\'envoi:', error)
             alert('Erreur lors de l\'envoi du message')

@@ -15,6 +15,7 @@ const InfluencerProfile = () => {
     const { currentUser, userType, userData } = useAuth()
     const { addToCart } = useCart()
     const [influencer, setInfluencer] = useState(null)
+    const [firebaseInfluencerId, setFirebaseInfluencerId] = useState(null)
     const [socialData, setSocialData] = useState(null)
     const [currentImageIndex, setCurrentImageIndex] = useState(0)
     const [selectedPackage, setSelectedPackage] = useState('📸 1 Post Instagram')
@@ -35,22 +36,30 @@ const InfluencerProfile = () => {
         window.scrollTo(0, 0)
         
         const foundInfluencer = doctors.find(doc => doc._id === influencerId)
+        console.log('Recherche influenceur avec ID:', influencerId)
+        console.log('Influenceur trouvé dans doctors:', foundInfluencer)
         setInfluencer(foundInfluencer)
         
         // Charger les données sociales depuis Firestore si disponibles
         const loadSocialData = async () => {
             try {
+                console.log('Tentative de chargement depuis Firebase avec ID:', influencerId)
                 const docRef = doc(db, 'influencers', influencerId)
                 const docSnap = await getDoc(docRef)
                 
                 if (docSnap.exists()) {
                     const data = docSnap.data()
+                    console.log('Données Firebase récupérées:', data)
+                    // Stocker l'ID Firebase réel
+                    setFirebaseInfluencerId(docSnap.id)
                     if (data.socialAccounts) {
                         setSocialData(data.socialAccounts)
                     }
+                } else {
+                    console.error('Influenceur non trouvé dans Firebase avec ID:', influencerId)
                 }
             } catch (error) {
-                console.log('Pas de données sociales disponibles')
+                console.error('Erreur lors du chargement des données sociales:', error)
             }
         }
         
@@ -62,15 +71,23 @@ const InfluencerProfile = () => {
     // Fonction pour ajouter au panier
     const handleAddToCart = () => {
         if (!influencer) return
+        
+        // Vérifier que nous avons l'ID Firebase
+        if (!firebaseInfluencerId) {
+            alert('Erreur: ID de l\'influenceur non trouvé')
+            console.error('Firebase influencer ID manquant')
+            return
+        }
 
         const cartItem = {
-            influencerId: influencerId,
+            influencerId: firebaseInfluencerId, // Utiliser l'ID Firebase réel
             influencerName: influencer.name,
             influencerImage: influencer.image,
             package: selectedPackage,
             price: currentPrice
         }
-
+        
+        console.log('Ajout au panier:', cartItem)
         addToCart(cartItem)
         
         // Notification visuelle

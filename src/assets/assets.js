@@ -114,7 +114,7 @@ export const influencers = [
         }
     },
     {
-        _id: 'Amimine',
+        _id: 'PnN2t3b350XDDXPlrRAl5UrZQdX2',
         name: 'Amimine',
         image: amimine,
         speciality: 'Fashion',
