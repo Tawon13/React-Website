@@ -1,6 +1,30 @@
-import React from "react";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const Search = () => {
+    const navigate = useNavigate()
+    const [selectedNetwork, setSelectedNetwork] = useState("tiktok")
+    const [selectedCategory, setSelectedCategory] = useState("all")
+    const [searchKeyword, setSearchKeyword] = useState("")
+
+    const handleSubmit = (e) => {
+        e.preventDefault()
+        
+        // Construire l'URL avec les paramètres de recherche
+        const params = new URLSearchParams()
+        if (selectedNetwork !== "tiktok") params.append("network", selectedNetwork)
+        if (selectedCategory !== "all") params.append("category", selectedCategory)
+        if (searchKeyword.trim()) params.append("search", searchKeyword.trim())
+        
+        const queryString = params.toString()
+        navigate(`/talents${queryString ? `?${queryString}` : ""}`)
+        
+        // Scroll vers le haut après navigation
+        setTimeout(() => {
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+        }, 100)
+    }
+
     return (
         <div className="px-4 sm:px-6 md:px-0">
             <div className="mt-8 sm:mt-10">
@@ -13,11 +37,13 @@ const Search = () => {
             </div>
 
             <div className="w-full mt-6">
-                <form className="mx-auto w-full max-w-3xl">
+                <form onSubmit={handleSubmit} className="mx-auto w-full max-w-3xl">
                     {/* Search Bar - Mobile Optimized */}
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center bg-white rounded-2xl sm:rounded-full shadow-md overflow-hidden">
                         <select
                             aria-label="Réseau social"
+                            value={selectedNetwork}
+                            onChange={(e) => setSelectedNetwork(e.target.value)}
                             className="w-full sm:min-w-[140px] md:min-w-[180px] px-4 py-3 text-sm bg-white border-b sm:border-b-0 sm:border-r border-gray-200 appearance-none cursor-pointer"
                         >
                             <option value="tiktok">TikTok</option>
@@ -25,6 +51,8 @@ const Search = () => {
                         
                         <select
                             aria-label="Catégorie"
+                            value={selectedCategory}
+                            onChange={(e) => setSelectedCategory(e.target.value)}
                             className="w-full sm:min-w-[140px] px-4 py-3 text-sm bg-white border-b sm:border-b-0 sm:border-r border-gray-200 appearance-none cursor-pointer"
                         >
                             <option value="all">Toutes catégories</option>
@@ -34,6 +62,8 @@ const Search = () => {
                         <input
                             aria-label="Rechercher"
                             type="text"
+                            value={searchKeyword}
+                            onChange={(e) => setSearchKeyword(e.target.value)}
                             placeholder="Tapez un mot-clé..."
                             className="flex-1 px-4 py-3 text-sm text-gray-800 placeholder-gray-400 bg-white outline-none min-w-0"
                         />

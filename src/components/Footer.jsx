@@ -33,7 +33,6 @@ const Footer = () => {
             <div>
                 <p className='text-lg sm:text-xl font-medium mb-4 sm:mb-5'>CONTACTEZ-NOUS</p>
                 <ul className='flex flex-col gap-2 text-gray600'>
-                    <li className='hover:text-gray-900'>+33 1 23 45 67 89</li>
                     <li className='hover:text-gray-900 break-all'>contact@collabzz.com</li>
                 </ul>
             </div>
