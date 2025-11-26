@@ -20,12 +20,17 @@ const InfluencerProfile = () => {
     const [currentImageIndex, setCurrentImageIndex] = useState(0)
     const [selectedPackage, setSelectedPackage] = useState('📸 1 Post Instagram')
     const [loading, setLoading] = useState(false)
+    const [isLightboxOpen, setIsLightboxOpen] = useState(false)
+    const [lightboxImageIndex, setLightboxImageIndex] = useState(0)
+    const [profilePhotos, setProfilePhotos] = useState([])
+    const [brandVideos, setBrandVideos] = useState([])
+    const [customPricing, setCustomPricing] = useState(null)
 
     // Prix basés sur les packages
     const packagePrices = {
-        '📸 1 Post Instagram': 500,
-        '📖 1 Story Instagram': 200,
-        '🎥 1 Vidéo TikTok': 800
+        '📸 1 Post Instagram': customPricing?.instagram_post || 500,
+        '📖 1 Story Instagram': customPricing?.instagram_story || 200,
+        '🎥 1 Vidéo TikTok': customPricing?.tiktok_video || 800
     }
 
     // Obtenir le prix actuel selon le package sélectionné
@@ -55,6 +60,18 @@ const InfluencerProfile = () => {
                     if (data.socialAccounts) {
                         setSocialData(data.socialAccounts)
                     }
+                    // Charger les photos du profil
+                    if (data.profilePhotos) {
+                        setProfilePhotos(data.profilePhotos)
+                    }
+                    // Charger les vidéos de collaborations
+                    if (data.brandVideos) {
+                        setBrandVideos(data.brandVideos)
+                    }
+                    // Charger les prix personnalisés
+                    if (data.pricing) {
+                        setCustomPricing(data.pricing)
+                    }
                 } else {
                     console.error('Influenceur non trouvé dans Firebase avec ID:', influencerId)
                 }
@@ -67,6 +84,60 @@ const InfluencerProfile = () => {
             loadSocialData()
         }
     }, [doctors, influencerId])
+
+    // Fonctions pour le lightbox
+    const openLightbox = (index) => {
+        setLightboxImageIndex(index)
+        setIsLightboxOpen(true)
+        document.body.style.overflow = 'hidden' // Empêcher le scroll
+    }
+
+    const closeLightbox = () => {
+        setIsLightboxOpen(false)
+        document.body.style.overflow = 'auto' // Réactiver le scroll
+    }
+
+    const nextImage = () => {
+        setLightboxImageIndex((prev) => (prev + 1) % 3)
+    }
+
+    const previousImage = () => {
+        setLightboxImageIndex((prev) => (prev - 1 + 3) % 3)
+    }
+
+    // Gestion des touches clavier
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (!isLightboxOpen) return
+            
+            if (e.key === 'Escape') closeLightbox()
+            if (e.key === 'ArrowRight') nextImage()
+            if (e.key === 'ArrowLeft') previousImage()
+        }
+
+        window.addEventListener('keydown', handleKeyDown)
+        return () => window.removeEventListener('keydown', handleKeyDown)
+    }, [isLightboxOpen])
+
+    // Obtenir le nombre total d'images (photos personnalisées ou 3 par défaut)
+    const totalImages = profilePhotos.length > 0 ? profilePhotos.length : 3
+    
+    // Fonctions pour naviguer dans le lightbox
+    const nextImageUpdated = () => {
+        setLightboxImageIndex((prev) => (prev + 1) % totalImages)
+    }
+
+    const previousImageUpdated = () => {
+        setLightboxImageIndex((prev) => (prev - 1 + totalImages) % totalImages)
+    }
+
+    // Obtenir l'URL de l'image actuelle dans le lightbox
+    const getCurrentLightboxImage = () => {
+        if (profilePhotos.length > 0) {
+            return profilePhotos[lightboxImageIndex]?.url || influencer.image
+        }
+        return influencer.image
+    }
 
     // Fonction pour ajouter au panier
     const handleAddToCart = () => {
@@ -137,33 +208,56 @@ const InfluencerProfile = () => {
             <div className='relative mb-4'>
                 {/* Desktop: 3 photos en grille */}
                 <div className='hidden lg:grid lg:grid-cols-3 gap-4'>
-                    <div className='col-span-1'>
-                        <img 
-                            src={influencer.image} 
-                            alt={`${influencer.name} 1`}
-                            className='w-full h-[400px] object-cover rounded-lg'
-                        />
-                    </div>
-                    <div className='col-span-1'>
-                        <img 
-                            src={influencer.image} 
-                            alt={`${influencer.name} 2`}
-                            className='w-full h-[400px] object-cover rounded-lg'
-                        />
-                    </div>
-                    <div className='col-span-1 relative'>
-                        <img 
-                            src={influencer.image} 
-                            alt={`${influencer.name} 3`}
-                            className='w-full h-[400px] object-cover rounded-lg'
-                        />
-                        <button className='absolute bottom-4 right-4 bg-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg hover:bg-gray-50 transition-colors'>
-                            <svg className='w-5 h-5' fill='currentColor' viewBox='0 0 20 20'>
-                                <path d='M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z' />
-                            </svg>
-                            Voir Plus
-                        </button>
-                    </div>
+                    {profilePhotos.length > 0 ? (
+                        profilePhotos.slice(0, 3).map((photo, index) => (
+                            <div key={photo.id} className={`${index === 0 ? 'col-span-1' : 'col-span-1'} cursor-pointer${index === 2 ? ' relative' : ''}`} onClick={() => openLightbox(index)}>
+                                <img 
+                                    src={photo.url} 
+                                    alt={`${influencer.name} ${index + 1}`}
+                                    className='w-full h-[400px] object-cover rounded-lg hover:opacity-90 transition-opacity'
+                                />
+                                {index === 2 && profilePhotos.length > 3 && (
+                                    <button className='absolute bottom-4 right-4 bg-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg hover:bg-gray-50 transition-colors pointer-events-none'>
+                                        <svg className='w-5 h-5' fill='currentColor' viewBox='0 0 20 20'>
+                                            <path d='M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z' />
+                                        </svg>
+                                        Voir Plus
+                                    </button>
+                                )}
+                            </div>
+                        ))
+                    ) : (
+                        // Photos par défaut si aucune photo personnalisée
+                        <>
+                            <div className='col-span-1 cursor-pointer' onClick={() => openLightbox(0)}>
+                                <img 
+                                    src={influencer.image} 
+                                    alt={`${influencer.name} 1`}
+                                    className='w-full h-[400px] object-cover rounded-lg hover:opacity-90 transition-opacity'
+                                />
+                            </div>
+                            <div className='col-span-1 cursor-pointer' onClick={() => openLightbox(1)}>
+                                <img 
+                                    src={influencer.image} 
+                                    alt={`${influencer.name} 2`}
+                                    className='w-full h-[400px] object-cover rounded-lg hover:opacity-90 transition-opacity'
+                                />
+                            </div>
+                            <div className='col-span-1 relative cursor-pointer' onClick={() => openLightbox(2)}>
+                                <img 
+                                    src={influencer.image} 
+                                    alt={`${influencer.name} 3`}
+                                    className='w-full h-[400px] object-cover rounded-lg hover:opacity-90 transition-opacity'
+                                />
+                                <button className='absolute bottom-4 right-4 bg-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg hover:bg-gray-50 transition-colors pointer-events-none'>
+                                    <svg className='w-5 h-5' fill='currentColor' viewBox='0 0 20 20'>
+                                        <path d='M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z' />
+                                    </svg>
+                                    Voir Plus
+                                </button>
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 {/* Tablet & Mobile: Carousel avec défilement horizontal - 1 photo à la fois */}
@@ -177,37 +271,49 @@ const InfluencerProfile = () => {
                             setCurrentImageIndex(index);
                         }}
                     >
-                        {/* Photo 1 */}
-                        <div className='flex-shrink-0 w-full snap-center'>
-                            <img 
-                                src={influencer.image} 
-                                alt={`${influencer.name} 1`}
-                                className='w-full h-64 sm:h-80 object-cover rounded-lg'
-                            />
-                        </div>
-                        {/* Photo 2 */}
-                        <div className='flex-shrink-0 w-full snap-center'>
-                            <img 
-                                src={influencer.image} 
-                                alt={`${influencer.name} 2`}
-                                className='w-full h-64 sm:h-80 object-cover rounded-lg'
-                            />
-                        </div>
-                        {/* Photo 3 */}
-                        <div className='flex-shrink-0 w-full snap-center'>
-                            <img 
-                                src={influencer.image} 
-                                alt={`${influencer.name} 3`}
-                                className='w-full h-64 sm:h-80 object-cover rounded-lg'
-                            />
-                        </div>
+                        {profilePhotos.length > 0 ? (
+                            profilePhotos.map((photo, index) => (
+                                <div key={photo.id} className='flex-shrink-0 w-full snap-center cursor-pointer' onClick={() => openLightbox(index)}>
+                                    <img 
+                                        src={photo.url} 
+                                        alt={`${influencer.name} ${index + 1}`}
+                                        className='w-full h-64 sm:h-80 object-cover rounded-lg'
+                                    />
+                                </div>
+                            ))
+                        ) : (
+                            // Photos par défaut
+                            <>
+                                <div className='flex-shrink-0 w-full snap-center cursor-pointer' onClick={() => openLightbox(0)}>
+                                    <img 
+                                        src={influencer.image} 
+                                        alt={`${influencer.name} 1`}
+                                        className='w-full h-64 sm:h-80 object-cover rounded-lg'
+                                    />
+                                </div>
+                                <div className='flex-shrink-0 w-full snap-center cursor-pointer' onClick={() => openLightbox(1)}>
+                                    <img 
+                                        src={influencer.image} 
+                                        alt={`${influencer.name} 2`}
+                                        className='w-full h-64 sm:h-80 object-cover rounded-lg'
+                                    />
+                                </div>
+                                <div className='flex-shrink-0 w-full snap-center cursor-pointer' onClick={() => openLightbox(2)}>
+                                    <img 
+                                        src={influencer.image} 
+                                        alt={`${influencer.name} 3`}
+                                        className='w-full h-64 sm:h-80 object-cover rounded-lg'
+                                    />
+                                </div>
+                            </>
+                        )}
                     </div>
                     
                     {/* Indicateurs de pagination cliquables */}
                     <div className='flex justify-center gap-2 mt-4'>
-                        {[0, 1, 2].map((index) => (
+                        {(profilePhotos.length > 0 ? profilePhotos : [0, 1, 2]).map((item, index) => (
                             <button
-                                key={index}
+                                key={profilePhotos.length > 0 ? item.id : index}
                                 onClick={() => {
                                     const container = document.querySelector('.overflow-x-auto');
                                     if (container) {
@@ -311,6 +417,40 @@ const InfluencerProfile = () => {
                             {influencer.about}
                         </p>
                     </div>
+
+                    {/* Section Vidéos de Collaborations */}
+                    {brandVideos.length > 0 && (
+                        <div className='mb-6'>
+                            <h3 className='text-xl font-semibold mb-4'>Collaborations avec des Marques</h3>
+                            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                                {brandVideos.map((video) => (
+                                    <div key={video.id} className='border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow'>
+                                        <div className='flex items-start gap-3'>
+                                            <div className='w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0'>
+                                                <svg className='w-6 h-6 text-primary' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' />
+                                                </svg>
+                                            </div>
+                                            <div className='flex-1'>
+                                                <h4 className='font-semibold text-gray-900'>{video.brandName}</h4>
+                                                <a
+                                                    href={video.url}
+                                                    target='_blank'
+                                                    rel='noopener noreferrer'
+                                                    className='text-sm text-primary hover:underline inline-flex items-center gap-1 mt-1'
+                                                >
+                                                    Voir la vidéo
+                                                    <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14' />
+                                                    </svg>
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Right Column - Pricing */}
@@ -359,6 +499,125 @@ const InfluencerProfile = () => {
             {/* Section Posts Instagram Récents */}
             {socialData?.instagram?.recentMedia && (
                 <RecentInstagramPosts recentMedia={socialData.instagram.recentMedia} />
+            )}
+
+            {/* Lightbox Modal */}
+            {isLightboxOpen && (
+                <div 
+                    className='fixed inset-0 z-50 flex items-center justify-center'
+                    onClick={closeLightbox}
+                >
+                    {/* Backdrop avec flou */}
+                    <div className='absolute inset-0 bg-black/90 backdrop-blur-md' />
+                    
+                    {/* Contenu du lightbox */}
+                    <div className='relative z-10 w-full h-full flex items-center justify-center p-4'>
+                        {/* Bouton fermer */}
+                        <button
+                            onClick={closeLightbox}
+                            className='absolute top-4 right-4 text-white hover:text-gray-300 transition-colors z-20'
+                            aria-label='Fermer'
+                        >
+                            <svg className='w-8 h-8' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' />
+                            </svg>
+                        </button>
+
+                        {/* Bouton précédent */}
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                previousImageUpdated()
+                            }}
+                            className='absolute left-4 text-white hover:text-gray-300 transition-colors z-20 bg-black/50 rounded-full p-3 hover:bg-black/70'
+                            aria-label='Photo précédente'
+                        >
+                            <svg className='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 19l-7-7 7-7' />
+                            </svg>
+                        </button>
+
+                        {/* Image */}
+                        <div 
+                            className='max-w-5xl max-h-[90vh] flex items-center justify-center'
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <img
+                                src={getCurrentLightboxImage()}
+                                alt={`${influencer.name} ${lightboxImageIndex + 1}`}
+                                className='max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl'
+                            />
+                        </div>
+
+                        {/* Bouton suivant */}
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                nextImageUpdated()
+                            }}
+                            className='absolute right-4 text-white hover:text-gray-300 transition-colors z-20 bg-black/50 rounded-full p-3 hover:bg-black/70'
+                            aria-label='Photo suivante'
+                        >
+                            <svg className='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M9 5l7 7-7 7' />
+                            </svg>
+                        </button>
+
+                        {/* Indicateur de position */}
+                        <div 
+                            className='absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white text-sm bg-black/50 px-4 py-2 rounded-full'
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {lightboxImageIndex + 1} / {totalImages}
+                        </div>
+
+                        {/* Miniatures */}
+                        {totalImages <= 5 && (
+                            <div 
+                                className='absolute bottom-16 left-1/2 transform -translate-x-1/2 flex gap-2'
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                {profilePhotos.length > 0 ? (
+                                    profilePhotos.map((photo, index) => (
+                                        <button
+                                            key={photo.id}
+                                            onClick={() => setLightboxImageIndex(index)}
+                                            className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
+                                                lightboxImageIndex === index 
+                                                    ? 'border-white scale-110' 
+                                                    : 'border-transparent opacity-60 hover:opacity-100'
+                                            }`}
+                                        >
+                                            <img
+                                                src={photo.url}
+                                                alt={`Miniature ${index + 1}`}
+                                                className='w-full h-full object-cover'
+                                            />
+                                        </button>
+                                    ))
+                                ) : (
+                                    [0, 1, 2].map((index) => (
+                                        <button
+                                            key={index}
+                                            onClick={() => setLightboxImageIndex(index)}
+                                            className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
+                                                lightboxImageIndex === index 
+                                                    ? 'border-white scale-110' 
+                                                    : 'border-transparent opacity-60 hover:opacity-100'
+                                            }`}
+                                        >
+                                            <img
+                                                src={influencer.image}
+                                                alt={`Miniature ${index + 1}`}
+                                                className='w-full h-full object-cover'
+                                            />
+                                        </button>
+                                    ))
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
             )}
         </div>
     )

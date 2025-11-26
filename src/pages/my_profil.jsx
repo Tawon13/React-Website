@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { doc, updateDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore'
-import { db, FUNCTIONS_URL } from '../config/firebase'
+import { db, FUNCTIONS_URL, storage } from '../config/firebase'
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 
 // Composant pour le profil des marques
 const BrandProfile = ({ currentUser, userData }) => {
@@ -256,6 +257,14 @@ const MyProfile = () => {
     const [activeTab, setActiveTab] = useState('social')
     const [collaborations, setCollaborations] = useState([])
     const [loadingCollabs, setLoadingCollabs] = useState(true)
+    const [profilePhotos, setProfilePhotos] = useState([])
+    const [brandVideos, setBrandVideos] = useState([])
+    const [pricing, setPricing] = useState({
+        instagram_post: 500,
+        instagram_story: 200,
+        tiktok_video: 800
+    })
+    const [uploading, setUploading] = useState(false)
 
     const functionsOrigin = useMemo(() => {
         try {
@@ -339,6 +348,11 @@ const MyProfile = () => {
                 }
             })
         }
+        
+        // Charger les photos, vidéos et prix du profil
+        if (userData?.profilePhotos) setProfilePhotos(userData.profilePhotos)
+        if (userData?.brandVideos) setBrandVideos(userData.brandVideos)
+        if (userData?.pricing) setPricing(userData.pricing)
     }, [userData])
 
     // Charger les collaborations de l'influenceur
@@ -494,6 +508,137 @@ const MyProfile = () => {
         return new Date(timestamp).toLocaleDateString('fr-FR')
     }
 
+    // Fonction pour ajouter des photos
+    const handleAddPhoto = async (e) => {
+        const file = e.target.files[0]
+        if (!file) return
+
+        if (!file.type.startsWith('image/')) {
+            setMessage({ type: 'error', text: 'Veuillez sélectionner une image' })
+            return
+        }
+
+        setUploading(true)
+        try {
+            // Upload vers Firebase Storage
+            const timestamp = Date.now()
+            const storageRef = ref(storage, `influencers/${currentUser.uid}/photos/${timestamp}_${file.name}`)
+            const snapshot = await uploadBytes(storageRef, file)
+            const downloadURL = await getDownloadURL(snapshot.ref)
+            
+            const newPhoto = {
+                id: timestamp,
+                url: downloadURL,
+                path: snapshot.ref.fullPath,
+                addedAt: new Date().toISOString()
+            }
+            
+            const updatedPhotos = [...profilePhotos, newPhoto]
+            setProfilePhotos(updatedPhotos)
+            
+            await updateDoc(doc(db, 'influencers', currentUser.uid), {
+                profilePhotos: updatedPhotos
+            })
+            
+            setMessage({ type: 'success', text: 'Photo ajoutée avec succès' })
+        } catch (error) {
+            console.error('Error adding photo:', error)
+            setMessage({ type: 'error', text: 'Erreur lors de l\'ajout de la photo' })
+        } finally {
+            setUploading(false)
+        }
+    }
+
+    // Fonction pour supprimer une photo
+    const handleDeletePhoto = async (photoId) => {
+        if (!confirm('Êtes-vous sûr de vouloir supprimer cette photo ?')) return
+
+        try {
+            const photo = profilePhotos.find(p => p.id === photoId)
+            
+            // Supprimer de Firebase Storage
+            if (photo.path) {
+                const photoRef = ref(storage, photo.path)
+                await deleteObject(photoRef)
+            }
+            
+            const updatedPhotos = profilePhotos.filter(p => p.id !== photoId)
+            setProfilePhotos(updatedPhotos)
+            
+            await updateDoc(doc(db, 'influencers', currentUser.uid), {
+                profilePhotos: updatedPhotos
+            })
+            
+            setMessage({ type: 'success', text: 'Photo supprimée' })
+        } catch (error) {
+            console.error('Error deleting photo:', error)
+            setMessage({ type: 'error', text: 'Erreur lors de la suppression' })
+        }
+    }
+
+    // Fonction pour ajouter une vidéo de collaboration
+    const handleAddVideo = async () => {
+        const url = prompt('Entrez l\'URL de la vidéo (YouTube, TikTok, etc.) :')
+        if (!url) return
+
+        const brandName = prompt('Nom de la marque :')
+        if (!brandName) return
+
+        try {
+            const newVideo = {
+                id: Date.now(),
+                url: url,
+                brandName: brandName,
+                addedAt: new Date().toISOString()
+            }
+            
+            const updatedVideos = [...brandVideos, newVideo]
+            setBrandVideos(updatedVideos)
+            
+            await updateDoc(doc(db, 'influencers', currentUser.uid), {
+                brandVideos: updatedVideos
+            })
+            
+            setMessage({ type: 'success', text: 'Vidéo ajoutée avec succès' })
+        } catch (error) {
+            console.error('Error adding video:', error)
+            setMessage({ type: 'error', text: 'Erreur lors de l\'ajout de la vidéo' })
+        }
+    }
+
+    // Fonction pour supprimer une vidéo
+    const handleDeleteVideo = async (videoId) => {
+        if (!confirm('Êtes-vous sûr de vouloir supprimer cette vidéo ?')) return
+
+        try {
+            const updatedVideos = brandVideos.filter(v => v.id !== videoId)
+            setBrandVideos(updatedVideos)
+            
+            await updateDoc(doc(db, 'influencers', currentUser.uid), {
+                brandVideos: updatedVideos
+            })
+            
+            setMessage({ type: 'success', text: 'Vidéo supprimée' })
+        } catch (error) {
+            console.error('Error deleting video:', error)
+            setMessage({ type: 'error', text: 'Erreur lors de la suppression' })
+        }
+    }
+
+    // Fonction pour mettre à jour les prix
+    const handleUpdatePricing = async () => {
+        try {
+            await updateDoc(doc(db, 'influencers', currentUser.uid), {
+                pricing: pricing
+            })
+            
+            setMessage({ type: 'success', text: 'Prix mis à jour avec succès' })
+        } catch (error) {
+            console.error('Error updating pricing:', error)
+            setMessage({ type: 'error', text: 'Erreur lors de la mise à jour des prix' })
+        }
+    }
+
     if (userType === 'brand') {
         return <BrandProfile currentUser={currentUser} userData={userData} />
     }
@@ -567,6 +712,16 @@ const MyProfile = () => {
                             }`}
                         >
                             Mes Collaborations ({collaborations.length})
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('profile-management')}
+                            className={`py-4 px-6 font-medium text-sm border-b-2 ${
+                                activeTab === 'profile-management'
+                                    ? 'border-primary text-primary'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            }`}
+                        >
+                            Gestion du Profil
                         </button>
                     </nav>
                 </div>
@@ -828,6 +983,173 @@ const MyProfile = () => {
                             <p className='text-gray-400 text-sm mt-2'>Vos collaborations avec les marques apparaîtront ici</p>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Onglet Gestion du Profil */}
+            {activeTab === 'profile-management' && (
+                <div className='space-y-6'>
+                    {/* Section Photos */}
+                    <div className='bg-white rounded-lg shadow-md p-6'>
+                        <div className='flex items-center justify-between mb-4'>
+                            <h2 className='text-xl font-semibold'>Mes Photos de Profil</h2>
+                            <label className='px-4 py-2 bg-primary text-white rounded-lg cursor-pointer hover:bg-primary/90 transition-colors disabled:opacity-50'>
+                                <input
+                                    type='file'
+                                    accept='image/*'
+                                    onChange={handleAddPhoto}
+                                    disabled={uploading}
+                                    className='hidden'
+                                />
+                                {uploading ? 'Téléchargement...' : '+ Ajouter une photo'}
+                            </label>
+                        </div>
+                        
+                        {profilePhotos.length > 0 ? (
+                            <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'>
+                                {profilePhotos.map((photo) => (
+                                    <div key={photo.id} className='relative group'>
+                                        <img
+                                            src={photo.url}
+                                            alt='Photo de profil'
+                                            className='w-full h-48 object-cover rounded-lg'
+                                        />
+                                        <button
+                                            onClick={() => handleDeletePhoto(photo.id)}
+                                            className='absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity'
+                                        >
+                                            <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className='text-center py-8 text-gray-500'>
+                                <svg className='w-16 h-16 mx-auto mb-4 text-gray-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' />
+                                </svg>
+                                <p>Aucune photo pour le moment</p>
+                                <p className='text-sm text-gray-400 mt-2'>Ajoutez des photos pour enrichir votre profil</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Section Vidéos des marques */}
+                    <div className='bg-white rounded-lg shadow-md p-6'>
+                        <div className='flex items-center justify-between mb-4'>
+                            <h2 className='text-xl font-semibold'>Collaborations Vidéo</h2>
+                            <button
+                                onClick={handleAddVideo}
+                                className='px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors'
+                            >
+                                + Ajouter une vidéo
+                            </button>
+                        </div>
+                        
+                        {brandVideos.length > 0 ? (
+                            <div className='space-y-4'>
+                                {brandVideos.map((video) => (
+                                    <div key={video.id} className='border border-gray-200 rounded-lg p-4'>
+                                        <div className='flex justify-between items-start'>
+                                            <div className='flex-1'>
+                                                <h3 className='font-semibold text-gray-900'>{video.brandName}</h3>
+                                                <a
+                                                    href={video.url}
+                                                    target='_blank'
+                                                    rel='noopener noreferrer'
+                                                    className='text-sm text-primary hover:underline mt-1 inline-block'
+                                                >
+                                                    {video.url}
+                                                </a>
+                                                <p className='text-xs text-gray-500 mt-2'>
+                                                    Ajoutée le {new Date(video.addedAt).toLocaleDateString('fr-FR')}
+                                                </p>
+                                            </div>
+                                            <button
+                                                onClick={() => handleDeleteVideo(video.id)}
+                                                className='text-red-500 hover:text-red-700 p-2'
+                                            >
+                                                <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16' />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className='text-center py-8 text-gray-500'>
+                                <svg className='w-16 h-16 mx-auto mb-4 text-gray-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' />
+                                </svg>
+                                <p>Aucune vidéo pour le moment</p>
+                                <p className='text-sm text-gray-400 mt-2'>Ajoutez des vidéos de vos collaborations avec les marques</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Section Prix */}
+                    <div className='bg-white rounded-lg shadow-md p-6'>
+                        <h2 className='text-xl font-semibold mb-4'>Tarification</h2>
+                        <div className='space-y-4'>
+                            <div>
+                                <label className='block text-sm font-medium text-gray-700 mb-2'>
+                                    📸 Post Instagram
+                                </label>
+                                <div className='flex items-center gap-2'>
+                                    <input
+                                        type='number'
+                                        value={pricing.instagram_post}
+                                        onChange={(e) => setPricing({...pricing, instagram_post: parseInt(e.target.value) || 0})}
+                                        className='flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent'
+                                        min='0'
+                                    />
+                                    <span className='text-gray-600 font-medium'>€</span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className='block text-sm font-medium text-gray-700 mb-2'>
+                                    📖 Story Instagram
+                                </label>
+                                <div className='flex items-center gap-2'>
+                                    <input
+                                        type='number'
+                                        value={pricing.instagram_story}
+                                        onChange={(e) => setPricing({...pricing, instagram_story: parseInt(e.target.value) || 0})}
+                                        className='flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent'
+                                        min='0'
+                                    />
+                                    <span className='text-gray-600 font-medium'>€</span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className='block text-sm font-medium text-gray-700 mb-2'>
+                                    🎥 Vidéo TikTok
+                                </label>
+                                <div className='flex items-center gap-2'>
+                                    <input
+                                        type='number'
+                                        value={pricing.tiktok_video}
+                                        onChange={(e) => setPricing({...pricing, tiktok_video: parseInt(e.target.value) || 0})}
+                                        className='flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent'
+                                        min='0'
+                                    />
+                                    <span className='text-gray-600 font-medium'>€</span>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={handleUpdatePricing}
+                                className='w-full py-3 bg-primary text-white rounded-lg font-semibold hover:bg-primary/90 transition-colors mt-4'
+                            >
+                                Enregistrer les prix
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
