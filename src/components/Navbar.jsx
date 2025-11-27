@@ -92,8 +92,8 @@ const Navbar = () => {
                 <>
                     {/* Desktop Buttons */}
                     <div className='hidden lg:flex items-center gap-2'>
-                        <button onClick={()=>navigate('/login-influencer')} className='bg-primary text-white px-4 xl:px-6 py-2 xl:py-3 rounded-full font-light text-xs xl:text-sm whitespace-nowrap'>Je suis influenceur</button>
-                        <button onClick={()=>navigate('/login-brand')} className='border border-primary text-primary px-4 xl:px-6 py-2 xl:py-3 rounded-full font-light text-xs xl:text-sm whitespace-nowrap'>Je suis une marque</button>
+                        <button onClick={()=>navigate('/for-creators')} className='bg-primary text-white px-4 xl:px-6 py-2 xl:py-3 rounded-full font-light text-xs xl:text-sm whitespace-nowrap'>Je suis influenceur</button>
+                        <button onClick={()=>navigate('/for-brands')} className='border border-primary text-primary px-4 xl:px-6 py-2 xl:py-3 rounded-full font-light text-xs xl:text-sm whitespace-nowrap'>Je suis une marque</button>
                     </div>
                     
                     {/* Mobile/Tablet Compact Buttons */}

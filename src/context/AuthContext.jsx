@@ -64,25 +64,27 @@ export const AuthProvider = ({ children }) => {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
-            // Stocker les données dans Firestore
+            // Stocker les données dans Firestore (version simplifiée)
             await setDoc(doc(db, 'brands', user.uid), {
                 uid: user.uid,
                 email: email,
                 userType: 'brand',
-                companyName: brandData.companyName,
-                brandName: brandData.brandName,
-                siret: brandData.siret,
-                industry: brandData.industry,
-                companySize: brandData.companySize,
-                description: brandData.description,
-                contactPerson: brandData.contactPerson,
-                phone: brandData.phone,
+                fullName: brandData.fullName || '',
+                brandName: brandData.brandName || '',
+                // Champs optionnels pour compatibilité
+                companyName: brandData.companyName || brandData.brandName || '',
+                siret: brandData.siret || '',
+                industry: brandData.industry || '',
+                companySize: brandData.companySize || '',
+                description: brandData.description || '',
+                contactPerson: brandData.contactPerson || brandData.fullName || '',
+                phone: brandData.phone || '',
                 website: brandData.website || '',
-                address: {
+                address: brandData.address ? {
                     street: brandData.address,
-                    city: brandData.city,
-                    country: brandData.country
-                },
+                    city: brandData.city || '',
+                    country: brandData.country || ''
+                } : {},
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             });
