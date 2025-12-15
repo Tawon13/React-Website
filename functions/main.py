@@ -8,6 +8,7 @@ import time
 import hmac
 import base64
 import hashlib
+import json
 from firebase_functions import https_fn, scheduler_fn
 from firebase_functions.options import set_global_options
 from firebase_admin import initialize_app, firestore, auth as firebase_auth
@@ -157,59 +158,26 @@ def youtube_callback_handler(req: https_fn.Request) -> https_fn.Response:
         user_id = verify_signed_state(state)
         result = youtube_callback(code, user_id)
         
-        # Retourner une page HTML qui ferme la popup et notifie le parent
+        # Redirection directe vers Mon Profil sans afficher de page intermédiaire
+        result_json = json.dumps(result)
         html = f"""
         <!DOCTYPE html>
         <html>
         <head>
             <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>YouTube Connecté</title>
-            <style>
-                body {{
-                    font-family: Arial, sans-serif;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    height: 100vh;
-                    margin: 0;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    color: white;
-                }}
-                .container {{
-                    text-align: center;
-                    padding: 40px;
-                    background: white;
-                    border-radius: 10px;
-                    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-                    color: #333;
-                }}
-                .success-icon {{
-                    font-size: 64px;
-                    margin-bottom: 20px;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="success-icon">✅</div>
-                <h1>YouTube Connecté !</h1>
-                <p><strong>{result['channelName']}</strong></p>
-                <p>{result['subscribers']:,} abonnés • {result['videoCount']} vidéos</p>
-                <p style="color: #666; margin-top: 20px;">Cette fenêtre va se fermer...</p>
-            </div>
             <script>
-                // Notifier la fenêtre parente
                 if (window.opener) {{
                     window.opener.postMessage({{
                         type: 'youtube-connected',
-                        data: {result}
+                        data: {result_json}
                     }}, '*');
+                    window.close();
+                }} else {{
+                    window.location.href = '/my_profil';
                 }}
-                // Fermer la popup après 2 secondes
-                setTimeout(() => window.close(), 2000);
             </script>
-        </body>
+        </head>
+        <body></body>
         </html>
         """
         
@@ -296,57 +264,26 @@ def tiktok_callback_handler(req: https_fn.Request) -> https_fn.Response:
         user_id = verify_signed_state(state)
         result = tiktok_callback(code, user_id)
         
-        # Page HTML de succès
+        # Redirection directe vers Mon Profil sans afficher de page intermédiaire
+        result_json = json.dumps(result)
         html = f"""
         <!DOCTYPE html>
         <html>
         <head>
             <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>TikTok Connecté</title>
-            <style>
-                body {{
-                    font-family: Arial, sans-serif;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    height: 100vh;
-                    margin: 0;
-                    background: linear-gradient(135deg, #000000 0%, #fe2c55 100%);
-                    color: white;
-                }}
-                .container {{
-                    text-align: center;
-                    padding: 40px;
-                    background: white;
-                    border-radius: 10px;
-                    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-                    color: #333;
-                }}
-                .success-icon {{
-                    font-size: 64px;
-                    margin-bottom: 20px;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="success-icon">✅</div>
-                <h1>TikTok Connecté !</h1>
-                <p><strong>@{result['username']}</strong></p>
-                <p>{result['followers']:,} abonnés • {result['videoCount']} vidéos</p>
-                <p style="color: #666; margin-top: 20px;">Cette fenêtre va se fermer...</p>
-            </div>
             <script>
                 if (window.opener) {{
                     window.opener.postMessage({{
                         type: 'tiktok-connected',
-                        data: {result}
+                        data: {result_json}
                     }}, '*');
+                    window.close();
+                }} else {{
+                    window.location.href = '/my_profil';
                 }}
-                setTimeout(() => window.close(), 2000);
             </script>
-        </body>
+        </head>
+        <body></body>
         </html>
         """
         
@@ -433,59 +370,26 @@ def instagram_callback_handler(req: https_fn.Request) -> https_fn.Response:
         user_id = verify_signed_state(state)
         result = instagram_callback(code, user_id)
         
-        # Retourner une page HTML qui ferme la popup et notifie le parent
+        # Redirection directe vers Mon Profil sans afficher de page intermédiaire
+        result_json = json.dumps(result)
         html = f"""
         <!DOCTYPE html>
         <html>
         <head>
             <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Instagram Connecté</title>
-            <style>
-                body {{
-                    font-family: Arial, sans-serif;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    height: 100vh;
-                    margin: 0;
-                    background: linear-gradient(135deg, #405DE6, #5B51D8, #833AB4, #C13584, #E1306C, #FD1D1D);
-                    color: white;
-                }}
-                .container {{
-                    text-align: center;
-                    padding: 40px;
-                    background: white;
-                    border-radius: 10px;
-                    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-                    color: #333;
-                }}
-                .success-icon {{
-                    font-size: 64px;
-                    margin-bottom: 20px;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="success-icon">✅</div>
-                <h1>Instagram Connecté !</h1>
-                <p><strong>@{result['username']}</strong></p>
-                <p>{result['mediaCount']} publications</p>
-                <p style="color: #666; margin-top: 20px;">Cette fenêtre va se fermer...</p>
-            </div>
             <script>
-                // Notifier la fenêtre parente
                 if (window.opener) {{
                     window.opener.postMessage({{
                         type: 'instagram-connected',
-                        data: {result}
+                        data: {result_json}
                     }}, '*');
+                    window.close();
+                }} else {{
+                    window.location.href = '/my_profil';
                 }}
-                // Fermer la popup après 2 secondes
-                setTimeout(() => window.close(), 2000);
             </script>
-        </body>
+        </head>
+        <body></body>
         </html>
         """
         
