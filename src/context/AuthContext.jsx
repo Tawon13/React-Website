@@ -3,7 +3,10 @@ import {
     createUserWithEmailAndPassword, 
     signInWithEmailAndPassword, 
     signOut, 
-    onAuthStateChanged 
+    onAuthStateChanged,
+    GoogleAuthProvider,
+    FacebookAuthProvider,
+    signInWithPopup
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
@@ -105,6 +108,94 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    // Connexion avec Google
+    const signInWithGoogle = async (isInfluencer = true) => {
+        try {
+            const provider = new GoogleAuthProvider();
+            const userCredential = await signInWithPopup(auth, provider);
+            const user = userCredential.user;
+
+            // Vérifier si l'utilisateur existe déjà
+            const collection = isInfluencer ? 'influencers' : 'brands';
+            const docRef = doc(db, collection, user.uid);
+            const docSnap = await getDoc(docRef);
+
+            // Si l'utilisateur n'existe pas, créer son profil
+            if (!docSnap.exists()) {
+                const userData = {
+                    uid: user.uid,
+                    email: user.email,
+                    userType: isInfluencer ? 'influencer' : 'brand',
+                    name: user.displayName || '',
+                    photoURL: user.photoURL || '',
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                };
+
+                if (isInfluencer) {
+                    userData.socialMedia = {
+                        instagram: '',
+                        tiktok: '',
+                        youtube: ''
+                    };
+                } else {
+                    userData.brandName = '';
+                    userData.companyName = '';
+                }
+
+                await setDoc(docRef, userData);
+            }
+
+            return user;
+        } catch (error) {
+            throw error;
+        }
+    };
+
+    // Connexion avec Facebook
+    const signInWithFacebook = async (isInfluencer = true) => {
+        try {
+            const provider = new FacebookAuthProvider();
+            const userCredential = await signInWithPopup(auth, provider);
+            const user = userCredential.user;
+
+            // Vérifier si l'utilisateur existe déjà
+            const collection = isInfluencer ? 'influencers' : 'brands';
+            const docRef = doc(db, collection, user.uid);
+            const docSnap = await getDoc(docRef);
+
+            // Si l'utilisateur n'existe pas, créer son profil
+            if (!docSnap.exists()) {
+                const userData = {
+                    uid: user.uid,
+                    email: user.email,
+                    userType: isInfluencer ? 'influencer' : 'brand',
+                    name: user.displayName || '',
+                    photoURL: user.photoURL || '',
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                };
+
+                if (isInfluencer) {
+                    userData.socialMedia = {
+                        instagram: '',
+                        tiktok: '',
+                        youtube: ''
+                    };
+                } else {
+                    userData.brandName = '';
+                    userData.companyName = '';
+                }
+
+                await setDoc(docRef, userData);
+            }
+
+            return user;
+        } catch (error) {
+            throw error;
+        }
+    };
+
     // Déconnexion
     const logout = async () => {
         try {
@@ -173,6 +264,8 @@ export const AuthProvider = ({ children }) => {
         signUpInfluencer,
         signUpBrand,
         signIn,
+        signInWithGoogle,
+        signInWithFacebook,
         logout,
         loading
     };
