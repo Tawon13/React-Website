@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { doc, updateDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore'
-import { db, FUNCTIONS_URL, storage } from '../config/firebase'
+import { db, INSTAGRAM_CONNECT_URL, TIKTOK_CONNECT_URL, YOUTUBE_CONNECT_URL, storage } from '../config/firebase'
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 
 // Composant pour le profil des marques
@@ -275,9 +275,9 @@ const MyProfile = () => {
 
     const functionsOrigin = useMemo(() => {
         try {
-            return new URL(FUNCTIONS_URL).origin
+            return new URL(INSTAGRAM_CONNECT_URL).origin
         } catch (error) {
-            console.error('Invalid FUNCTIONS_URL, cannot validate OAuth responses.', error)
+            console.error('Invalid Cloud Run URL, cannot validate OAuth responses.', error)
             return null
         }
     }, [])
@@ -436,7 +436,7 @@ const MyProfile = () => {
         setMessage({ type: '', text: '' })
         
         try {
-            await openOAuthPopup(`${FUNCTIONS_URL}/instagram_connect`, 'Instagram Login')
+            await openOAuthPopup(INSTAGRAM_CONNECT_URL, 'Instagram Login')
         } catch (error) {
             console.error('Error connecting Instagram:', error)
             setMessage({ type: 'error', text: 'Erreur lors de la connexion à Instagram' })
@@ -451,7 +451,7 @@ const MyProfile = () => {
         setMessage({ type: '', text: '' })
         
         try {
-            await openOAuthPopup(`${FUNCTIONS_URL}/tiktok_connect`, 'TikTok Login')
+            await openOAuthPopup(TIKTOK_CONNECT_URL, 'TikTok Login')
         } catch (error) {
             console.error('Error connecting TikTok:', error)
             setMessage({ type: 'error', text: 'Erreur lors de la connexion à TikTok' })
@@ -466,7 +466,7 @@ const MyProfile = () => {
         setMessage({ type: '', text: '' })
         
         try {
-            await openOAuthPopup(`${FUNCTIONS_URL}/youtube_connect`, 'YouTube Login')
+            await openOAuthPopup(YOUTUBE_CONNECT_URL, 'YouTube Login')
         } catch (error) {
             console.error('Error connecting YouTube:', error)
             setMessage({ type: 'error', text: 'Erreur lors de la connexion à YouTube' })

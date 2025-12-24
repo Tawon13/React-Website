@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { FUNCTIONS_URL } from '../config/firebase'
+import { CONTACT_EMAIL_URL } from '../config/firebase'
 
 const Contact = () => {
   const [formData, setFormData] = useState({
@@ -27,7 +27,7 @@ const Contact = () => {
     setSuccess(false)
 
     try {
-      const response = await fetch(`${FUNCTIONS_URL}/send_contact_email_handler`, {
+      const response = await fetch(CONTACT_EMAIL_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -5,4 +5,8 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   publicDir: 'public',
+  server: {
+    // Configuration pour le routage SPA en développement
+    historyApiFallback: true,
+  },
 })

@@ -44,11 +44,15 @@ export const db = getFirestore(app);
 export const analytics = getAnalytics(app);
 export const storage = getStorage(app);
 
-// Firebase Functions URL
-export const FUNCTIONS_URL = import.meta.env.VITE_FIREBASE_FUNCTIONS_URL;
+// Cloud Run Functions URLs (Gen2)
+export const INSTAGRAM_CONNECT_URL = import.meta.env.VITE_INSTAGRAM_CONNECT_URL;
+export const TIKTOK_CONNECT_URL = import.meta.env.VITE_TIKTOK_CONNECT_URL;
+export const YOUTUBE_CONNECT_URL = import.meta.env.VITE_YOUTUBE_CONNECT_URL;
+export const CONTACT_EMAIL_URL = import.meta.env.VITE_CONTACT_EMAIL_URL;
 
-if (!FUNCTIONS_URL) {
-    throw new Error('Missing env variable: VITE_FIREBASE_FUNCTIONS_URL');
+// Validate required function URLs
+if (!INSTAGRAM_CONNECT_URL || !TIKTOK_CONNECT_URL || !YOUTUBE_CONNECT_URL) {
+    console.warn('Some Cloud Run function URLs are missing. Social media connections may not work.');
 }
 
 export default app;
