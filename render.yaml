@@ -1,6 +1,6 @@
 services:
   - type: web
     name: collabzz
-    env: node
-    buildCommand: npm install && npm run build
-    startCommand: npm start
+    env: static
+    buildCommand: npm install && npm run build && cp dist/index.html dist/404.html
+    staticPublishPath: ./dist
