@@ -1,0 +1,58 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Fonction helper pour vérifier l'authentification
+    function isAuth() {
+      return request.auth != null;
+    }
+    
+    // Fonction pour vérifier le type de fichier (images uniquement)
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    // Fonction pour vérifier la taille du fichier (max 5MB)
+    function isUnderSize(size) {
+      return request.resource.size < size * 1024 * 1024;
+    }
+    
+    // Photos de profil
+    match /profile_photos/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuth() && isImage() && isUnderSize(5);
+    }
+    
+    // Photos de portfolio
+    match /portfolio/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuth() && isImage() && isUnderSize(5);
+    }
+    
+    // Photos des influenceurs (ancien système)
+    match /influencers/{userId}/photos/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuth() && isImage() && isUnderSize(5);
+    }
+    
+    // Vidéos TikTok
+    match /tiktok/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuth() 
+                   && request.resource.contentType.matches('video/.*')
+                   && isUnderSize(50);
+    }
+    
+    // Fichiers de marques
+    match /brands/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuth();
+    }
+    
+    // Bloquer tout accès non défini
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

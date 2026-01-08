@@ -3,6 +3,8 @@ import { useAuth } from '../context/AuthContext'
 import { doc, updateDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore'
 import { db, INSTAGRAM_CONNECT_URL, TIKTOK_CONNECT_URL, YOUTUBE_CONNECT_URL, storage } from '../config/firebase'
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
+import PhotoUpload from '../components/PhotoUpload'
+import PortfolioGallery from '../components/PortfolioGallery'
 
 // Composant pour le profil des marques
 const BrandProfile = ({ currentUser, userData }) => {
@@ -1009,57 +1011,63 @@ const MyProfile = () => {
             {/* Onglet Gestion du Profil */}
             {activeTab === 'profile-management' && (
                 <div className='space-y-6'>
-                    {/* Section Photos */}
+                    {/* Photo de profil principale */}
                     <div className='bg-white rounded-lg shadow-md p-6'>
-                        <div className='flex items-center justify-between mb-4'>
-                            <h2 className='text-xl font-semibold'>Mes Photos de Profil</h2>
-                            <label className='px-4 py-2 bg-primary text-white rounded-lg cursor-pointer hover:bg-primary/90 transition-colors disabled:opacity-50'>
-                                <input
-                                    type='file'
-                                    accept='image/*'
-                                    onChange={handleAddPhoto}
-                                    disabled={uploading}
-                                    className='hidden'
-                                />
-                                {uploading ? 'Téléchargement...' : '+ Ajouter une photo'}
-                            </label>
-                        </div>
-                        
-                        {profilePhotos.length > 0 ? (
-                            <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'>
-                                {profilePhotos.map((photo) => (
-                                    <div key={photo.id} className='relative group'>
-                                        <img
-                                            src={photo.url}
-                                            alt='Photo de profil'
-                                            className='w-full h-48 object-cover rounded-lg'
-                                        />
-                                        <button
-                                            onClick={() => handleDeletePhoto(photo.id)}
-                                            className='absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity'
-                                        >
-                                            <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className='text-center py-8 text-gray-500'>
-                                <svg className='w-16 h-16 mx-auto mb-4 text-gray-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' />
-                                </svg>
-                                <p>Aucune photo pour le moment</p>
-                                <p className='text-sm text-gray-400 mt-2'>Ajoutez des photos pour enrichir votre profil</p>
-                            </div>
-                        )}
+                        <h2 className='text-xl font-semibold mb-6'>Photo de profil</h2>
+                        <PhotoUpload
+                            userId={currentUser.uid}
+                            currentPhotoURL={userData?.photoURL || ''}
+                            onPhotoUploaded={async (url) => {
+                                try {
+                                    await updateDoc(doc(db, 'influencers', currentUser.uid), {
+                                        photoURL: url,
+                                        updatedAt: new Date().toISOString()
+                                    })
+                                    setMessage({ type: 'success', text: 'Photo de profil mise à jour' })
+                                } catch (error) {
+                                    console.error('Error updating photo:', error)
+                                    setMessage({ type: 'error', text: 'Erreur lors de la mise à jour' })
+                                }
+                            }}
+                            label="Photo de profil principale"
+                            folder="profile_photos"
+                        />
+                    </div>
+
+                    {/* Portfolio de photos */}
+                    <div className='bg-white rounded-lg shadow-md p-6'>
+                        <h2 className='text-xl font-semibold mb-6'>Portfolio</h2>
+                        <p className='text-gray-600 mb-6'>
+                            Ajoutez vos meilleures photos pour montrer votre style aux marques
+                        </p>
+                        <PortfolioGallery
+                            userId={currentUser.uid}
+                            photos={profilePhotos}
+                            onPhotosUpdated={async (updatedPhotos) => {
+                                try {
+                                    setProfilePhotos(updatedPhotos)
+                                    await updateDoc(doc(db, 'influencers', currentUser.uid), {
+                                        profilePhotos: updatedPhotos,
+                                        updatedAt: new Date().toISOString()
+                                    })
+                                    setMessage({ type: 'success', text: 'Portfolio mis à jour' })
+                                } catch (error) {
+                                    console.error('Error updating portfolio:', error)
+                                    setMessage({ type: 'error', text: 'Erreur lors de la mise à jour' })
+                                }
+                            }}
+                            maxPhotos={12}
+                            maxSize={5}
+                        />
                     </div>
 
                     {/* Section Vidéos des marques */}
                     <div className='bg-white rounded-lg shadow-md p-6'>
                         <div className='flex items-center justify-between mb-4'>
-                            <h2 className='text-xl font-semibold'>Collaborations Vidéo</h2>
+                            <div>
+                                <h2 className='text-xl font-semibold'>Collaborations Vidéo</h2>
+                                <p className='text-sm text-gray-600 mt-1'>Partagez vos collaborations avec les marques</p>
+                            </div>
                             <button
                                 onClick={handleAddVideo}
                                 className='px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors'
