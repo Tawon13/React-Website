@@ -252,7 +252,7 @@ const BrandProfile = ({ currentUser, userData }) => {
 }
 
 const MyProfile = () => {
-    const { currentUser, userData, userType } = useAuth()
+    const { currentUser, userData, userType, refreshUserData } = useAuth()
     const [loading, setLoading] = useState(false)
     const [message, setMessage] = useState({ type: '', text: '' })
     const popupRef = useRef(null)
@@ -671,9 +671,17 @@ const MyProfile = () => {
             {/* En-tête avec statistiques */}
             <div className='bg-white rounded-xl shadow-md p-6 mb-6'>
                 <div className='flex items-center gap-6 mb-6'>
-                    <div className='w-20 h-20 bg-primary rounded-full flex items-center justify-center text-white text-3xl font-bold'>
-                        {userData?.name?.charAt(0) || currentUser.email.charAt(0).toUpperCase()}
-                    </div>
+                    {userData?.photoURL ? (
+                        <img 
+                            src={userData.photoURL} 
+                            alt="Photo de profil"
+                            className='w-20 h-20 rounded-full object-cover border-4 border-primary shadow-lg'
+                        />
+                    ) : (
+                        <div className='w-20 h-20 bg-primary rounded-full flex items-center justify-center text-white text-3xl font-bold'>
+                            {userData?.name?.charAt(0) || currentUser.email.charAt(0).toUpperCase()}
+                        </div>
+                    )}
                     <div className='flex-1'>
                         <h1 className='text-3xl font-bold text-gray-900'>{userData?.name || 'Mon Profil'}</h1>
                         <p className='text-gray-600 mt-1'>{currentUser.email}</p>
@@ -1023,6 +1031,7 @@ const MyProfile = () => {
                                         photoURL: url,
                                         updatedAt: new Date().toISOString()
                                     })
+                                    await refreshUserData() // Rafraîchir les données
                                     setMessage({ type: 'success', text: 'Photo de profil mise à jour' })
                                 } catch (error) {
                                     console.error('Error updating photo:', error)

@@ -267,7 +267,8 @@ export const AuthProvider = ({ children }) => {
         signInWithGoogle,
         signInWithFacebook,
         logout,
-        loading
+        loading,
+        refreshUserData: () => currentUser && fetchUserData(currentUser.uid)
     };
 
     return (

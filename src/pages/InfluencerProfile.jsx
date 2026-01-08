@@ -17,6 +17,7 @@ const InfluencerProfile = () => {
     const [influencer, setInfluencer] = useState(null)
     const [firebaseInfluencerId, setFirebaseInfluencerId] = useState(null)
     const [socialData, setSocialData] = useState(null)
+    const [firebaseProfilePhoto, setFirebaseProfilePhoto] = useState(null)
     const [currentImageIndex, setCurrentImageIndex] = useState(0)
     const [selectedPackage, setSelectedPackage] = useState('📸 1 Post Instagram')
     const [loading, setLoading] = useState(false)
@@ -157,6 +158,10 @@ const InfluencerProfile = () => {
                     console.log('Données Firebase récupérées:', data)
                     // Stocker l'ID Firebase réel
                     setFirebaseInfluencerId(docSnap.id)
+                    // Charger la photo de profil uploadée
+                    if (data.photoURL) {
+                        setFirebaseProfilePhoto(data.photoURL)
+                    }
                     if (data.socialAccounts) {
                         setSocialData(data.socialAccounts)
                     }
@@ -459,7 +464,7 @@ const InfluencerProfile = () => {
                     {/* Profile Header */}
                     <div className='flex items-start gap-4 mb-6'>
                         <img 
-                            src={influencer.image} 
+                            src={firebaseProfilePhoto || influencer.image} 
                             alt={influencer.name}
                             className='w-20 h-20 rounded-full object-cover'
                         />
