@@ -18,6 +18,25 @@ const LoginBrand = () => {
         password: ''
     })
 
+    const getSocialAuthErrorMessage = (error, providerLabel) => {
+        switch (error?.code) {
+            case 'auth/unauthorized-domain':
+                return 'Domaine non autorisé dans Firebase. Ajoutez votre domaine Vercel dans Authentication > Settings > Authorized domains.'
+            case 'auth/operation-not-allowed':
+                return `${providerLabel} n'est pas activé dans Firebase Authentication.`
+            case 'auth/popup-blocked':
+                return 'La popup de connexion a été bloquée par le navigateur. Autorisez les popups puis réessayez.'
+            case 'auth/popup-closed-by-user':
+                return 'La popup a été fermée avant la fin de la connexion.'
+            case 'auth/cancelled-popup-request':
+                return 'Une autre popup de connexion est déjà en cours.'
+            case 'auth/network-request-failed':
+                return 'Erreur réseau pendant la connexion. Vérifiez votre connexion internet.'
+            default:
+                return `Erreur lors de la connexion avec ${providerLabel}${error?.code ? ` (${error.code})` : ''}`
+        }
+    }
+
     const handleChange = (e) => {
         setFormData({
             ...formData,
@@ -33,7 +52,7 @@ const LoginBrand = () => {
             navigate('/')
         } catch (error) {
             console.error('Google sign in error:', error)
-            setError('Erreur lors de la connexion avec Google')
+            setError(getSocialAuthErrorMessage(error, 'Google'))
         } finally {
             setLoading(false)
         }
@@ -47,7 +66,7 @@ const LoginBrand = () => {
             navigate('/')
         } catch (error) {
             console.error('Facebook sign in error:', error)
-            setError('Erreur lors de la connexion avec Facebook')
+            setError(getSocialAuthErrorMessage(error, 'Facebook'))
         } finally {
             setLoading(false)
         }
