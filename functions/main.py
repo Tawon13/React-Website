@@ -31,8 +31,6 @@ from lib.token_store import get_user_tokens
 set_global_options(max_instances=10)
 
 STATE_SIGNING_SECRET = os.getenv('STATE_SIGNING_SECRET')
-if not STATE_SIGNING_SECRET:
-    raise ValueError('STATE_SIGNING_SECRET environment variable is required')
 
 STATE_TTL_SECONDS = int(os.getenv('STATE_TTL_SECONDS', '600'))
 
@@ -46,6 +44,9 @@ class AuthorizationError(Exception):
 
 
 def _sign_message(message: str) -> str:
+    if not STATE_SIGNING_SECRET:
+        raise RuntimeError('STATE_SIGNING_SECRET environment variable is required')
+
     digest = hmac.new(
         STATE_SIGNING_SECRET.encode('utf-8'),
         msg=message.encode('utf-8'),
