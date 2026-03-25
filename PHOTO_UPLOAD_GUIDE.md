@@ -45,6 +45,22 @@ firebase deploy --only storage
 3. **Storage** → Si pas activé, cliquez sur "Commencer"
 4. Choisissez le mode "Production" et une région (europe-west1)
 
+### Import en lot des images locales vers Firebase Storage
+
+Depuis la racine du projet:
+
+```bash
+npm run upload:assets:dry
+```
+
+Puis, pour uploader réellement:
+
+```bash
+FIREBASE_SERVICE_ACCOUNT_KEY=./service-account.json npm run upload:assets
+```
+
+Le script lit les images de `src/assets`, les envoie dans `seed-assets/` et génère un mapping dans `scripts/uploaded-assets-map.json`.
+
 ## 💾 Structure de données Firestore
 
 Les données des photos sont stockées dans les documents des influenceurs :

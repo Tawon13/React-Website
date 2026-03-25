@@ -335,26 +335,23 @@ const MyProfile = () => {
 
     useEffect(() => {
         if (userData?.socialAccounts) {
+            const toNumber = (value) => {
+                const num = Number(value)
+                return Number.isFinite(num) ? num : 0
+            }
+
+            const normalizeSocialAccount = (account = {}) => ({
+                connected: Boolean(account.connected),
+                username: account.username || account.displayName || '',
+                followers: toNumber(account.followers),
+                lastUpdated: account.lastUpdated || null
+            })
+
             // Merger les données avec les valeurs par défaut
             setSocialAccounts({
-                instagram: {
-                    connected: userData.socialAccounts.instagram?.connected || false,
-                    username: userData.socialAccounts.instagram?.username || '',
-                    followers: userData.socialAccounts.instagram?.followers || 0,
-                    lastUpdated: userData.socialAccounts.instagram?.lastUpdated || null
-                },
-                tiktok: {
-                    connected: userData.socialAccounts.tiktok?.connected || false,
-                    username: userData.socialAccounts.tiktok?.username || '',
-                    followers: userData.socialAccounts.tiktok?.followers || 0,
-                    lastUpdated: userData.socialAccounts.tiktok?.lastUpdated || null
-                },
-                youtube: {
-                    connected: userData.socialAccounts.youtube?.connected || false,
-                    username: userData.socialAccounts.youtube?.username || '',
-                    followers: userData.socialAccounts.youtube?.followers || 0,
-                    lastUpdated: userData.socialAccounts.youtube?.lastUpdated || null
-                }
+                instagram: normalizeSocialAccount(userData.socialAccounts.instagram),
+                tiktok: normalizeSocialAccount(userData.socialAccounts.tiktok),
+                youtube: normalizeSocialAccount(userData.socialAccounts.youtube)
             })
         }
         
@@ -514,7 +511,23 @@ const MyProfile = () => {
 
     const formatDate = (timestamp) => {
         if (!timestamp) return 'Jamais'
-        return new Date(timestamp).toLocaleDateString('fr-FR')
+
+        let dateValue = null
+
+        if (typeof timestamp?.toDate === 'function') {
+            dateValue = timestamp.toDate()
+        } else if (
+            typeof timestamp === 'object' &&
+            timestamp !== null &&
+            typeof timestamp.seconds === 'number'
+        ) {
+            dateValue = new Date(timestamp.seconds * 1000)
+        } else {
+            dateValue = new Date(timestamp)
+        }
+
+        if (Number.isNaN(dateValue.getTime())) return 'Jamais'
+        return dateValue.toLocaleDateString('fr-FR')
     }
 
     // Fonction pour ajouter des photos

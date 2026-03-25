@@ -30,102 +30,67 @@ const InfluencerProfile = () => {
     const [tiktokVideos, setTiktokVideos] = useState([])
     const [selectedVideo, setSelectedVideo] = useState(null)
 
-    // Fonction pour générer des données analytics uniques par influenceur
-    const generateAnalyticsData = (influencerId) => {
-        // Créer un seed basé sur l'ID de l'influenceur
-        const seed = influencerId ? influencerId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 1000
-        
-        // Fonction de génération pseudo-aléatoire basée sur le seed
-        const seededRandom = (min, max, offset = 0) => {
-            const x = Math.sin(seed + offset) * 10000
-            return Math.floor((x - Math.floor(x)) * (max - min + 1)) + min
-        }
-
-        // Générer différents formats de nombres
-        const formatFollowers = (platform) => {
-            const base = seededRandom(500, 3000, platform === 'instagram' ? 1 : platform === 'tiktok' ? 2 : 3)
-            return base >= 1000 ? `${(base / 1000).toFixed(1)}M` : `${base}k`
-        }
-
-        const formatViews = (platform) => {
-            const base = seededRandom(200, 1500, platform === 'instagram' ? 10 : platform === 'tiktok' ? 20 : 30)
-            return base >= 1000 ? `${(base / 1000).toFixed(1)}M` : `${base}k`
-        }
-
-        const generateAgeDistribution = (platformOffset) => {
-            const ages = [
-                { range: '13-17', percentage: seededRandom(3, 20, platformOffset + 1) },
-                { range: '18-24', percentage: seededRandom(30, 55, platformOffset + 2) },
-                { range: '25-34', percentage: seededRandom(20, 45, platformOffset + 3) },
-                { range: '35-44', percentage: seededRandom(5, 20, platformOffset + 4) },
-                { range: '45-64', percentage: seededRandom(2, 15, platformOffset + 5) }
-            ]
-            // Normaliser pour que le total soit proche de 100%
-            const total = ages.reduce((sum, age) => sum + age.percentage, 0)
-            return ages.map(age => ({
-                ...age,
-                percentage: Math.round((age.percentage / total) * 100)
-            }))
-        }
-
-        const generateLocation = (platformOffset) => {
-            const locations = [
-                { country: 'France', flag: '🇫🇷', percentage: seededRandom(35, 65, platformOffset + 1) },
-                { country: seededRandom(0, 1, platformOffset + 2) === 0 ? 'Belgique' : 'Canada', 
-                  flag: seededRandom(0, 1, platformOffset + 2) === 0 ? '🇧🇪' : '🇨🇦', 
-                  percentage: seededRandom(5, 15, platformOffset + 3) },
-                { country: 'Suisse', flag: '🇨🇭', percentage: seededRandom(3, 10, platformOffset + 4) }
-            ]
-            const usedPercentage = locations.reduce((sum, loc) => sum + loc.percentage, 0)
-            locations.push({ country: 'Autre', flag: '🌍', percentage: 100 - usedPercentage })
-            return locations
-        }
-
-        return {
-            instagram: {
-                followers: formatFollowers('instagram'),
-                avgViews: formatViews('instagram'),
-                engagement: `${(seededRandom(25, 65, 100) / 10).toFixed(1)}%`,
-                audienceLocation: generateLocation(10),
-                audienceAge: generateAgeDistribution(20),
-                audienceGender: {
-                    male: seededRandom(40, 75, 200),
-                    female: 100 - seededRandom(40, 75, 200)
-                }
-            },
-            tiktok: {
-                followers: formatFollowers('tiktok'),
-                avgViews: formatViews('tiktok'),
-                engagement: `${(seededRandom(30, 70, 300) / 10).toFixed(1)}%`,
-                audienceLocation: generateLocation(40),
-                audienceAge: generateAgeDistribution(50),
-                audienceGender: {
-                    male: seededRandom(35, 70, 400),
-                    female: 100 - seededRandom(35, 70, 400)
-                }
-            },
-            youtube: {
-                followers: formatFollowers('youtube'),
-                avgViews: formatViews('youtube'),
-                engagement: `${(seededRandom(20, 60, 500) / 10).toFixed(1)}%`,
-                audienceLocation: generateLocation(70),
-                audienceAge: generateAgeDistribution(80),
-                audienceGender: {
-                    male: seededRandom(45, 80, 600),
-                    female: 100 - seededRandom(45, 80, 600)
-                }
-            }
-        }
-    }
-
     const [analyticsData, setAnalyticsData] = useState(null)
 
-    // Générer les analytics au chargement ou changement d'influenceur
+    const toNumber = (value) => {
+        const num = Number(value)
+        return Number.isFinite(num) ? num : 0
+    }
+
+    const formatCompactNumber = (value) => {
+        if (value === null || value === undefined) return '—'
+        const num = Number(value)
+        if (!Number.isFinite(num) || num < 0) return '—'
+        if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`
+        if (num >= 1000) return `${(num / 1000).toFixed(1)}K`
+        return num.toLocaleString('fr-FR')
+    }
+
     useEffect(() => {
-        if (influencerId) {
-            setAnalyticsData(generateAnalyticsData(influencerId))
+        const buildPlatformAnalytics = (platformData = {}) => {
+            const followers = toNumber(platformData.followers)
+            const likes = toNumber(platformData.likes)
+            const totalViews = toNumber(platformData.views)
+            const videoCount = toNumber(platformData.videoCount)
+            const explicitAvgViews = toNumber(platformData.avgViews)
+
+            const avgViews = explicitAvgViews > 0
+                ? explicitAvgViews
+                : totalViews > 0 && videoCount > 0
+                ? Math.round(totalViews / videoCount)
+                : null
+
+            let engagementRate = null
+            if (totalViews > 0 && likes > 0) {
+                engagementRate = (likes / totalViews) * 100
+            } else if (followers > 0 && likes > 0 && videoCount > 0) {
+                const likesPerVideo = likes / videoCount
+                engagementRate = (likesPerVideo / followers) * 100
+            }
+
+            const normalizedEngagement = engagementRate !== null
+                ? Number(Math.min(Math.max(engagementRate, 0), 100).toFixed(1))
+                : null
+
+            return {
+                followers,
+                avgViews,
+                engagementRate: normalizedEngagement,
+                likes,
+                videoCount,
+                totalViews,
+                audienceLocation: Array.isArray(platformData.audienceLocation) ? platformData.audienceLocation : [],
+                audienceAge: Array.isArray(platformData.audienceAge) ? platformData.audienceAge : [],
+                audienceGender: platformData.audienceGender || null
+            }
         }
-    }, [influencerId])
+
+        setAnalyticsData({
+            instagram: buildPlatformAnalytics(socialData?.instagram),
+            tiktok: buildPlatformAnalytics(socialData?.tiktok),
+            youtube: buildPlatformAnalytics(socialData?.youtube)
+        })
+    }, [socialData])
 
     // Prix basés sur les packages
     const packagePrices = {
@@ -291,6 +256,21 @@ const InfluencerProfile = () => {
     if (!influencer) {
         return <div className="text-center py-20">Chargement...</div>
     }
+
+    const currentAnalytics = analyticsData?.[activeAnalyticsTab]
+    const audienceLocations = currentAnalytics?.audienceLocation || []
+    const audienceAges = currentAnalytics?.audienceAge || []
+    const audienceGender = currentAnalytics?.audienceGender
+    const secondaryMetricValue = currentAnalytics?.avgViews
+        ?? (currentAnalytics?.videoCount > 0 ? currentAnalytics.videoCount : null)
+        ?? (currentAnalytics?.likes > 0 ? currentAnalytics.likes : null)
+    const secondaryMetricLabel = currentAnalytics?.avgViews
+        ? 'Vues Moyennes'
+        : currentAnalytics?.videoCount > 0
+            ? 'Vidéos'
+            : currentAnalytics?.likes > 0
+                ? 'Likes'
+                : 'Vues Moyennes'
 
     return (
         <div className='max-w-6xl mx-auto py-6 sm:py-10 px-4 sm:px-6'>
@@ -676,19 +656,21 @@ const InfluencerProfile = () => {
                 <div className='grid grid-cols-3 gap-4 md:gap-6 mb-8'>
                     <div>
                         <div className='text-2xl md:text-3xl font-bold text-gray-900'>
-                            {analyticsData && analyticsData[activeAnalyticsTab]?.followers}
+                            {formatCompactNumber(currentAnalytics?.followers)}
                         </div>
                         <div className='text-sm text-gray-600 mt-1'>Abonnés</div>
                     </div>
                     <div>
                         <div className='text-2xl md:text-3xl font-bold text-gray-900'>
-                            {analyticsData && analyticsData[activeAnalyticsTab]?.avgViews}
+                            {formatCompactNumber(secondaryMetricValue)}
                         </div>
-                        <div className='text-sm text-gray-600 mt-1'>Vues Moyennes</div>
+                        <div className='text-sm text-gray-600 mt-1'>{secondaryMetricLabel}</div>
                     </div>
                     <div>
                         <div className='text-2xl md:text-3xl font-bold text-gray-900'>
-                            {analyticsData && analyticsData[activeAnalyticsTab]?.engagement}
+                            {currentAnalytics?.engagementRate !== null && currentAnalytics?.engagementRate !== undefined
+                                ? `${currentAnalytics.engagementRate}%`
+                                : '—'}
                         </div>
                         <div className='text-sm text-gray-600 mt-1'>Engagement</div>
                     </div>
@@ -699,8 +681,9 @@ const InfluencerProfile = () => {
                     {/* Audience Location */}
                     <div>
                         <h3 className='text-lg font-semibold mb-4'>Localisation du Public</h3>
-                        <div className='space-y-3'>
-                            {analyticsData && analyticsData[activeAnalyticsTab]?.audienceLocation.map((location, index) => (
+                        {audienceLocations.length > 0 ? (
+                            <div className='space-y-3'>
+                                {audienceLocations.map((location, index) => (
                                 <div key={index} className='flex items-center gap-3'>
                                     <span className='text-2xl'>{location.flag}</span>
                                     <div className='flex-1'>
@@ -716,18 +699,22 @@ const InfluencerProfile = () => {
                                         </div>
                                     </div>
                                 </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className='text-sm text-gray-500'>Données de localisation non fournies par l’API de la plateforme.</p>
+                        )}
                     </div>
 
                     {/* Audience Age */}
                     <div>
                         <h3 className='text-lg font-semibold mb-4'>Âge du Public</h3>
-                        <div className='flex items-end justify-between h-48 gap-2'>
-                            {analyticsData && analyticsData[activeAnalyticsTab]?.audienceAge.map((age, index) => {
+                        {audienceAges.length > 0 ? (
+                            <div className='flex items-end justify-between h-48 gap-2'>
+                                {audienceAges.map((age, index) => {
                                 // Calculer la hauteur proportionnelle au pourcentage réel
                                 const height = (age.percentage / 100) * 100 // pourcentage direct
-                                const isHighest = age.percentage === Math.max(...analyticsData[activeAnalyticsTab].audienceAge.map(a => a.percentage))
+                                const isHighest = age.percentage === Math.max(...audienceAges.map(a => a.percentage))
                                 return (
                                     <div key={index} className='flex-1 flex flex-col items-center justify-end' style={{ height: '100%' }}>
                                         <div className='text-xs font-semibold mb-1'>{age.percentage}%</div>
@@ -741,28 +728,31 @@ const InfluencerProfile = () => {
                                         <div className='text-xs text-gray-600 mt-2'>{age.range}</div>
                                     </div>
                                 )
-                            })}
-                        </div>
+                                })}
+                            </div>
+                        ) : (
+                            <p className='text-sm text-gray-500'>Données d’âge non fournies par l’API de la plateforme.</p>
+                        )}
                     </div>
                 </div>
 
                 {/* Audience Gender */}
                 <div className='mt-8'>
                     <h3 className='text-lg font-semibold mb-4'>Genre du Public</h3>
-                    <div className='flex items-center gap-6'>
-                        <div className='relative w-32 h-32'>
-                            <svg className='w-full h-full transform -rotate-90' viewBox='0 0 100 100'>
-                                {/* Female segment */}
-                                <circle
-                                    cx='50'
-                                    cy='50'
-                                    r='40'
-                                    fill='none'
-                                    stroke='#e0e0e0'
-                                    strokeWidth='20'
-                                />
-                                {/* Male segment */}
-                                {analyticsData && (
+                    {audienceGender ? (
+                        <div className='flex items-center gap-6'>
+                            <div className='relative w-32 h-32'>
+                                <svg className='w-full h-full transform -rotate-90' viewBox='0 0 100 100'>
+                                    {/* Female segment */}
+                                    <circle
+                                        cx='50'
+                                        cy='50'
+                                        r='40'
+                                        fill='none'
+                                        stroke='#e0e0e0'
+                                        strokeWidth='20'
+                                    />
+                                    {/* Male segment */}
                                     <circle
                                         cx='50'
                                         cy='50'
@@ -770,26 +760,26 @@ const InfluencerProfile = () => {
                                         fill='none'
                                         stroke='#5569ff'
                                         strokeWidth='20'
-                                        strokeDasharray={`${analyticsData[activeAnalyticsTab]?.audienceGender.male * 2.51} ${251 - (analyticsData[activeAnalyticsTab]?.audienceGender.male * 2.51)}`}
+                                        strokeDasharray={`${audienceGender.male * 2.51} ${251 - (audienceGender.male * 2.51)}`}
                                     />
-                                )}
-                            </svg>
-                        </div>
-                        {analyticsData && (
+                                </svg>
+                            </div>
                             <div className='space-y-3'>
                                 <div className='flex items-center gap-3'>
                                     <div className='w-4 h-4 rounded-full bg-primary' />
                                     <span className='text-sm text-gray-700'>Homme</span>
-                                    <span className='text-sm font-semibold text-gray-900'>{analyticsData[activeAnalyticsTab]?.audienceGender.male}%</span>
+                                    <span className='text-sm font-semibold text-gray-900'>{audienceGender.male}%</span>
                                 </div>
                                 <div className='flex items-center gap-3'>
                                     <div className='w-4 h-4 rounded-full bg-gray-300' />
                                     <span className='text-sm text-gray-700'>Femme</span>
-                                    <span className='text-sm font-semibold text-gray-900'>{analyticsData[activeAnalyticsTab]?.audienceGender.female}%</span>
+                                    <span className='text-sm font-semibold text-gray-900'>{audienceGender.female}%</span>
                                 </div>
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    ) : (
+                        <p className='text-sm text-gray-500'>Données de genre non fournies par l’API de la plateforme.</p>
+                    )}
                 </div>
             </div>
 

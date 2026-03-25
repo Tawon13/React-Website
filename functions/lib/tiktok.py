@@ -7,6 +7,7 @@ import os
 import requests
 from urllib.parse import urlencode
 from datetime import datetime, timedelta
+from typing import Optional
 from firebase_admin import firestore
 from lib.token_store import save_tokens
 
@@ -21,6 +22,78 @@ TIKTOK_REDIRECT_URI = os.getenv("TIKTOK_REDIRECT_URI")
 TIKTOK_AUTH_URL = "https://www.tiktok.com/v2/auth/authorize/"
 TIKTOK_TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/"
 TIKTOK_USER_INFO_URL = "https://open.tiktokapis.com/v2/user/info/"
+TIKTOK_VIDEO_LIST_URL = "https://open.tiktokapis.com/v2/video/list/"
+TIKTOK_USER_BASIC_FIELDS = "open_id,union_id,display_name,avatar_url"
+TIKTOK_USER_STATS_FIELDS = "follower_count,following_count,likes_count,video_count"
+TIKTOK_USER_FIELDS = f"{TIKTOK_USER_BASIC_FIELDS},{TIKTOK_USER_STATS_FIELDS}"
+
+
+def _fetch_user_info(access_token: str, fields: str) -> dict:
+    headers = {"Authorization": f"Bearer {access_token}"}
+    response = requests.get(
+        TIKTOK_USER_INFO_URL,
+        headers=headers,
+        params={"fields": fields},
+        timeout=20
+    )
+    response.raise_for_status()
+    return response.json().get("data", {}).get("user", {})
+
+
+def _get_tiktok_user_with_fallback(access_token: str) -> tuple[dict, bool]:
+    try:
+        return _fetch_user_info(access_token, TIKTOK_USER_FIELDS), True
+    except requests.HTTPError as exc:
+        status_code = exc.response.status_code if exc.response is not None else None
+        if status_code not in (401, 403):
+            raise
+
+    basic_user = _fetch_user_info(access_token, TIKTOK_USER_BASIC_FIELDS)
+    return basic_user, False
+
+
+def _to_int(value) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _fetch_tiktok_avg_views(access_token: str, max_count: int = 20) -> tuple[Optional[int], Optional[int], int, bool]:
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        response = requests.post(
+            TIKTOK_VIDEO_LIST_URL,
+            headers=headers,
+            params={"fields": "id,view_count"},
+            json={"max_count": max_count},
+            timeout=20
+        )
+        response.raise_for_status()
+    except requests.HTTPError as exc:
+        status_code = exc.response.status_code if exc.response is not None else None
+        if status_code in (401, 403):
+            return None, None, 0, False
+        return None, None, 0, False
+    except requests.RequestException:
+        return None, None, 0, False
+
+    payload = response.json() or {}
+    videos = (payload.get("data") or {}).get("videos") or []
+
+    view_values = [_to_int(video.get("view_count")) for video in videos]
+    view_values = [value for value in view_values if value >= 0]
+
+    if not view_values:
+        return None, None, 0, True
+
+    total_views = sum(view_values)
+    avg_views = round(total_views / len(view_values))
+    return total_views, avg_views, len(view_values), True
 
 # ========================
 # OAUTH – CONNEXION
@@ -74,28 +147,18 @@ def tiktok_callback(code: str, user_id: str) -> dict:
         raise Exception(f"Token TikTok invalide : {token}")
 
     # ========================
-    # RÉCUPÉRATION STATS
+    # RÉCUPÉRATION PROFIL + STATS (avec fallback)
     # ========================
 
-    headers = {
-        "Authorization": f"Bearer {access_token}"
-    }
+    user, has_stats_access = _get_tiktok_user_with_fallback(access_token)
 
-    user_res = requests.get(
-        TIKTOK_USER_INFO_URL,
-        headers=headers,
-        params={"fields": "statistics"}
-    )
-    user_res.raise_for_status()
-    user_json = user_res.json()
-
-    user = user_json["data"]["user"]
-    stats = user.get("statistics", {})
-
-    followers = stats.get("follower_count", 0)
-    following = stats.get("following_count", 0)
-    likes = stats.get("likes_count", 0)
-    videos = stats.get("video_count", 0)
+    followers = int(user.get("follower_count", 0) or 0)
+    following = int(user.get("following_count", 0) or 0)
+    likes = int(user.get("likes_count", 0) or 0)
+    videos = int(user.get("video_count", 0) or 0)
+    username = user.get("display_name") or ""
+    avatar_url = user.get("avatar_url") or ""
+    total_views, avg_views, sampled_videos, has_video_list_access = _fetch_tiktok_avg_views(access_token)
 
     # ========================
     # SAUVEGARDE FIRESTORE
@@ -106,10 +169,17 @@ def tiktok_callback(code: str, user_id: str) -> dict:
         "socialAccounts.tiktok": {
             "connected": True,
             "openId": open_id,
+            "username": username,
+            "avatarUrl": avatar_url,
             "followers": followers,
             "following": following,
             "likes": likes,
             "videoCount": videos,
+            "views": total_views,
+            "avgViews": avg_views,
+            "sampledVideos": sampled_videos,
+            "statsAccess": has_stats_access,
+            "videoListAccess": has_video_list_access,
             "lastUpdated": firestore.SERVER_TIMESTAMP
         }
     })
@@ -125,10 +195,16 @@ def tiktok_callback(code: str, user_id: str) -> dict:
 
     return {
         "success": True,
+        "username": username,
         "followers": followers,
         "following": following,
         "likes": likes,
-        "videoCount": videos
+        "videoCount": videos,
+        "views": total_views,
+        "avgViews": avg_views,
+        "sampledVideos": sampled_videos,
+        "statsAccess": has_stats_access,
+        "videoListAccess": has_video_list_access
     }
 
 
@@ -171,24 +247,30 @@ def update_tiktok_stats(user_id: str, tokens: dict) -> dict:
             "updatedAt": firestore.SERVER_TIMESTAMP
         })
 
-    # Récupération stats
-    headers = {"Authorization": f"Bearer {access_token}"}
-    res = requests.get(
-        TIKTOK_USER_INFO_URL,
-        headers=headers,
-        params={"fields": "statistics"}
-    )
-    res.raise_for_status()
-
-    stats = res.json()["data"]["user"].get("statistics", {})
+    # Récupération profil/stats avec fallback
+    user, has_stats_access = _get_tiktok_user_with_fallback(access_token)
+    total_views, avg_views, sampled_videos, has_video_list_access = _fetch_tiktok_avg_views(access_token)
 
     db = firestore.client()
     db.collection("influencers").document(user_id).update({
-        "socialAccounts.tiktok.followers": stats.get("follower_count", 0),
-        "socialAccounts.tiktok.following": stats.get("following_count", 0),
-        "socialAccounts.tiktok.likes": stats.get("likes_count", 0),
-        "socialAccounts.tiktok.videoCount": stats.get("video_count", 0),
+        "socialAccounts.tiktok.username": user.get("display_name") or "",
+        "socialAccounts.tiktok.avatarUrl": user.get("avatar_url") or "",
+        "socialAccounts.tiktok.followers": int(user.get("follower_count", 0) or 0),
+        "socialAccounts.tiktok.following": int(user.get("following_count", 0) or 0),
+        "socialAccounts.tiktok.likes": int(user.get("likes_count", 0) or 0),
+        "socialAccounts.tiktok.videoCount": int(user.get("video_count", 0) or 0),
+        "socialAccounts.tiktok.views": total_views,
+        "socialAccounts.tiktok.avgViews": avg_views,
+        "socialAccounts.tiktok.sampledVideos": sampled_videos,
+        "socialAccounts.tiktok.statsAccess": has_stats_access,
+        "socialAccounts.tiktok.videoListAccess": has_video_list_access,
         "socialAccounts.tiktok.lastUpdated": firestore.SERVER_TIMESTAMP
     })
 
-    return {"success": True}
+    return {
+        "success": True,
+        "statsAccess": has_stats_access,
+        "videoListAccess": has_video_list_access,
+        "avgViews": avg_views,
+        "sampledVideos": sampled_videos
+    }

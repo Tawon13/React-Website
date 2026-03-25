@@ -20,12 +20,8 @@ load_dotenv()
 # Initialiser Firebase Admin
 initialize_app()
 
-# Importer les modules YouTube, TikTok et Instagram
-from lib.youtube import connect_youtube, youtube_callback, update_youtube_stats
-from lib.tiktok import connect_tiktok, tiktok_callback, update_tiktok_stats
-from lib.instagram import connect_instagram, instagram_callback, update_instagram_stats
-from lib.contact import send_contact_email
-from lib.token_store import get_user_tokens
+# Les imports des modules métiers sont faits en lazy import
+# pour réduire le temps de chargement au déploiement.
 
 # Configuration globale
 set_global_options(max_instances=10)
@@ -125,6 +121,8 @@ def youtube_connect(req: https_fn.Request) -> https_fn.Response:
         return https_fn.Response('Missing userId parameter', status=400)
     
     try:
+        from lib.youtube import connect_youtube
+
         authenticate_user(req, user_id)
         signed_state = generate_signed_state(user_id)
         auth_url = connect_youtube(user_id, signed_state)
@@ -156,6 +154,8 @@ def youtube_callback_handler(req: https_fn.Request) -> https_fn.Response:
         return https_fn.Response('Missing code or state', status=400)
     
     try:
+        from lib.youtube import youtube_callback
+
         user_id = verify_signed_state(state)
         result = youtube_callback(code, user_id)
         
@@ -228,6 +228,8 @@ def tiktok_connect(req: https_fn.Request) -> https_fn.Response:
         return https_fn.Response('Missing userId parameter', status=400)
     
     try:
+        from lib.tiktok import connect_tiktok
+
         authenticate_user(req, user_id)
         signed_state = generate_signed_state(user_id)
         auth_url = connect_tiktok(user_id, signed_state)
@@ -262,6 +264,8 @@ def tiktok_callback_handler(req: https_fn.Request) -> https_fn.Response:
         return https_fn.Response('Missing code or state', status=400)
     
     try:
+        from lib.tiktok import tiktok_callback
+
         user_id = verify_signed_state(state)
         result = tiktok_callback(code, user_id)
         
@@ -334,6 +338,8 @@ def instagram_connect(req: https_fn.Request) -> https_fn.Response:
         return https_fn.Response('Missing userId parameter', status=400)
     
     try:
+        from lib.instagram import connect_instagram
+
         authenticate_user(req, user_id)
         signed_state = generate_signed_state(user_id)
         auth_url = connect_instagram(user_id, signed_state)
@@ -368,6 +374,8 @@ def instagram_callback_handler(req: https_fn.Request) -> https_fn.Response:
         return https_fn.Response('Missing code or state', status=400)
     
     try:
+        from lib.instagram import instagram_callback
+
         user_id = verify_signed_state(state)
         result = instagram_callback(code, user_id)
         
@@ -435,6 +443,10 @@ def daily_stats_update(event: scheduler_fn.ScheduledEvent) -> None:
     update_count = 0
     error_count = 0
     
+    from lib.token_store import get_user_tokens
+    from lib.youtube import update_youtube_stats
+    from lib.tiktok import update_tiktok_stats
+
     for influencer in influencers:
         user_id = influencer.id
         data = influencer.to_dict()
@@ -518,6 +530,8 @@ def send_contact_email_handler(req: https_fn.Request) -> https_fn.Response:
             )
         
         # Envoyer l'email
+        from lib.contact import send_contact_email
+
         result = send_contact_email(user_type, name, email, subject, message)
         
         if result.get('success'):
