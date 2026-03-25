@@ -46,6 +46,23 @@ const InfluencerProfile = () => {
         return num.toLocaleString('fr-FR')
     }
 
+    const formatRelativeDate = (unixSeconds) => {
+        const ts = Number(unixSeconds)
+        if (!Number.isFinite(ts) || ts <= 0) return 'Récemment'
+
+        const now = Date.now()
+        const dateMs = ts * 1000
+        const diffMs = Math.max(0, now - dateMs)
+        const dayMs = 24 * 60 * 60 * 1000
+        const days = Math.floor(diffMs / dayMs)
+
+        if (days <= 0) return 'Aujourd’hui'
+        if (days === 1) return 'Il y a 1 jour'
+        if (days < 30) return `Il y a ${days} jours`
+
+        return new Date(dateMs).toLocaleDateString('fr-FR')
+    }
+
     useEffect(() => {
         const buildPlatformAnalytics = (platformData = {}) => {
             const followers = toNumber(platformData.followers)
@@ -145,6 +162,8 @@ const InfluencerProfile = () => {
                     // Charger les vidéos TikTok
                     if (data.tiktokVideos) {
                         setTiktokVideos(data.tiktokVideos)
+                    } else if (data.socialAccounts?.tiktok?.recentVideos) {
+                        setTiktokVideos(data.socialAccounts.tiktok.recentVideos)
                     }
                 } else {
                     console.error('Influenceur non trouvé dans Firebase avec ID:', influencerId)
@@ -261,16 +280,21 @@ const InfluencerProfile = () => {
     const audienceLocations = currentAnalytics?.audienceLocation || []
     const audienceAges = currentAnalytics?.audienceAge || []
     const audienceGender = currentAnalytics?.audienceGender
-    const secondaryMetricValue = currentAnalytics?.avgViews
-        ?? (currentAnalytics?.videoCount > 0 ? currentAnalytics.videoCount : null)
-        ?? (currentAnalytics?.likes > 0 ? currentAnalytics.likes : null)
-    const secondaryMetricLabel = currentAnalytics?.avgViews
+    const isTikTokAnalytics = activeAnalyticsTab === 'tiktok'
+    const secondaryMetricValue = isTikTokAnalytics
+        ? currentAnalytics?.avgViews
+        : currentAnalytics?.avgViews
+            ?? (currentAnalytics?.videoCount > 0 ? currentAnalytics.videoCount : null)
+            ?? (currentAnalytics?.likes > 0 ? currentAnalytics.likes : null)
+    const secondaryMetricLabel = isTikTokAnalytics
         ? 'Vues Moyennes'
-        : currentAnalytics?.videoCount > 0
-            ? 'Vidéos'
-            : currentAnalytics?.likes > 0
-                ? 'Likes'
-                : 'Vues Moyennes'
+        : currentAnalytics?.avgViews
+            ? 'Vues Moyennes'
+            : currentAnalytics?.videoCount > 0
+                ? 'Vidéos'
+                : currentAnalytics?.likes > 0
+                    ? 'Likes'
+                    : 'Vues Moyennes'
 
     return (
         <div className='max-w-6xl mx-auto py-6 sm:py-10 px-4 sm:px-6'>
@@ -789,23 +813,52 @@ const InfluencerProfile = () => {
                 
                 <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6'>
                     {tiktokVideos.length > 0 ? (
-                        tiktokVideos.map((video, index) => (
+                        tiktokVideos.map((video, index) => {
+                            const fallbackGradient = index % 3 === 0
+                                ? 'bg-gradient-to-br from-pink-500 to-purple-600'
+                                : index % 3 === 1
+                                    ? 'bg-gradient-to-br from-blue-500 to-cyan-600'
+                                    : 'bg-gradient-to-br from-orange-500 to-red-600'
+                            const canOpenVideo = Boolean(video.url)
+
+                            return (
                             <div 
                                 key={video.id || index} 
-                                className='group cursor-pointer'
-                                onClick={() => setSelectedVideo(video.url)}
+                                className={`group ${canOpenVideo ? 'cursor-pointer' : 'cursor-default'}`}
+                                onClick={() => {
+                                    if (canOpenVideo) setSelectedVideo(video.url)
+                                }}
                             >
                                 <div className='relative aspect-[9/16] bg-gray-100 rounded-xl overflow-hidden mb-3 hover:opacity-90 transition-opacity'>
-                                    {/* Thumbnail avec gradient */}
-                                    <div className={`absolute inset-0 flex items-center justify-center ${
-                                        index % 3 === 0 ? 'bg-gradient-to-br from-pink-500 to-purple-600' :
-                                        index % 3 === 1 ? 'bg-gradient-to-br from-blue-500 to-cyan-600' :
-                                        'bg-gradient-to-br from-orange-500 to-red-600'
-                                    }`}>
-                                        <svg className='w-20 h-20 text-white' fill='currentColor' viewBox='0 0 24 24'>
-                                            <path d='M8 5v14l11-7z'/>
-                                        </svg>
-                                    </div>
+                                    {/* Thumbnail */}
+                                    {video.thumbnail ? (
+                                        <img
+                                            src={video.thumbnail}
+                                            alt={video.title || 'Thumbnail TikTok'}
+                                            className='absolute inset-0 w-full h-full object-cover'
+                                        />
+                                    ) : (
+                                        <div className={`absolute inset-0 flex items-center justify-center ${fallbackGradient}`}>
+                                            <svg className='w-20 h-20 text-white' fill='currentColor' viewBox='0 0 24 24'>
+                                                <path d='M8 5v14l11-7z'/>
+                                            </svg>
+                                        </div>
+                                    )}
+
+                                    {canOpenVideo && (
+                                        <div className='absolute inset-0 flex items-center justify-center'>
+                                            <svg className='w-16 h-16 text-white drop-shadow-lg' fill='currentColor' viewBox='0 0 24 24'>
+                                                <path d='M8 5v14l11-7z'/>
+                                            </svg>
+                                        </div>
+                                    )}
+
+                                    {!canOpenVideo && (
+                                        <div className='absolute inset-x-0 bottom-0 bg-black/50 text-white text-xs px-3 py-2'>
+                                            Lien vidéo non disponible
+                                        </div>
+                                    )}
+
                                     {/* Badge vues */}
                                     {video.views && (
                                         <div className='absolute top-3 right-3 bg-black/70 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1'>
@@ -813,16 +866,17 @@ const InfluencerProfile = () => {
                                                 <path d='M10 12a2 2 0 100-4 2 2 0 000 4z'/>
                                                 <path fillRule='evenodd' d='M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z' clipRule='evenodd'/>
                                             </svg>
-                                            {video.views}
+                                            {formatCompactNumber(video.views)}
                                         </div>
                                     )}
+
                                     {/* Badge likes */}
                                     {video.likes && (
                                         <div className='absolute bottom-3 left-3 bg-black/70 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1'>
                                             <svg className='w-3 h-3' fill='currentColor' viewBox='0 0 20 20'>
                                                 <path fillRule='evenodd' d='M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z' clipRule='evenodd'/>
                                             </svg>
-                                            {video.likes}
+                                            {formatCompactNumber(video.likes)}
                                         </div>
                                     )}
                                 </div>
@@ -830,10 +884,13 @@ const InfluencerProfile = () => {
                                     <p className='text-sm text-gray-900 font-medium line-clamp-2 group-hover:text-primary transition-colors'>
                                         {video.title || 'Vidéo TikTok'}
                                     </p>
-                                    <p className='text-xs text-gray-500'>{video.date || 'Récemment'}</p>
+                                    <p className='text-xs text-gray-500'>
+                                        {video.date || formatRelativeDate(video.createTime)}
+                                    </p>
                                 </div>
                             </div>
-                        ))
+                            )
+                        })
                     ) : (
                         // Exemple de posts si aucune vidéo n'est ajoutée
                         <>

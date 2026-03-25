@@ -59,7 +59,11 @@ def _to_int(value) -> int:
         return 0
 
 
-def _fetch_tiktok_avg_views(access_token: str, max_count: int = 20) -> tuple[Optional[int], Optional[int], int, bool]:
+def _fetch_tiktok_video_insights(
+    access_token: str,
+    max_count: int = 20,
+    recent_limit: int = 6
+) -> tuple[Optional[int], Optional[int], int, bool, list[dict]]:
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json"
@@ -69,7 +73,7 @@ def _fetch_tiktok_avg_views(access_token: str, max_count: int = 20) -> tuple[Opt
         response = requests.post(
             TIKTOK_VIDEO_LIST_URL,
             headers=headers,
-            params={"fields": "id,view_count"},
+            params={"fields": "id,title,cover_image_url,share_url,create_time,view_count,like_count"},
             json={"max_count": max_count},
             timeout=20
         )
@@ -77,10 +81,10 @@ def _fetch_tiktok_avg_views(access_token: str, max_count: int = 20) -> tuple[Opt
     except requests.HTTPError as exc:
         status_code = exc.response.status_code if exc.response is not None else None
         if status_code in (401, 403):
-            return None, None, 0, False
-        return None, None, 0, False
+            return None, None, 0, False, []
+        return None, None, 0, False, []
     except requests.RequestException:
-        return None, None, 0, False
+        return None, None, 0, False, []
 
     payload = response.json() or {}
     videos = (payload.get("data") or {}).get("videos") or []
@@ -88,12 +92,32 @@ def _fetch_tiktok_avg_views(access_token: str, max_count: int = 20) -> tuple[Opt
     view_values = [_to_int(video.get("view_count")) for video in videos]
     view_values = [value for value in view_values if value >= 0]
 
+    recent_videos = []
+    for video in videos[:recent_limit]:
+        video_id = str(video.get("id") or "").strip()
+        if not video_id:
+            continue
+
+        title = (video.get("title") or "").strip()
+        if not title:
+            title = "Vidéo TikTok"
+
+        recent_videos.append({
+            "id": video_id,
+            "title": title,
+            "thumbnail": (video.get("cover_image_url") or "").strip(),
+            "url": (video.get("share_url") or "").strip(),
+            "views": _to_int(video.get("view_count")),
+            "likes": _to_int(video.get("like_count")),
+            "createTime": _to_int(video.get("create_time"))
+        })
+
     if not view_values:
-        return None, None, 0, True
+        return None, None, 0, True, recent_videos
 
     total_views = sum(view_values)
     avg_views = round(total_views / len(view_values))
-    return total_views, avg_views, len(view_values), True
+    return total_views, avg_views, len(view_values), True, recent_videos
 
 # ========================
 # OAUTH – CONNEXION
@@ -158,7 +182,7 @@ def tiktok_callback(code: str, user_id: str) -> dict:
     videos = int(user.get("video_count", 0) or 0)
     username = user.get("display_name") or ""
     avatar_url = user.get("avatar_url") or ""
-    total_views, avg_views, sampled_videos, has_video_list_access = _fetch_tiktok_avg_views(access_token)
+    total_views, avg_views, sampled_videos, has_video_list_access, recent_videos = _fetch_tiktok_video_insights(access_token)
 
     # ========================
     # SAUVEGARDE FIRESTORE
@@ -166,6 +190,7 @@ def tiktok_callback(code: str, user_id: str) -> dict:
 
     db = firestore.client()
     db.collection("influencers").document(user_id).update({
+        "tiktokVideos": recent_videos,
         "socialAccounts.tiktok": {
             "connected": True,
             "openId": open_id,
@@ -178,6 +203,7 @@ def tiktok_callback(code: str, user_id: str) -> dict:
             "views": total_views,
             "avgViews": avg_views,
             "sampledVideos": sampled_videos,
+            "recentVideos": recent_videos,
             "statsAccess": has_stats_access,
             "videoListAccess": has_video_list_access,
             "lastUpdated": firestore.SERVER_TIMESTAMP
@@ -203,6 +229,7 @@ def tiktok_callback(code: str, user_id: str) -> dict:
         "views": total_views,
         "avgViews": avg_views,
         "sampledVideos": sampled_videos,
+        "recentVideos": recent_videos,
         "statsAccess": has_stats_access,
         "videoListAccess": has_video_list_access
     }
@@ -249,10 +276,11 @@ def update_tiktok_stats(user_id: str, tokens: dict) -> dict:
 
     # Récupération profil/stats avec fallback
     user, has_stats_access = _get_tiktok_user_with_fallback(access_token)
-    total_views, avg_views, sampled_videos, has_video_list_access = _fetch_tiktok_avg_views(access_token)
+    total_views, avg_views, sampled_videos, has_video_list_access, recent_videos = _fetch_tiktok_video_insights(access_token)
 
     db = firestore.client()
     db.collection("influencers").document(user_id).update({
+        "tiktokVideos": recent_videos,
         "socialAccounts.tiktok.username": user.get("display_name") or "",
         "socialAccounts.tiktok.avatarUrl": user.get("avatar_url") or "",
         "socialAccounts.tiktok.followers": int(user.get("follower_count", 0) or 0),
@@ -262,6 +290,7 @@ def update_tiktok_stats(user_id: str, tokens: dict) -> dict:
         "socialAccounts.tiktok.views": total_views,
         "socialAccounts.tiktok.avgViews": avg_views,
         "socialAccounts.tiktok.sampledVideos": sampled_videos,
+        "socialAccounts.tiktok.recentVideos": recent_videos,
         "socialAccounts.tiktok.statsAccess": has_stats_access,
         "socialAccounts.tiktok.videoListAccess": has_video_list_access,
         "socialAccounts.tiktok.lastUpdated": firestore.SERVER_TIMESTAMP
@@ -272,5 +301,6 @@ def update_tiktok_stats(user_id: str, tokens: dict) -> dict:
         "statsAccess": has_stats_access,
         "videoListAccess": has_video_list_access,
         "avgViews": avg_views,
-        "sampledVideos": sampled_videos
+        "sampledVideos": sampled_videos,
+        "recentVideos": recent_videos
     }
