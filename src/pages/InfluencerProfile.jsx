@@ -91,6 +91,34 @@ const InfluencerProfile = () => {
             .filter((video) => video.id || video.url || video.thumbnail)
     }
 
+    const extractTikTokVideoId = (url = '') => {
+        if (typeof url !== 'string') return ''
+        const match = url.match(/\/video\/(\d+)/)
+        return match?.[1] || ''
+    }
+
+    const getTikTokEmbedUrl = (video = {}) => {
+        const videoId = String(video.id || extractTikTokVideoId(video.url || '')).trim()
+        if (videoId) {
+            return `https://www.tiktok.com/player/v1/${videoId}`
+        }
+
+        const normalizedUrl = normalizeMediaUrl(video.url)
+        return normalizedUrl.includes('/video/')
+            ? normalizedUrl.replace('/video/', '/embed/')
+            : ''
+    }
+
+    const openTikTokModal = (video = {}) => {
+        const embedUrl = getTikTokEmbedUrl(video)
+        if (!embedUrl) return
+
+        setSelectedVideo({
+            ...video,
+            embedUrl
+        })
+    }
+
     useEffect(() => {
         const buildPlatformAnalytics = (platformData = {}) => {
             const followers = toNumber(platformData.followers)
@@ -857,7 +885,7 @@ const InfluencerProfile = () => {
                                 key={video.id || index} 
                                 className={`group ${canOpenVideo ? 'cursor-pointer' : 'cursor-default'}`}
                                 onClick={() => {
-                                    if (canOpenVideo) setSelectedVideo(video.url)
+                                      if (canOpenVideo) openTikTokModal(video)
                                 }}
                             >
                                 <div className='relative aspect-[9/16] bg-gray-100 rounded-xl overflow-hidden mb-3 hover:opacity-90 transition-opacity'>
@@ -935,7 +963,10 @@ const InfluencerProfile = () => {
                         <>
                             <div 
                                 className='group cursor-pointer'
-                                onClick={() => window.open('https://www.tiktok.com/@armigno/video/7583700688794848534?lang=fr', '_blank')}
+                                  onClick={() => openTikTokModal({
+                                      id: '7583700688794848534',
+                                      url: 'https://www.tiktok.com/@armigno/video/7583700688794848534?lang=fr'
+                                  })}
                             >
                                 <div className='relative aspect-[9/16] bg-gray-100 rounded-xl overflow-hidden mb-3 hover:opacity-90 transition-opacity'>
                                     <div className='absolute inset-0 flex items-center justify-center bg-gradient-to-br from-pink-500 to-purple-600'>
@@ -999,7 +1030,10 @@ const InfluencerProfile = () => {
 
                             <div 
                                 className='group cursor-pointer'
-                                onClick={() => window.open('https://www.tiktok.com/@armigno/video/7582181799346933014?lang=fr', '_blank')}
+                                  onClick={() => openTikTokModal({
+                                      id: '7582181799346933014',
+                                      url: 'https://www.tiktok.com/@armigno/video/7582181799346933014?lang=fr'
+                                  })}
                             >
                                 <div className='relative aspect-[9/16] bg-gray-100 rounded-xl overflow-hidden mb-3 hover:opacity-90 transition-opacity'>
                                     <div className='absolute inset-0 flex items-center justify-center bg-gradient-to-br from-orange-500 to-red-600'>
@@ -1039,35 +1073,36 @@ const InfluencerProfile = () => {
                 )}
             </div>
 
-            {/* Modal Vidéo TikTok */}
-            {selectedVideo && (
-                <div 
-                    className='fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4'
-                    onClick={() => setSelectedVideo(null)}
-                >
-                    <button
-                        onClick={() => setSelectedVideo(null)}
-                        className='absolute top-4 right-4 text-white hover:text-gray-300 transition-colors z-20'
-                        aria-label='Fermer'
-                    >
-                        <svg className='w-8 h-8' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' />
-                        </svg>
-                    </button>
-                    
-                    <div 
-                        className='relative w-full max-w-md aspect-[9/16]'
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <iframe
-                            src={selectedVideo.replace('/video/', '/embed/')}
-                            className='w-full h-full rounded-xl'
-                            allowFullScreen
-                            allow='encrypted-media'
-                        />
-                    </div>
-                </div>
-            )}
+              {/* Modal Vidéo TikTok */}
+              {selectedVideo && (
+                  <div
+                      className='fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4'
+                      onClick={() => setSelectedVideo(null)}
+                  >
+                      <button
+                          onClick={() => setSelectedVideo(null)}
+                          className='absolute top-4 right-4 text-white hover:text-gray-300 transition-colors z-20'
+                          aria-label='Fermer'
+                      >
+                          <svg className='w-8 h-8' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' />
+                          </svg>
+                      </button>
+
+                      <div
+                          className='relative w-full max-w-md aspect-[9/16]'
+                          onClick={(e) => e.stopPropagation()}
+                      >
+                          <iframe
+                              src={selectedVideo.embedUrl}
+                              title={selectedVideo.title || 'Vidéo TikTok'}
+                              className='w-full h-full rounded-xl bg-black'
+                              allow='fullscreen; autoplay; encrypted-media; picture-in-picture'
+                              allowFullScreen
+                          />
+                      </div>
+                  </div>
+              )}
 
             {/* Lightbox Modal */}
             {isLightboxOpen && (
