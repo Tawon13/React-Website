@@ -28,6 +28,7 @@ const InfluencerProfile = () => {
     const [customPricing, setCustomPricing] = useState(null)
     const [activeAnalyticsTab, setActiveAnalyticsTab] = useState('instagram')
     const [tiktokVideos, setTiktokVideos] = useState([])
+    const [failedThumbnails, setFailedThumbnails] = useState({})
     const [selectedVideo, setSelectedVideo] = useState(null)
 
     const [analyticsData, setAnalyticsData] = useState(null)
@@ -61,6 +62,33 @@ const InfluencerProfile = () => {
         if (days < 30) return `Il y a ${days} jours`
 
         return new Date(dateMs).toLocaleDateString('fr-FR')
+    }
+
+    const normalizeMediaUrl = (value) => {
+        if (typeof value !== 'string') return ''
+        const trimmedValue = value.trim()
+        if (!trimmedValue) return ''
+        return trimmedValue.startsWith('http://')
+            ? `https://${trimmedValue.slice(7)}`
+            : trimmedValue
+    }
+
+    const normalizeTikTokVideo = (video = {}) => ({
+        id: video.id || video.videoId || null,
+        title: video.title || video.description || 'Vidéo TikTok',
+        thumbnail: normalizeMediaUrl(video.thumbnail || video.coverImageUrl || video.cover_image_url),
+        url: normalizeMediaUrl(video.url || video.shareUrl || video.share_url),
+        views: toNumber(video.views || video.viewCount || video.view_count),
+        likes: toNumber(video.likes || video.likeCount || video.like_count),
+        createTime: toNumber(video.createTime || video.create_time),
+        date: video.date || ''
+    })
+
+    const normalizeTikTokVideos = (videos = []) => {
+        if (!Array.isArray(videos)) return []
+        return videos
+            .map(normalizeTikTokVideo)
+            .filter((video) => video.id || video.url || video.thumbnail)
     }
 
     useEffect(() => {
@@ -160,11 +188,12 @@ const InfluencerProfile = () => {
                         setCustomPricing(data.pricing)
                     }
                     // Charger les vidéos TikTok
-                    if (data.tiktokVideos) {
-                        setTiktokVideos(data.tiktokVideos)
-                    } else if (data.socialAccounts?.tiktok?.recentVideos) {
-                        setTiktokVideos(data.socialAccounts.tiktok.recentVideos)
-                    }
+                    const rawTikTokVideos = Array.isArray(data.tiktokVideos) && data.tiktokVideos.length > 0
+                        ? data.tiktokVideos
+                        : data.socialAccounts?.tiktok?.recentVideos
+
+                    setTiktokVideos(normalizeTikTokVideos(rawTikTokVideos))
+                    setFailedThumbnails({})
                 } else {
                     console.error('Influenceur non trouvé dans Firebase avec ID:', influencerId)
                 }
@@ -814,6 +843,8 @@ const InfluencerProfile = () => {
                 <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6'>
                     {tiktokVideos.length > 0 ? (
                         tiktokVideos.map((video, index) => {
+                            const videoKey = video.id || video.url || `video-${index}`
+                            const isThumbnailFailed = Boolean(failedThumbnails[videoKey])
                             const fallbackGradient = index % 3 === 0
                                 ? 'bg-gradient-to-br from-pink-500 to-purple-600'
                                 : index % 3 === 1
@@ -831,11 +862,19 @@ const InfluencerProfile = () => {
                             >
                                 <div className='relative aspect-[9/16] bg-gray-100 rounded-xl overflow-hidden mb-3 hover:opacity-90 transition-opacity'>
                                     {/* Thumbnail */}
-                                    {video.thumbnail ? (
+                                      {video.thumbnail && !isThumbnailFailed ? (
                                         <img
                                             src={video.thumbnail}
                                             alt={video.title || 'Thumbnail TikTok'}
                                             className='absolute inset-0 w-full h-full object-cover'
+                                              loading='lazy'
+                                              referrerPolicy='no-referrer'
+                                              onError={() => {
+                                                  setFailedThumbnails((previous) => ({
+                                                      ...previous,
+                                                      [videoKey]: true
+                                                  }))
+                                              }}
                                         />
                                     ) : (
                                         <div className={`absolute inset-0 flex items-center justify-center ${fallbackGradient}`}>
