@@ -53,7 +53,8 @@ const PortfolioGallery = ({
                 return {
                     url: downloadURL,
                     uploadedAt: new Date().toISOString(),
-                    fileName: fileName
+                    fileName: fileName,
+                    path: snapshot.ref.fullPath
                 }
             })
 
@@ -75,7 +76,13 @@ const PortfolioGallery = ({
             setUploading(true)
 
             // Supprimer du Storage
-            if (photoToDelete.url.includes('firebase')) {
+            if (photoToDelete.path) {
+                const photoRef = ref(storage, photoToDelete.path)
+                await deleteObject(photoRef)
+            } else if (photoToDelete.fileName) {
+                const photoRef = ref(storage, `portfolio/${photoToDelete.fileName}`)
+                await deleteObject(photoRef)
+            } else if (photoToDelete.url?.includes('firebase')) {
                 const photoRef = ref(storage, photoToDelete.url)
                 await deleteObject(photoRef)
             }

@@ -21,19 +21,22 @@ service firebase.storage {
     // Photos de profil
     match /profile_photos/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuth() && isImage() && isUnderSize(5);
+      allow create, update: if isAuth() && isImage() && isUnderSize(5);
+      allow delete: if isAuth();
     }
     
     // Photos de portfolio
     match /portfolio/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuth() && isImage() && isUnderSize(5);
+      allow create, update: if isAuth() && isImage() && isUnderSize(5);
+      allow delete: if isAuth();
     }
     
     // Photos des influenceurs (ancien système)
     match /influencers/{userId}/photos/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuth() && isImage() && isUnderSize(5);
+      allow create, update: if isAuth() && isImage() && isUnderSize(5);
+      allow delete: if isAuth();
     }
     
     // Vidéos TikTok
