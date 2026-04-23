@@ -12,7 +12,7 @@ import json
 import stripe
 from firebase_functions import https_fn, scheduler_fn
 from firebase_functions.options import set_global_options
-from firebase_admin import initialize_app, firestore, auth as firebase_auth
+from firebase_admin import initialize_app, auth as firebase_auth
 from dotenv import load_dotenv
 
 # Charger les variables d'environnement (pour le développement local)
@@ -20,6 +20,19 @@ load_dotenv()
 
 # Initialiser Firebase Admin
 initialize_app()
+
+
+def _firestore():
+    from firebase_admin import firestore
+    return firestore
+
+
+class _FirestoreProxy:
+    def __getattr__(self, name: str):
+        return getattr(_firestore(), name)
+
+
+firestore = _FirestoreProxy()
 
 # Les imports des modules métiers sont faits en lazy import
 # pour réduire le temps de chargement au déploiement.
