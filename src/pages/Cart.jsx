@@ -2,19 +2,18 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
-import { db } from '../config/firebase'
-import { collection, addDoc, serverTimestamp, query, where, getDocs, doc, getDoc } from 'firebase/firestore'
+import { STRIPE_CREATE_CHECKOUT_URL } from '../config/firebase'
 
 const Cart = () => {
     const navigate = useNavigate()
     const { cartItems, removeFromCart, updateQuantity, clearCart, getTotal } = useCart()
-    const { currentUser, userType, userData } = useAuth()
+    const { currentUser, userType } = useAuth()
     const [loading, setLoading] = useState(false)
 
     const handleCheckout = async () => {
         if (!currentUser) {
             alert('Veuillez vous connecter en tant que marque pour continuer')
-            navigate('/login-brand')
+            navigate('/login?type=brand')
             return
         }
 
@@ -30,79 +29,43 @@ const Cart = () => {
 
         setLoading(true)
         try {
-            console.log('Début du checkout, items:', cartItems)
-            console.log('User data:', userData)
-            
-            // Créer les collaborations et conversations pour chaque item
-            for (const item of cartItems) {
-                console.log('Traitement de l\'item:', item)
-                
-                // Récupérer les données de l'influenceur
-                const influencerDocRef = doc(db, 'influencers', item.influencerId)
-                const influencerDoc = await getDoc(influencerDocRef)
-                
-                if (!influencerDoc.exists()) {
-                    console.error(`Influenceur ${item.influencerId} non trouvé`)
-                    continue
-                }
-
-                const influencerData = influencerDoc.data()
-                console.log('Influencer data:', influencerData)
-
-                // Créer plusieurs collaborations si quantité > 1
-                for (let i = 0; i < item.quantity; i++) {
-                    // 1. Créer la collaboration
-                    const collabData = {
-                        brandId: currentUser.uid,
-                        brandName: userData?.brandName || 'Marque',
-                        brandEmail: currentUser.email,
-                        influencerId: item.influencerId,
-                        influencerName: influencerData.name || 'Influenceur',
-                        influencerEmail: influencerData.email,
-                        description: `Collaboration: ${item.package}`,
-                        package: item.package,
-                        amount: item.price,
-                        status: 'pending',
-                        createdAt: serverTimestamp()
-                    }
-
-                    const collabRef = await addDoc(collection(db, 'collaborations'), collabData)
-
-                    // 2. Vérifier si une conversation existe déjà
-                    const conversationsRef = collection(db, 'conversations')
-                    const q = query(
-                        conversationsRef,
-                        where('brandId', '==', currentUser.uid),
-                        where('influencerId', '==', item.influencerId)
-                    )
-                    const existingConvs = await getDocs(q)
-
-                    if (existingConvs.empty) {
-                        // 3. Créer une nouvelle conversation
-                        await addDoc(collection(db, 'conversations'), {
-                            brandId: currentUser.uid,
-                            brandName: userData?.brandName || 'Marque',
-                            influencerId: item.influencerId,
-                            influencerName: influencerData.name || 'Influenceur',
-                            collaborationId: collabRef.id,
-                            lastMessage: `Nouvelle collaboration: ${item.package}`,
-                            lastMessageAt: serverTimestamp(),
-                            lastMessageBy: currentUser.uid,
-                            createdAt: serverTimestamp()
-                        })
-                    }
-                }
+            if (!STRIPE_CREATE_CHECKOUT_URL) {
+                throw new Error('Configuration Stripe manquante côté frontend (URL checkout).')
             }
 
-            // Vider le panier après succès
-            clearCart()
-            alert(`${cartItems.length} collaboration(s) créée(s) avec succès !`)
-            navigate('/messages')
+            const idToken = await currentUser.getIdToken()
+            const response = await fetch(STRIPE_CREATE_CHECKOUT_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${idToken}`
+                },
+                body: JSON.stringify({
+                    items: cartItems.map((item) => ({
+                        influencerId: item.influencerId,
+                        influencerName: item.influencerName,
+                        package: item.package,
+                        price: item.price,
+                        quantity: item.quantity
+                    }))
+                })
+            })
+
+            const data = await response.json()
+            if (!response.ok) {
+                throw new Error(data?.error || 'Impossible de créer la session de paiement')
+            }
+
+            if (!data?.url) {
+                throw new Error('Stripe n\'a pas retourné d\'URL de paiement')
+            }
+
+            window.location.href = data.url
         } catch (error) {
             console.error('Erreur complète:', error)
             console.error('Message d\'erreur:', error.message)
             console.error('Stack:', error.stack)
-            alert(`Erreur lors de la création des collaborations: ${error.message}`)
+            alert(`Erreur lors du paiement: ${error.message}`)
         } finally {
             setLoading(false)
         }
@@ -272,7 +235,7 @@ const Cart = () => {
                                     </svg>
                                     <div className='text-sm text-blue-900'>
                                         <p className='font-semibold mb-1'>À propos de votre commande</p>
-                                        <p>Après validation, vous pourrez communiquer directement avec les influenceurs via la messagerie.</p>
+                                        <p>Le paiement est sécurisé et conservé en attente. Les fonds sont libérés uniquement quand la marque et l'influenceur valident la collaboration.</p>
                                     </div>
                                 </div>
                             </div>

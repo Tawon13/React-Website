@@ -101,7 +101,7 @@ const ResetPassword = () => {
             
             // Rediriger vers la page de connexion après 3 secondes
             setTimeout(() => {
-                navigate('/login-influencer')
+                navigate('/login')
             }, 3000)
         } catch (error) {
             console.error('Password reset error:', error)
@@ -230,7 +230,7 @@ const ResetPassword = () => {
                             <>
                                 {/* Back Button */}
                                 <button 
-                                    onClick={() => navigate('/login-influencer')}
+                                    onClick={() => navigate('/login')}
                                     className='mb-6 text-gray-600 hover:text-gray-900 transition-colors'
                                 >
                                     <svg className='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>

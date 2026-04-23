@@ -16,7 +16,7 @@ const ForBrands = () => {
                         Accédez à des milliers de créateurs vérifiés et lancez vos campagnes en quelques clics
                     </p>
                     <button
-                        onClick={() => navigate('/login-brand')}
+                        onClick={() => navigate('/login?type=brand&isSignUp=true')}
                         className='bg-primary text-white px-8 py-4 rounded-full font-semibold text-lg hover:shadow-2xl transition-all transform hover:scale-105'
                     >
                         Commencer Gratuitement
@@ -305,7 +305,7 @@ const ForBrands = () => {
                         Rejoignez 50,000+ marques qui font confiance à Collabzz pour leurs campagnes d'influence
                     </p>
                     <button
-                        onClick={() => navigate('/login-brand')}
+                        onClick={() => navigate('/login?type=brand&isSignUp=true')}
                         className='bg-primary text-white px-8 py-4 rounded-full font-semibold text-lg hover:shadow-2xl transition-all transform hover:scale-105'
                     >
                         Créer mon compte gratuitement

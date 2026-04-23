@@ -60,7 +60,7 @@ const ForgotPassword = () => {
                     <div className='w-full max-w-md'>
                         {/* Back Button */}
                         <button 
-                            onClick={() => navigate('/login-influencer')}
+                            onClick={() => navigate('/login')}
                             className='mb-6 text-gray-600 hover:text-gray-900 transition-colors'
                         >
                             <svg className='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
@@ -115,7 +115,7 @@ const ForgotPassword = () => {
                                 {/* Back to Login */}
                                 <div className='mt-6 text-center'>
                                     <button
-                                        onClick={() => navigate('/login-influencer')}
+                                        onClick={() => navigate('/login')}
                                         className='text-sm text-gray-600 hover:text-gray-900 transition-colors'
                                     >
                                         Retour à la connexion
@@ -157,7 +157,7 @@ const ForgotPassword = () => {
                                         Entrer le code manuellement
                                     </button>
                                     <button
-                                        onClick={() => navigate('/login-influencer')}
+                                        onClick={() => navigate('/login')}
                                         className='w-full bg-white border-2 border-gray-900 text-gray-900 py-3 rounded-full font-semibold hover:bg-gray-50 transition-all'
                                     >
                                         Retour à la connexion

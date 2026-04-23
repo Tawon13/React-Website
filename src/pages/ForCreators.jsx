@@ -16,7 +16,7 @@ const ForCreators = () => {
                         Rejoignez des milliers d'influenceurs qui collaborent avec les plus grandes marques
                     </p>
                     <button
-                        onClick={() => navigate('/login-influencer')}
+                        onClick={() => navigate('/login?isSignUp=true')}
                         className='bg-white text-primary px-8 py-4 rounded-full font-semibold text-lg hover:shadow-2xl transition-all transform hover:scale-105'
                     >
                         Commencer Gratuitement
@@ -241,7 +241,7 @@ const ForCreators = () => {
                         Rejoignez des milliers de créateurs qui gagnent déjà de l'argent avec leur contenu
                     </p>
                     <button
-                        onClick={() => navigate('/login-influencer')}
+                        onClick={() => navigate('/login?isSignUp=true')}
                         className='bg-white text-primary px-8 py-4 rounded-full font-semibold text-lg hover:shadow-2xl transition-all transform hover:scale-105'
                     >
                         Créer mon compte gratuitement

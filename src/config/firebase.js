@@ -49,10 +49,17 @@ export const INSTAGRAM_CONNECT_URL = import.meta.env.VITE_INSTAGRAM_CONNECT_URL;
 export const TIKTOK_CONNECT_URL = import.meta.env.VITE_TIKTOK_CONNECT_URL;
 export const YOUTUBE_CONNECT_URL = import.meta.env.VITE_YOUTUBE_CONNECT_URL;
 export const CONTACT_EMAIL_URL = import.meta.env.VITE_CONTACT_EMAIL_URL;
+export const STRIPE_CREATE_CHECKOUT_URL = import.meta.env.VITE_STRIPE_CREATE_CHECKOUT_URL;
+export const STRIPE_APPROVE_COLLAB_URL = import.meta.env.VITE_STRIPE_APPROVE_COLLAB_URL;
+export const STRIPE_CONNECT_ONBOARDING_URL = import.meta.env.VITE_STRIPE_CONNECT_ONBOARDING_URL;
 
 // Validate required function URLs
 if (!INSTAGRAM_CONNECT_URL || !TIKTOK_CONNECT_URL || !YOUTUBE_CONNECT_URL) {
     console.warn('Some Cloud Run function URLs are missing. Social media connections may not work.');
+}
+
+if (!STRIPE_CREATE_CHECKOUT_URL || !STRIPE_APPROVE_COLLAB_URL) {
+    console.warn('Some Stripe function URLs are missing. Payments may not work.');
 }
 
 export default app;

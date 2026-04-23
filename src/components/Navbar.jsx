@@ -7,7 +7,7 @@ import { useCart } from '../context/CartContext'
 const Navbar = () => {
 
     const navigate = useNavigate();
-    const { currentUser, logout, userData } = useAuth()
+    const { currentUser, logout, userData, userType } = useAuth()
     const { getItemCount } = useCart()
     const [showDropdown, setShowDropdown] = useState(false)
     const [showMenu, setShowMenu] = useState(false)
@@ -52,20 +52,22 @@ const Navbar = () => {
         </ul>
         
         <div className='flex items-center gap-2 sm:gap-4 ml-auto'>
-            {/* Icône Panier */}
-            <button 
-                onClick={() => navigate('/cart')}
-                className='relative p-2 hover:bg-gray-100 rounded-full transition'
-            >
-                <svg className='w-6 h-6 text-gray-700' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z'/>
-                </svg>
-                {cartItemCount > 0 && (
-                    <span className='absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center'>
-                        {cartItemCount}
-                    </span>
-                )}
-            </button>
+            {/* Icône Panier - Seulement pour les marques connectées */}
+            {currentUser && userType === 'brand' && (
+                <button 
+                    onClick={() => navigate('/cart')}
+                    className='relative p-2 hover:bg-gray-100 rounded-full transition'
+                >
+                    <svg className='w-6 h-6 text-gray-700' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z'/>
+                    </svg>
+                    {cartItemCount > 0 && (
+                        <span className='absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center'>
+                            {cartItemCount}
+                        </span>
+                    )}
+                </button>
+            )}
 
             {
                 currentUser
@@ -96,20 +98,7 @@ const Navbar = () => {
                         </div>
                     </div>
                 </div>
-                :
-                <>
-                    {/* Desktop Buttons */}
-                    <div className='hidden lg:flex items-center gap-2'>
-                        <button onClick={()=>navigate('/for-creators')} className='bg-primary text-white px-4 xl:px-6 py-2 xl:py-3 rounded-full font-light text-xs xl:text-sm whitespace-nowrap'>Je suis influenceur</button>
-                        <button onClick={()=>navigate('/for-brands')} className='border border-primary text-primary px-4 xl:px-6 py-2 xl:py-3 rounded-full font-light text-xs xl:text-sm whitespace-nowrap'>Je suis une marque</button>
-                    </div>
-                    
-                    {/* Mobile/Tablet Compact Buttons */}
-                    <div className='flex lg:hidden items-center gap-2'>
-                        <button onClick={()=>navigate('/login-influencer')} className='bg-primary text-white px-3 sm:px-4 py-2 rounded-full font-light text-xs whitespace-nowrap'>Influenceur</button>
-                        <button onClick={()=>navigate('/login-brand')} className='border border-primary text-primary px-3 sm:px-4 py-2 rounded-full font-light text-xs whitespace-nowrap'>Marque</button>
-                    </div>
-                </>
+: null
             }
             
             {/* Mobile Menu Icon */}
@@ -137,6 +126,26 @@ const Navbar = () => {
                 <NavLink onClick={() => setShowMenu(false)} to='/talents' className='px-4 py-2 rounded text-right'>NOS TALENTS</NavLink>
                 <NavLink onClick={() => setShowMenu(false)} to='/about' className='px-4 py-2 rounded text-right'>À PROPOS</NavLink>
                 <NavLink onClick={() => setShowMenu(false)} to='/contact' className='px-4 py-2 rounded text-right'>CONTACT</NavLink>
+
+                {!currentUser && (
+                    <>
+                        <hr className='w-full border-gray-300 my-2' />
+                        <div className='w-full px-4 flex flex-col gap-2'>
+                            <button
+                                onClick={() => { navigate('/login'); setShowMenu(false); }}
+                                className='w-full bg-primary text-white px-4 py-2 rounded-full text-sm'
+                            >
+                                Se connecter
+                            </button>
+                            <button
+                                onClick={() => { navigate('/login?isSignUp=true'); setShowMenu(false); }}
+                                className='w-full border border-primary text-primary px-4 py-2 rounded-full text-sm'
+                            >
+                                S'inscrire
+                            </button>
+                        </div>
+                    </>
+                )}
                 
                 {/* User Options for Mobile */}
                 {currentUser && (

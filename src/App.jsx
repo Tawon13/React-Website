@@ -2,8 +2,7 @@ import React from 'react'
 import { Route, Routes } from 'react-router-dom'
 import Home from './pages/Home'
 import Talents from './pages/talents'
-import LoginInfluencer from './pages/LoginInfluencer'
-import LoginBrand from './pages/LoginBrand'
+import Login from './pages/Login'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import About from './pages/about'
@@ -28,8 +27,9 @@ const App = () => {
     <div>
       <Routes>
         {/* Routes without Header/Footer */}
-        <Route path='/login-influencer' element={<LoginInfluencer />} />
-        <Route path='/login-brand' element={<LoginBrand />} />
+        <Route path='/login' element={<Login />} />
+        <Route path='/login-influencer' element={<Login />} />
+        <Route path='/login-brand' element={<Login />} />
         <Route path='/forgot-password' element={<ForgotPassword />} />
         <Route path='/reset-password' element={<ResetPassword />} />
         

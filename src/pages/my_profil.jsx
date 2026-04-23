@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { doc, updateDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore'
-import { db, INSTAGRAM_CONNECT_URL, TIKTOK_CONNECT_URL, YOUTUBE_CONNECT_URL, storage } from '../config/firebase'
+import {
+    db,
+    TIKTOK_CONNECT_URL,
+    storage,
+    STRIPE_APPROVE_COLLAB_URL,
+    STRIPE_CONNECT_ONBOARDING_URL
+} from '../config/firebase'
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import PhotoUpload from '../components/PhotoUpload'
 import PortfolioGallery from '../components/PortfolioGallery'
@@ -11,6 +17,54 @@ const BrandProfile = ({ currentUser, userData }) => {
     const [purchases, setPurchases] = useState([])
     const [loading, setLoading] = useState(true)
     const [activeTab, setActiveTab] = useState('profile')
+    const [approvingId, setApprovingId] = useState('')
+
+    const handleApprovePurchase = async (purchaseId) => {
+        if (!STRIPE_APPROVE_COLLAB_URL) {
+            alert('Configuration Stripe manquante pour la validation.')
+            return
+        }
+
+        setApprovingId(purchaseId)
+        try {
+            const idToken = await currentUser.getIdToken()
+            const response = await fetch(STRIPE_APPROVE_COLLAB_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${idToken}`
+                },
+                body: JSON.stringify({ collaborationId: purchaseId })
+            })
+
+            const data = await response.json()
+            if (!response.ok) {
+                throw new Error(data?.error || 'Erreur lors de la validation')
+            }
+
+            setPurchases((prev) =>
+                prev.map((purchase) =>
+                    purchase.id === purchaseId
+                        ? {
+                              ...purchase,
+                              brandApproved: true,
+                              status: data?.released ? 'completed' : purchase.status,
+                              payoutStatus: data?.released ? 'paid' : purchase.payoutStatus
+                          }
+                        : purchase
+                )
+            )
+
+            alert(data?.released
+                ? 'Validation confirmée. Paiement libéré avec succès.'
+                : 'Validation enregistrée. En attente de validation influenceur.')
+        } catch (error) {
+            console.error('Erreur validation marque:', error)
+            alert(error.message || 'Erreur lors de la validation')
+        } finally {
+            setApprovingId('')
+        }
+    }
 
     useEffect(() => {
         const loadPurchases = async () => {
@@ -229,6 +283,29 @@ const BrandProfile = ({ currentUser, userData }) => {
                                                          purchase.status === 'pending' ? 'En cours' : 
                                                          purchase.status || 'N/A'}
                                                     </span>
+                                                    <p className='text-xs text-gray-500 mt-2'>
+                                                        Paiement: {purchase.paymentStatus === 'funds_held'
+                                                            ? 'Fonds en attente'
+                                                            : purchase.paymentStatus === 'awaiting_payment'
+                                                            ? 'Paiement en attente'
+                                                            : purchase.paymentStatus || 'N/A'}
+                                                    </p>
+                                                    <p className='text-xs text-gray-500 mt-1'>
+                                                        Validation marque: {purchase.brandApproved ? 'Oui' : 'Non'}
+                                                    </p>
+                                                    <p className='text-xs text-gray-500 mt-1'>
+                                                        Validation influenceur: {purchase.influencerApproved ? 'Oui' : 'Non'}
+                                                    </p>
+
+                                                    {purchase.paymentStatus === 'funds_held' && !purchase.brandApproved && (
+                                                        <button
+                                                            onClick={() => handleApprovePurchase(purchase.id)}
+                                                            disabled={approvingId === purchase.id}
+                                                            className='mt-3 px-3 py-2 text-xs font-semibold rounded-md bg-primary text-white hover:bg-primary/90 disabled:opacity-50'
+                                                        >
+                                                            {approvingId === purchase.id ? 'Validation...' : 'Valider et autoriser le déblocage'}
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -256,28 +333,20 @@ const MyProfile = () => {
     const [loading, setLoading] = useState(false)
     const [message, setMessage] = useState({ type: '', text: '' })
     const popupRef = useRef(null)
-    const [activeTab, setActiveTab] = useState('social')
     const [collaborations, setCollaborations] = useState([])
     const [loadingCollabs, setLoadingCollabs] = useState(true)
     const [profilePhotos, setProfilePhotos] = useState([])
     const [brandVideos, setBrandVideos] = useState([])
     const [pricing, setPricing] = useState({
-        instagram_post: 500,
-        instagram_story: 200,
         tiktok_video: 800
     })
     const [uploading, setUploading] = useState(false)
-    const [tiktokUpload, setTiktokUpload] = useState({
-        videoFile: null,
-        videoPreview: null,
-        title: '',
-        description: '',
-        privacy: 'SELF_ONLY' // Brouillon par défaut
-    })
+    const [stripeConnecting, setStripeConnecting] = useState(false)
+    const [approvingCollabId, setApprovingCollabId] = useState('')
 
     const functionsOrigin = useMemo(() => {
         try {
-            return new URL(INSTAGRAM_CONNECT_URL).origin
+            return new URL(TIKTOK_CONNECT_URL).origin
         } catch (error) {
             console.error('Invalid Cloud Run URL, cannot validate OAuth responses.', error)
             return null
@@ -288,9 +357,7 @@ const MyProfile = () => {
         if (!functionsOrigin) return
 
         const successMessages = {
-            'instagram-connected': 'Instagram connecté avec succès !',
-            'tiktok-connected': 'TikTok connecté avec succès !',
-            'youtube-connected': 'YouTube connecté avec succès !'
+            'tiktok-connected': 'TikTok connecté avec succès !'
         }
 
         const handleMessage = (event) => {
@@ -313,19 +380,7 @@ const MyProfile = () => {
     console.log('MyProfile - userType:', userType)
     
     const [socialAccounts, setSocialAccounts] = useState({
-        instagram: {
-            connected: false,
-            username: '',
-            followers: 0,
-            lastUpdated: null
-        },
         tiktok: {
-            connected: false,
-            username: '',
-            followers: 0,
-            lastUpdated: null
-        },
-        youtube: {
             connected: false,
             username: '',
             followers: 0,
@@ -349,9 +404,7 @@ const MyProfile = () => {
 
             // Merger les données avec les valeurs par défaut
             setSocialAccounts({
-                instagram: normalizeSocialAccount(userData.socialAccounts.instagram),
-                tiktok: normalizeSocialAccount(userData.socialAccounts.tiktok),
-                youtube: normalizeSocialAccount(userData.socialAccounts.youtube)
+                tiktok: normalizeSocialAccount(userData.socialAccounts.tiktok)
             })
         }
         
@@ -400,7 +453,7 @@ const MyProfile = () => {
         loadCollaborations()
     }, [currentUser])
 
-    // Fonction pour connecter Instagram
+    // Ouvre une popup OAuth pour TikTok
     const openOAuthPopup = async (endpoint, windowName) => {
         if (!currentUser) {
             setMessage({ type: 'error', text: 'Vous devez être connecté pour lier un compte.' })
@@ -430,20 +483,6 @@ const MyProfile = () => {
         popupRef.current = popup
     }
 
-    const connectInstagram = async () => {
-        setLoading(true)
-        setMessage({ type: '', text: '' })
-        
-        try {
-            await openOAuthPopup(INSTAGRAM_CONNECT_URL, 'Instagram Login')
-        } catch (error) {
-            console.error('Error connecting Instagram:', error)
-            setMessage({ type: 'error', text: 'Erreur lors de la connexion à Instagram' })
-        } finally {
-            setLoading(false)
-        }
-    }
-
     // Fonction pour connecter TikTok
     const connectTikTok = async () => {
         setLoading(true)
@@ -459,18 +498,90 @@ const MyProfile = () => {
         }
     }
 
-    // Fonction pour connecter YouTube
-    const connectYouTube = async () => {
-        setLoading(true)
+    const connectStripePayouts = async () => {
+        if (!STRIPE_CONNECT_ONBOARDING_URL) {
+            setMessage({ type: 'error', text: 'Configuration Stripe manquante côté frontend.' })
+            return
+        }
+
+        setStripeConnecting(true)
         setMessage({ type: '', text: '' })
-        
         try {
-            await openOAuthPopup(YOUTUBE_CONNECT_URL, 'YouTube Login')
+            const idToken = await currentUser.getIdToken()
+            const response = await fetch(STRIPE_CONNECT_ONBOARDING_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${idToken}`
+                },
+                body: JSON.stringify({})
+            })
+
+            const data = await response.json()
+            if (!response.ok) {
+                throw new Error(data?.error || 'Impossible de créer le lien Stripe Connect')
+            }
+
+            if (!data?.url) {
+                throw new Error('Lien d\'onboarding Stripe introuvable')
+            }
+
+            window.location.href = data.url
         } catch (error) {
-            console.error('Error connecting YouTube:', error)
-            setMessage({ type: 'error', text: 'Erreur lors de la connexion à YouTube' })
+            console.error('Erreur connectStripePayouts:', error)
+            setMessage({ type: 'error', text: error.message || 'Erreur lors de la connexion Stripe' })
         } finally {
-            setLoading(false)
+            setStripeConnecting(false)
+        }
+    }
+
+    const approveCollaborationAsInfluencer = async (collaborationId) => {
+        if (!STRIPE_APPROVE_COLLAB_URL) {
+            setMessage({ type: 'error', text: 'Configuration Stripe manquante pour la validation.' })
+            return
+        }
+
+        setApprovingCollabId(collaborationId)
+        try {
+            const idToken = await currentUser.getIdToken()
+            const response = await fetch(STRIPE_APPROVE_COLLAB_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${idToken}`
+                },
+                body: JSON.stringify({ collaborationId })
+            })
+
+            const data = await response.json()
+            if (!response.ok) {
+                throw new Error(data?.error || 'Erreur lors de la validation')
+            }
+
+            setCollaborations((prev) =>
+                prev.map((collab) =>
+                    collab.id === collaborationId
+                        ? {
+                              ...collab,
+                              influencerApproved: true,
+                              status: data?.released ? 'completed' : collab.status,
+                              payoutStatus: data?.released ? 'paid' : collab.payoutStatus
+                          }
+                        : collab
+                )
+            )
+
+            setMessage({
+                type: 'success',
+                text: data?.released
+                    ? 'Validation confirmée. Paiement libéré avec succès (85% versé).'
+                    : 'Validation enregistrée. En attente de validation marque.'
+            })
+        } catch (error) {
+            console.error('Erreur validation influenceur:', error)
+            setMessage({ type: 'error', text: error.message || 'Erreur lors de la validation' })
+        } finally {
+            setApprovingCollabId('')
         }
     }
 
@@ -600,7 +711,7 @@ const MyProfile = () => {
 
     // Fonction pour ajouter une vidéo de collaboration
     const handleAddVideo = async () => {
-        const url = prompt('Entrez l\'URL de la vidéo (YouTube, TikTok, etc.) :')
+        const url = prompt('Entrez l\'URL de la vidéo TikTok :')
         if (!url) return
 
         const brandName = prompt('Nom de la marque :')
@@ -719,60 +830,8 @@ const MyProfile = () => {
                 </div>
             </div>
 
-            {/* Onglets */}
-            <div className='bg-white rounded-xl shadow-md mb-6'>
-                <div className='border-b border-gray-200'>
-                    <nav className='flex -mb-px'>
-                        <button
-                            onClick={() => setActiveTab('social')}
-                            className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                                activeTab === 'social'
-                                    ? 'border-primary text-primary'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`}
-                        >
-                            Réseaux Sociaux
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('collaborations')}
-                            className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                                activeTab === 'collaborations'
-                                    ? 'border-primary text-primary'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`}
-                        >
-                            Mes Collaborations ({collaborations.length})
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('profile-management')}
-                            className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                                activeTab === 'profile-management'
-                                    ? 'border-primary text-primary'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`}
-                        >
-                            Gestion du Profil
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('tiktok-upload')}
-                            className={`py-4 px-6 font-medium text-sm border-b-2 flex items-center gap-2 ${
-                                activeTab === 'tiktok-upload'
-                                    ? 'border-primary text-primary'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`}
-                        >
-                            <svg className='w-4 h-4' fill='currentColor' viewBox='0 0 24 24'>
-                                <path d='M12.53.02C13.84 0 15.14.01 16.44 0c.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z'/>
-                            </svg>
-                            Publier sur TikTok
-                        </button>
-                    </nav>
-                </div>
-            </div>
-            
-            {/* Contenu des onglets */}
-            {activeTab === 'social' && (
-                <div>
+            {/* Sections affichées sur la même page */}
+            <div>
                     {/* Message de feedback */}
                     {message.text && (
                         <div className={`mb-6 px-4 py-3 rounded ${
@@ -795,60 +854,25 @@ const MyProfile = () => {
                         </div>
                     </div>
 
-                    {/* Instagram */}
                     <div className='bg-white rounded-lg shadow-md p-6 mb-6'>
-                <div className='flex items-center justify-between mb-4'>
-                    <div className='flex items-center gap-3'>
-                        <div className='w-12 h-12 bg-gradient-to-tr from-purple-600 via-pink-600 to-orange-600 rounded-lg flex items-center justify-center'>
-                            <svg className='w-6 h-6 text-white' fill='currentColor' viewBox='0 0 24 24'>
-                                <path d='M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z'/>
-                            </svg>
-                        </div>
-                        <div>
-                            <h3 className='text-lg font-semibold'>Instagram</h3>
-                            {socialAccounts.instagram.connected && (
-                                <p className='text-sm text-gray-600'>@{socialAccounts.instagram.username}</p>
-                            )}
-                        </div>
-                    </div>
-                    
-                    {socialAccounts.instagram.connected ? (
-                        <button
-                            onClick={() => disconnectSocial('instagram')}
-                            disabled={loading}
-                            className='px-4 py-2 border border-red-500 text-red-500 rounded-lg hover:bg-red-50 disabled:opacity-50'
-                        >
-                            Déconnecter
-                        </button>
-                    ) : (
-                        <button
-                            onClick={connectInstagram}
-                            disabled={loading}
-                            className='px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:opacity-90 disabled:opacity-50'
-                        >
-                            {loading ? 'Connexion...' : 'Connecter'}
-                        </button>
-                    )}
-                </div>
-                
-                {socialAccounts.instagram.connected && (
-                    <div className='bg-gray-50 p-4 rounded-lg'>
-                        <div className='grid grid-cols-2 gap-4'>
+                        <div className='flex items-center justify-between gap-4'>
                             <div>
-                                <p className='text-sm text-gray-600'>Abonnés</p>
-                                <p className='text-2xl font-bold text-purple-600'>
-                                    {formatNumber(socialAccounts.instagram.followers)}
+                                <h2 className='text-xl font-semibold mb-1'>Paiements Stripe Connect</h2>
+                                <p className='text-sm text-gray-600'>
+                                    Connectez votre compte Stripe pour recevoir automatiquement 85% des collaborations validées.
                                 </p>
                             </div>
-                            <div>
-                                <p className='text-sm text-gray-600'>Dernière mise à jour</p>
-                                <p className='text-sm font-medium'>
-                                    {formatDate(socialAccounts.instagram.lastUpdated)}
-                                </p>
-                            </div>
+                            <button
+                                onClick={connectStripePayouts}
+                                disabled={stripeConnecting}
+                                className='px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50'
+                            >
+                                {stripeConnecting ? 'Connexion...' : 'Connecter Stripe'}
+                            </button>
                         </div>
-                    </div>
-                )}
+                        <p className='text-xs text-gray-500 mt-3'>
+                            Statut actuel: {userData?.stripeAccountId ? 'Compte connecté' : 'Compte non connecté'}
+                        </p>
                     </div>
 
                     {/* TikTok */}
@@ -907,62 +931,6 @@ const MyProfile = () => {
                 )}
                     </div>
 
-                    {/* YouTube */}
-                    <div className='bg-white rounded-lg shadow-md p-6 mb-6'>
-                <div className='flex items-center justify-between mb-4'>
-                    <div className='flex items-center gap-3'>
-                        <div className='w-12 h-12 bg-red-600 rounded-lg flex items-center justify-center'>
-                            <svg className='w-6 h-6 text-white' fill='currentColor' viewBox='0 0 24 24'>
-                                <path d='M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z'/>
-                            </svg>
-                        </div>
-                        <div>
-                            <h3 className='text-lg font-semibold'>YouTube</h3>
-                            {socialAccounts.youtube.connected && (
-                                <p className='text-sm text-gray-600'>{socialAccounts.youtube.username}</p>
-                            )}
-                        </div>
-                    </div>
-                    
-                    {socialAccounts.youtube.connected ? (
-                        <button
-                            onClick={() => disconnectSocial('youtube')}
-                            disabled={loading}
-                            className='px-4 py-2 border border-red-500 text-red-500 rounded-lg hover:bg-red-50 disabled:opacity-50'
-                        >
-                            Déconnecter
-                        </button>
-                    ) : (
-                        <button
-                            onClick={connectYouTube}
-                            disabled={loading}
-                            className='px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50'
-                        >
-                            {loading ? 'Connexion...' : 'Connecter'}
-                        </button>
-                    )}
-                </div>
-                
-                {socialAccounts.youtube.connected && (
-                    <div className='bg-gray-50 p-4 rounded-lg'>
-                        <div className='grid grid-cols-2 gap-4'>
-                            <div>
-                                <p className='text-sm text-gray-600'>Abonnés</p>
-                                <p className='text-2xl font-bold text-red-600'>
-                                    {formatNumber(socialAccounts.youtube.followers)}
-                                </p>
-                            </div>
-                            <div>
-                                <p className='text-sm text-gray-600'>Dernière mise à jour</p>
-                                <p className='text-sm font-medium'>
-                                    {formatDate(socialAccounts.youtube.lastUpdated)}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                )}
-                    </div>
-
                     {/* Info mise à jour automatique */}
                     <div className='bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6'>
                     <div className='flex items-start gap-3'>
@@ -978,11 +946,9 @@ const MyProfile = () => {
                     </div>
                 </div>
                 </div>
-            )}
 
-            {/* Onglet Collaborations */}
-            {activeTab === 'collaborations' && (
                 <div className='bg-white rounded-lg shadow-md p-6'>
+                    <h2 className='text-xl font-semibold mb-4'>Mes Collaborations ({collaborations.length})</h2>
                     {loadingCollabs ? (
                         <div className='text-center py-8'>
                             <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto'></div>
@@ -1012,6 +978,29 @@ const MyProfile = () => {
                                                  collab.status === 'pending' ? 'En cours' : 
                                                  collab.status || 'N/A'}
                                             </span>
+                                            <p className='text-xs text-gray-500 mt-2'>
+                                                Paiement: {collab.paymentStatus === 'funds_held'
+                                                    ? 'Fonds en attente'
+                                                    : collab.paymentStatus === 'awaiting_payment'
+                                                    ? 'Paiement en attente'
+                                                    : collab.paymentStatus || 'N/A'}
+                                            </p>
+                                            <p className='text-xs text-gray-500 mt-1'>
+                                                Validation marque: {collab.brandApproved ? 'Oui' : 'Non'}
+                                            </p>
+                                            <p className='text-xs text-gray-500 mt-1'>
+                                                Validation influenceur: {collab.influencerApproved ? 'Oui' : 'Non'}
+                                            </p>
+
+                                            {collab.paymentStatus === 'funds_held' && !collab.influencerApproved && (
+                                                <button
+                                                    onClick={() => approveCollaborationAsInfluencer(collab.id)}
+                                                    disabled={approvingCollabId === collab.id}
+                                                    className='mt-3 px-3 py-2 text-xs font-semibold rounded-md bg-primary text-white hover:bg-primary/90 disabled:opacity-50'
+                                                >
+                                                    {approvingCollabId === collab.id ? 'Validation...' : 'Valider et demander le versement'}
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -1027,11 +1016,9 @@ const MyProfile = () => {
                         </div>
                     )}
                 </div>
-            )}
 
-            {/* Onglet Gestion du Profil */}
-            {activeTab === 'profile-management' && (
                 <div className='space-y-6'>
+                    <h2 className='text-xl font-semibold'>Gestion du Profil</h2>
                     {/* Photo de profil principale */}
                     <div className='bg-white rounded-lg shadow-md p-6'>
                         <h2 className='text-xl font-semibold mb-6'>Photo de profil</h2>
@@ -1146,38 +1133,6 @@ const MyProfile = () => {
                         <div className='space-y-4'>
                             <div>
                                 <label className='block text-sm font-medium text-gray-700 mb-2'>
-                                    📸 Post Instagram
-                                </label>
-                                <div className='flex items-center gap-2'>
-                                    <input
-                                        type='number'
-                                        value={pricing.instagram_post}
-                                        onChange={(e) => setPricing({...pricing, instagram_post: parseInt(e.target.value) || 0})}
-                                        className='flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent'
-                                        min='0'
-                                    />
-                                    <span className='text-gray-600 font-medium'>€</span>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className='block text-sm font-medium text-gray-700 mb-2'>
-                                    📖 Story Instagram
-                                </label>
-                                <div className='flex items-center gap-2'>
-                                    <input
-                                        type='number'
-                                        value={pricing.instagram_story}
-                                        onChange={(e) => setPricing({...pricing, instagram_story: parseInt(e.target.value) || 0})}
-                                        className='flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent'
-                                        min='0'
-                                    />
-                                    <span className='text-gray-600 font-medium'>€</span>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className='block text-sm font-medium text-gray-700 mb-2'>
                                     🎥 Vidéo TikTok
                                 </label>
                                 <div className='flex items-center gap-2'>
@@ -1201,8 +1156,7 @@ const MyProfile = () => {
                         </div>
                     </div>
                 </div>
-            )}
-        </div>
+            </div>
     )
 }
 
