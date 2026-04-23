@@ -52,6 +52,24 @@ const Navbar = () => {
         </ul>
         
         <div className='flex items-center gap-2 sm:gap-4 ml-auto'>
+            {/* Desktop auth actions - hidden on mobile */}
+            {!currentUser && (
+                <div className='hidden md:flex items-center gap-2'>
+                    <button
+                        onClick={() => navigate('/login')}
+                        className='px-4 py-2 rounded-full border border-gray-300 text-gray-700 hover:border-primary hover:text-primary transition text-sm font-medium'
+                    >
+                        Se connecter
+                    </button>
+                    <button
+                        onClick={() => navigate('/login?isSignUp=true')}
+                        className='px-4 py-2 rounded-full bg-primary text-white hover:bg-primary/90 transition text-sm font-medium'
+                    >
+                        S'inscrire
+                    </button>
+                </div>
+            )}
+
             {/* Icône Panier - Seulement pour les marques connectées */}
             {currentUser && userType === 'brand' && (
                 <button 

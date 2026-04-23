@@ -28,6 +28,7 @@ const InfluencerProfile = () => {
     const [tiktokVideos, setTiktokVideos] = useState([])
     const [failedThumbnails, setFailedThumbnails] = useState({})
     const [selectedVideo, setSelectedVideo] = useState(null)
+    const [addToCartError, setAddToCartError] = useState('')
 
     const [analyticsData, setAnalyticsData] = useState(null)
 
@@ -263,6 +264,16 @@ const InfluencerProfile = () => {
         return () => window.removeEventListener('keydown', handleKeyDown)
     }, [isLightboxOpen])
 
+    useEffect(() => {
+        if (!addToCartError) return
+
+        const timer = setTimeout(() => {
+            setAddToCartError('')
+        }, 3000)
+
+        return () => clearTimeout(timer)
+    }, [addToCartError])
+
     // Obtenir le nombre total d'images (photos personnalisées ou 3 par défaut)
     const totalImages = profilePhotos.length > 0 ? profilePhotos.length : 3
     
@@ -286,6 +297,16 @@ const InfluencerProfile = () => {
     // Fonction pour ajouter au panier
     const handleAddToCart = () => {
         if (!influencer) return
+
+        if (!currentUser) {
+            setAddToCartError('Connectez-vous pour pouvoir ajouter au panier')
+            return
+        }
+
+        if (userType === 'influencer') {
+            setAddToCartError('Seules les marques peuvent ajouter au panier')
+            return
+        }
         
         // Vérifier que nous avons l'ID Firebase
         if (!firebaseInfluencerId) {
@@ -331,6 +352,7 @@ const InfluencerProfile = () => {
     const audienceLocations = currentAnalytics?.audienceLocation || []
     const audienceAges = currentAnalytics?.audienceAge || []
     const audienceGender = currentAnalytics?.audienceGender
+    const canAddToCart = currentUser && userType === 'brand'
     const secondaryMetricValue = currentAnalytics?.avgViews
         ?? (currentAnalytics?.videoCount > 0 ? currentAnalytics.videoCount : null)
         ?? (currentAnalytics?.likes > 0 ? currentAnalytics.likes : null)
@@ -344,6 +366,14 @@ const InfluencerProfile = () => {
 
     return (
         <div className='max-w-6xl mx-auto py-6 sm:py-10 px-4 sm:px-6'>
+            {addToCartError && (
+                <div className='fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-xl rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700 shadow-lg'>
+                    <p className='text-sm sm:text-base font-medium text-center'>
+                        {addToCartError}
+                    </p>
+                </div>
+            )}
+
             {/* Header with title - Boutons visibles uniquement sur Desktop */}
             <div className='flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4'>
                 <h1 className='text-xl sm:text-2xl font-semibold'>INFLUENCEUR LIFESTYLE!</h1>
@@ -532,11 +562,13 @@ const InfluencerProfile = () => {
                             </div>
                             <p className='text-sm sm:text-base text-gray-600 mb-3'>{influencer.city}, {influencer.country}</p>
                             <div className='flex flex-wrap gap-2'>
-                                <div className='flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 rounded-full text-xs sm:text-sm'>
+                                <div className='flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 rounded-full text-xs sm:text-sm select-none'>
                                     <svg className='w-3.5 h-3.5 sm:w-4 sm:h-4' fill='currentColor' viewBox='0 0 24 24'>
                                         <path d='M12.53.02C13.84 0 15.14.01 16.44 0c.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z'/>
                                     </svg>
-                                    <span className='font-medium'>{influencer.followers.tiktok}</span>
+                                    <span className='font-medium blur-[5px]'>
+                                        {influencer.followers.tiktok}
+                                    </span>
                                     <span className='hidden sm:inline text-gray-600'>Followers</span>
                                 </div>
                             </div>
@@ -618,7 +650,7 @@ const InfluencerProfile = () => {
 
                         <button 
                             onClick={handleAddToCart}
-                            disabled={loading}
+                            disabled={loading || !canAddToCart}
                             className='w-full bg-primary text-white py-2.5 sm:py-3 rounded-lg text-sm sm:text-base font-semibold hover:bg-primary/90 transition-colors mb-3 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2'
                         >
                             <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
@@ -640,137 +672,160 @@ const InfluencerProfile = () => {
             </div>
 
             {/* Analytics Section */}
-            <div className='mt-10 bg-white rounded-2xl shadow-lg p-6 md:p-8'>
-                <h2 className='text-2xl font-bold mb-6'>Analytics TikTok</h2>
+            <div className='mt-10 bg-white rounded-2xl shadow-lg p-6 md:p-8 relative overflow-hidden'>
 
-                {/* Stats Cards */}
-                <div className='grid grid-cols-3 gap-4 md:gap-6 mb-8'>
-                    <div>
-                        <div className='text-2xl md:text-3xl font-bold text-gray-900'>
-                            {formatCompactNumber(currentAnalytics?.followers)}
-                        </div>
-                        <div className='text-sm text-gray-600 mt-1'>Abonnés</div>
-                    </div>
-                    <div>
-                        <div className='text-2xl md:text-3xl font-bold text-gray-900'>
-                            {formatCompactNumber(secondaryMetricValue)}
-                        </div>
-                        <div className='text-sm text-gray-600 mt-1'>{secondaryMetricLabel}</div>
-                    </div>
-                    <div>
-                        <div className='text-2xl md:text-3xl font-bold text-gray-900'>
-                            {currentAnalytics?.engagementRate !== null && currentAnalytics?.engagementRate !== undefined
-                                ? `${currentAnalytics.engagementRate}%`
-                                : '—'}
-                        </div>
-                        <div className='text-sm text-gray-600 mt-1'>Engagement</div>
-                    </div>
-                </div>
+                <h2 className='relative z-20 text-2xl font-bold mb-6'>Analytics TikTok</h2>
 
-                {/* Audience Data */}
-                <div className='grid md:grid-cols-2 gap-8'>
-                    {/* Audience Location */}
-                    <div>
-                        <h3 className='text-lg font-semibold mb-4'>Localisation du Public</h3>
-                        {audienceLocations.length > 0 ? (
-                            <div className='space-y-3'>
-                                {audienceLocations.map((location, index) => (
-                                <div key={index} className='flex items-center gap-3'>
-                                    <span className='text-2xl'>{location.flag}</span>
-                                    <div className='flex-1'>
-                                        <div className='flex items-center justify-between mb-1'>
-                                            <span className='text-sm font-medium text-gray-700'>{location.country}</span>
-                                            <span className='text-sm font-semibold text-gray-900'>{location.percentage}%</span>
+                <div className='relative z-0 select-none pointer-events-none blur-[10px] scale-[1.02]'>
+
+                    {/* Stats Cards */}
+                    <div className='grid grid-cols-3 gap-4 md:gap-6 mb-8'>
+                        <div>
+                            <div className='text-2xl md:text-3xl font-bold text-gray-900'>
+                                {formatCompactNumber(currentAnalytics?.followers)}
+                            </div>
+                            <div className='text-sm text-gray-600 mt-1'>Abonnés</div>
+                        </div>
+                        <div>
+                            <div className='text-2xl md:text-3xl font-bold text-gray-900'>
+                                {formatCompactNumber(secondaryMetricValue)}
+                            </div>
+                            <div className='text-sm text-gray-600 mt-1'>{secondaryMetricLabel}</div>
+                        </div>
+                        <div>
+                            <div className='text-2xl md:text-3xl font-bold text-gray-900'>
+                                {currentAnalytics?.engagementRate !== null && currentAnalytics?.engagementRate !== undefined
+                                    ? `${currentAnalytics.engagementRate}%`
+                                    : '—'}
+                            </div>
+                            <div className='text-sm text-gray-600 mt-1'>Engagement</div>
+                        </div>
+                    </div>
+
+                    {/* Audience Data */}
+                    <div className='grid md:grid-cols-2 gap-8'>
+                        {/* Audience Location */}
+                        <div>
+                            <h3 className='text-lg font-semibold mb-4'>Localisation du Public</h3>
+                            {audienceLocations.length > 0 ? (
+                                <div className='space-y-3'>
+                                    {audienceLocations.map((location, index) => (
+                                    <div key={index} className='flex items-center gap-3'>
+                                        <span className='text-2xl'>{location.flag}</span>
+                                        <div className='flex-1'>
+                                            <div className='flex items-center justify-between mb-1'>
+                                                <span className='text-sm font-medium text-gray-700'>{location.country}</span>
+                                                <span className='text-sm font-semibold text-gray-900'>{location.percentage}%</span>
+                                            </div>
+                                            <div className='w-full bg-gray-200 rounded-full h-2'>
+                                                <div 
+                                                    className='bg-primary h-2 rounded-full transition-all'
+                                                    style={{ width: `${location.percentage}%` }}
+                                                />
+                                            </div>
                                         </div>
-                                        <div className='w-full bg-gray-200 rounded-full h-2'>
+                                    </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className='text-sm text-gray-500'>Données de localisation non fournies.</p>
+                            )}
+                        </div>
+
+                        {/* Audience Age */}
+                        <div>
+                            <h3 className='text-lg font-semibold mb-4'>Âge du Public</h3>
+                            {audienceAges.length > 0 ? (
+                                <div className='flex items-end justify-between h-48 gap-2'>
+                                    {audienceAges.map((age, index) => {
+                                    // Calculer la hauteur proportionnelle au pourcentage réel
+                                    const height = (age.percentage / 100) * 100 // pourcentage direct
+                                    const isHighest = age.percentage === Math.max(...audienceAges.map(a => a.percentage))
+                                    return (
+                                        <div key={index} className='flex-1 flex flex-col items-center justify-end' style={{ height: '100%' }}>
+                                            <div className='text-xs font-semibold mb-1'>{age.percentage}%</div>
                                             <div 
-                                                className='bg-primary h-2 rounded-full transition-all'
-                                                style={{ width: `${location.percentage}%` }}
+                                                className='w-full rounded-t-lg transition-all' 
+                                                style={{ 
+                                                    height: `${height}%`,
+                                                    backgroundColor: isHighest ? '#5569ff' : '#e0e0e0'
+                                                }}
                                             />
+                                            <div className='text-xs text-gray-600 mt-2'>{age.range}</div>
                                         </div>
+                                    )
+                                    })}
+                                </div>
+                            ) : (
+                                <p className='text-sm text-gray-500'>Données d’âge non fournies.</p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Audience Gender */}
+                    <div className='mt-8'>
+                        <h3 className='text-lg font-semibold mb-4'>Genre du Public</h3>
+                        {audienceGender ? (
+                            <div className='flex items-center gap-6'>
+                                <div className='relative w-32 h-32'>
+                                    <svg className='w-full h-full transform -rotate-90' viewBox='0 0 100 100'>
+                                        {/* Female segment */}
+                                        <circle
+                                            cx='50'
+                                            cy='50'
+                                            r='40'
+                                            fill='none'
+                                            stroke='#e0e0e0'
+                                            strokeWidth='20'
+                                        />
+                                        {/* Male segment */}
+                                        <circle
+                                            cx='50'
+                                            cy='50'
+                                            r='40'
+                                            fill='none'
+                                            stroke='#5569ff'
+                                            strokeWidth='20'
+                                            strokeDasharray={`${audienceGender.male * 2.51} ${251 - (audienceGender.male * 2.51)}`}
+                                        />
+                                    </svg>
+                                </div>
+                                <div className='space-y-3'>
+                                    <div className='flex items-center gap-3'>
+                                        <div className='w-4 h-4 rounded-full bg-primary' />
+                                        <span className='text-sm text-gray-700'>Homme</span>
+                                        <span className='text-sm font-semibold text-gray-900'>{audienceGender.male}%</span>
+                                    </div>
+                                    <div className='flex items-center gap-3'>
+                                        <div className='w-4 h-4 rounded-full bg-gray-300' />
+                                        <span className='text-sm text-gray-700'>Femme</span>
+                                        <span className='text-sm font-semibold text-gray-900'>{audienceGender.female}%</span>
                                     </div>
                                 </div>
-                                ))}
                             </div>
                         ) : (
-                            <p className='text-sm text-gray-500'>Données de localisation non fournies par l’API de la plateforme.</p>
-                        )}
-                    </div>
-
-                    {/* Audience Age */}
-                    <div>
-                        <h3 className='text-lg font-semibold mb-4'>Âge du Public</h3>
-                        {audienceAges.length > 0 ? (
-                            <div className='flex items-end justify-between h-48 gap-2'>
-                                {audienceAges.map((age, index) => {
-                                // Calculer la hauteur proportionnelle au pourcentage réel
-                                const height = (age.percentage / 100) * 100 // pourcentage direct
-                                const isHighest = age.percentage === Math.max(...audienceAges.map(a => a.percentage))
-                                return (
-                                    <div key={index} className='flex-1 flex flex-col items-center justify-end' style={{ height: '100%' }}>
-                                        <div className='text-xs font-semibold mb-1'>{age.percentage}%</div>
-                                        <div 
-                                            className='w-full rounded-t-lg transition-all' 
-                                            style={{ 
-                                                height: `${height}%`,
-                                                backgroundColor: isHighest ? '#5569ff' : '#e0e0e0'
-                                            }}
-                                        />
-                                        <div className='text-xs text-gray-600 mt-2'>{age.range}</div>
-                                    </div>
-                                )
-                                })}
-                            </div>
-                        ) : (
-                            <p className='text-sm text-gray-500'>Données d’âge non fournies par l’API de la plateforme.</p>
+                            <p className='text-sm text-gray-500'>Données de genre non fournies.</p>
                         )}
                     </div>
                 </div>
 
-                {/* Audience Gender */}
-                <div className='mt-8'>
-                    <h3 className='text-lg font-semibold mb-4'>Genre du Public</h3>
-                    {audienceGender ? (
-                        <div className='flex items-center gap-6'>
-                            <div className='relative w-32 h-32'>
-                                <svg className='w-full h-full transform -rotate-90' viewBox='0 0 100 100'>
-                                    {/* Female segment */}
-                                    <circle
-                                        cx='50'
-                                        cy='50'
-                                        r='40'
-                                        fill='none'
-                                        stroke='#e0e0e0'
-                                        strokeWidth='20'
-                                    />
-                                    {/* Male segment */}
-                                    <circle
-                                        cx='50'
-                                        cy='50'
-                                        r='40'
-                                        fill='none'
-                                        stroke='#5569ff'
-                                        strokeWidth='20'
-                                        strokeDasharray={`${audienceGender.male * 2.51} ${251 - (audienceGender.male * 2.51)}`}
-                                    />
+                <div className='absolute inset-0 z-20 flex items-center justify-center p-4'>
+                    <button
+                        type='button'
+                        onClick={() => navigate('/login?isSignUp=true')}
+                        className='max-w-md rounded-lg bg-black/90 px-5 py-4 text-left text-white shadow-2xl hover:bg-black transition-colors'
+                    >
+                        <div className='flex items-center gap-3'>
+                            <div className='flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-white/10'>
+                                <svg className='h-6 w-6' viewBox='0 0 24 24' fill='none' stroke='currentColor'>
+                                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M12 11V7a4 4 0 10-8 0v4m8 0H4m8 0v10H4v-10m8 0h8m-8 0a4 4 0 118 0v4m-8-4v10h8v-10m0 0h-8' />
                                 </svg>
                             </div>
-                            <div className='space-y-3'>
-                                <div className='flex items-center gap-3'>
-                                    <div className='w-4 h-4 rounded-full bg-primary' />
-                                    <span className='text-sm text-gray-700'>Homme</span>
-                                    <span className='text-sm font-semibold text-gray-900'>{audienceGender.male}%</span>
-                                </div>
-                                <div className='flex items-center gap-3'>
-                                    <div className='w-4 h-4 rounded-full bg-gray-300' />
-                                    <span className='text-sm text-gray-700'>Femme</span>
-                                    <span className='text-sm font-semibold text-gray-900'>{audienceGender.female}%</span>
-                                </div>
-                            </div>
+                            <span className='text-base sm:text-lg font-medium leading-snug'>
+                                Créez un compte gratuit pour accéder aux statistiques des créateurs
+                            </span>
                         </div>
-                    ) : (
-                        <p className='text-sm text-gray-500'>Données de genre non fournies par l’API de la plateforme.</p>
-                    )}
+                    </button>
                 </div>
             </div>
 
