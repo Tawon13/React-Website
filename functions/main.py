@@ -896,7 +896,7 @@ def approve_collaboration_delivery_handler(req: https_fn.Request) -> https_fn.Re
 # FONCTION PLANIFIÉE - Mise à jour quotidienne
 # ============================================
 
-@scheduler_fn.on_schedule(schedule="0 2 * * *", timezone="Europe/Paris")
+@scheduler_fn.on_schedule(schedule="*/30 * * * *", timezone="Europe/Paris")
 def daily_stats_update(event: scheduler_fn.ScheduledEvent) -> None:
     """
     Mise à jour quotidienne des statistiques YouTube et TikTok
@@ -1023,3 +1023,51 @@ def send_contact_email_handler(req: https_fn.Request) -> https_fn.Response:
             status=500,
             headers=headers
         )
+
+
+@https_fn.on_request()
+def force_tiktok_update_handler(req: https_fn.Request) -> https_fn.Response:
+    """
+    End-point HTTP pour forcer la mise à jour des statistiques/vidéos TikTok
+    Requiert `influencerId` et un `Authorization: Bearer <idToken>` valide pour cet utilisateur.
+    URL: /force_tiktok_update
+    """
+    headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Content-Type': 'application/json; charset=utf-8'
+    }
+
+    if req.method == 'OPTIONS':
+        return https_fn.Response('', status=204, headers=headers)
+
+    if req.method != 'POST':
+        return https_fn.Response('{"error": "Méthode non autorisée"}', status=405, headers=headers)
+
+    try:
+        data = req.get_json() or {}
+        influencer_id = data.get('influencerId') or req.args.get('influencerId')
+        if not influencer_id:
+            return https_fn.Response('{"error": "influencerId requis"}', status=400, headers=headers)
+
+        # Vérifier que l'utilisateur authentifié correspond à l'influenceur
+        try:
+            authenticate_user(req, influencer_id)
+        except AuthorizationError as auth_err:
+            return https_fn.Response(f'{{"error": "{str(auth_err)}"}}', status=auth_err.status, headers=headers)
+
+        from lib.token_store import get_user_tokens
+        from lib.tiktok import update_tiktok_stats
+
+        user_tokens = get_user_tokens(influencer_id)
+        tiktok_tokens = user_tokens.get('tiktok') or {}
+        if not tiktok_tokens:
+            return https_fn.Response('{"error": "Aucun token TikTok trouvé pour cet utilisateur"}', status=404, headers=headers)
+
+        result = update_tiktok_stats(influencer_id, tiktok_tokens)
+
+        return https_fn.Response(json.dumps(result, ensure_ascii=False), status=200, headers=headers)
+    except Exception as e:
+        print(f'Erreur force_tiktok_update: {str(e)}')
+        return https_fn.Response(f'{{"error": "Erreur serveur: {str(e)}"}}', status=500, headers=headers)

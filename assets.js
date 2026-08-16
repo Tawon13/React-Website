@@ -120,7 +120,7 @@ export const influencers = [
         country: 'France',
         experience: '3 Years',
         about: 'Amimine est un créateur de contenu émergent dans le domaine de la mode durable et éthique. Sa mission est de promouvoir une mode responsable tout en restant tendance. Son approche innovante et son engagement envers l\'environnement résonnent avec une communauté engagée.',
-        fees: 85,
+        fees: 160,
         rating: 4.7,
         reviews: 24,
         followers: {

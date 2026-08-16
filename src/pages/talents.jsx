@@ -1,12 +1,15 @@
 import React, { useContext, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AppContext } from '../context/AppContext'
+import { db } from '../config/firebase'
+import { collection, getDocs } from 'firebase/firestore'
 
 const Talents = () => {
 
 	const {speciality} = useParams()
 	const [filterDoc, setFilterDoc] = useState([])
 	const [showFilter, setShowFilter] = useState(false)
+	const [pricingMap, setPricingMap] = useState({})
   const navigate = useNavigate()
 
 	const {doctors} = useContext(AppContext)
@@ -22,7 +25,30 @@ const Talents = () => {
   useEffect(() =>{
     applyFilter()
   },[doctors,speciality])
-    
+
+  // Charger les prix réels choisis par chaque influenceur depuis Firestore
+  useEffect(() => {
+    const loadPricing = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, 'influencers'))
+        const map = {}
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data()
+          if (data.pricing?.tiktok_video !== undefined) {
+            map[docSnap.id] = data.pricing.tiktok_video
+          }
+        })
+        setPricingMap(map)
+      } catch (error) {
+        console.error('Erreur lors du chargement des prix des influenceurs:', error)
+      }
+    }
+
+    loadPricing()
+  }, [])
+
+  const getDisplayPrice = (item) => pricingMap[item._id] ?? item.fees ?? 800
+
 	return (
 		<div className='py-8'>
 			<h1 className='text-3xl font-medium text-center mb-2'>Nos Talents</h1>
@@ -47,7 +73,7 @@ const Talents = () => {
 								</div>
 								<p className='text-gray-900 text-lg font-medium'>{item.name}</p>
 								<p className='text-gray-600 text-sm'>{item.speciality}</p>
-								<p className='text-primary text-lg font-semibold mt-2'>${item.fees}</p>
+								<p className='text-primary text-lg font-semibold mt-2'>{getDisplayPrice(item)}€</p>
 							</div>
 						</div>
 					))}

@@ -162,13 +162,13 @@ const InfluencerProfile = () => {
         })
     }, [socialData])
 
-    // Prix basés sur les packages
+    // Prix basés sur les packages — utiliser le prix du profil (`fees`) comme fallback
     const packagePrices = {
-        '🎥 1 Vidéo TikTok': customPricing?.tiktok_video || 800
+        '🎥 1 Vidéo TikTok': customPricing?.tiktok_video ?? influencer?.fees ?? 800
     }
 
     // Obtenir le prix actuel selon le package sélectionné
-    const currentPrice = packagePrices[selectedPackage] || 500
+    const currentPrice = packagePrices[selectedPackage] ?? influencer?.fees ?? 500
 
     useEffect(() => {
         // Scroll vers le haut de la page
@@ -840,11 +840,51 @@ const InfluencerProfile = () => {
                         </button>
                     </div>
                 )}
-            </div>
+                </div>
 
             {/* Section Derniers Posts */}
             <div className='mt-10 bg-white rounded-2xl shadow-lg p-6 md:p-8'>
-                <h2 className='text-2xl font-bold mb-6'>Ses Derniers Posts</h2>
+                    <div className='flex items-center justify-between mb-6'>
+                        <h2 className='text-2xl font-bold'>Ses Derniers Posts</h2>
+                        {currentUser && firebaseInfluencerId && currentUser.uid === firebaseInfluencerId && (
+                            <button
+                                onClick={async (e) => {
+                                    e.stopPropagation()
+                                    try {
+                                        const idToken = await currentUser.getIdToken()
+                                        const resp = await fetch('/api/force_tiktok_update', {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                'Authorization': `Bearer ${idToken}`
+                                            },
+                                            body: JSON.stringify({ influencerId: firebaseInfluencerId })
+                                        })
+
+                                        if (!resp.ok) throw new Error('Erreur serveur')
+
+                                        // Recharger les données sociales depuis Firestore
+                                        const docRef = doc(db, 'influencers', firebaseInfluencerId)
+                                        const docSnap = await getDocFromServer(docRef)
+                                        if (docSnap.exists()) {
+                                            const data = docSnap.data()
+                                            const rawTikTok = Array.isArray(data.tiktokVideos) && data.tiktokVideos.length > 0
+                                                ? data.tiktokVideos
+                                                : data.socialAccounts?.tiktok?.recentVideos
+
+                                            setTiktokVideos(normalizeTikTokVideos(rawTikTok))
+                                        }
+                                    } catch (err) {
+                                        console.error('Erreur rafraîchissement TikTok:', err)
+                                        alert('Impossible de rafraîchir les posts pour le moment.')
+                                    }
+                                }}
+                                className='text-sm px-3 py-1.5 border rounded-md text-primary hover:bg-primary/5'
+                            >
+                                Rafraîchir
+                            </button>
+                        )}
+                    </div>
                 
                 <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6'>
                     {tiktokVideos.length > 0 ? (
