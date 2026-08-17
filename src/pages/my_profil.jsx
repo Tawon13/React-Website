@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { doc, updateDoc, setDoc, getDoc, collection, query, where, getDocs, orderBy, serverTimestamp } from 'firebase/firestore'
 import {
@@ -337,6 +338,7 @@ const BrandProfile = ({ currentUser, userData }) => {
 }
 
 const MyProfile = () => {
+    const navigate = useNavigate()
     const { currentUser, userData, userType, refreshUserData } = useAuth()
     const [loading, setLoading] = useState(false)
     const [message, setMessage] = useState({ type: '', text: '' })
@@ -1042,7 +1044,11 @@ const MyProfile = () => {
                     ) : collaborations.length > 0 ? (
                         <div className='space-y-4'>
                             {collaborations.map((collab) => (
-                                <div key={collab.id} className='border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition'>
+                                <div
+                                    key={collab.id}
+                                    onClick={() => navigate('/messages', { state: { brandId: collab.brandId } })}
+                                    className='border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition'
+                                >
                                     <div className='flex justify-between items-start'>
                                         <div className='flex-1'>
                                             <h3 className='font-semibold text-gray-900'>{collab.brandName || 'Marque'}</h3>
@@ -1090,7 +1096,10 @@ const MyProfile = () => {
 
                                             {collab.paymentStatus === 'funds_held' && !collab.influencerApproved && (
                                                 <button
-                                                    onClick={() => approveCollaborationAsInfluencer(collab.id)}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        approveCollaborationAsInfluencer(collab.id)
+                                                    }}
                                                     disabled={approvingCollabId === collab.id}
                                                     className='mt-3 px-3 py-2 text-xs font-semibold rounded-md bg-primary text-white hover:bg-primary/90 disabled:opacity-50'
                                                 >

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { db } from '../config/firebase'
 import {
@@ -35,6 +35,7 @@ const getAvatarGradient = (name) => {
 
 const Messages = () => {
     const navigate = useNavigate()
+    const location = useLocation()
     const { currentUser, userType, userData } = useAuth()
     const [conversations, setConversations] = useState([])
     const [selectedConversation, setSelectedConversation] = useState(null)
@@ -161,6 +162,21 @@ const Messages = () => {
             setLoading(false)
         }
     }, [currentUser, userType])
+
+    // Sélectionner automatiquement la conversation d'une marque quand on arrive
+    // depuis "Mes Collaborations" (ex: clic sur une collaboration côté influenceur).
+    // Ne s'applique qu'une fois pour ne pas re-forcer la sélection après un retour manuel.
+    const appliedRedirectRef = useRef(false)
+    useEffect(() => {
+        const brandId = location.state?.brandId
+        if (!brandId || appliedRedirectRef.current || conversations.length === 0) return
+
+        const match = conversations.find((conv) => conv.brandId === brandId)
+        if (match) {
+            appliedRedirectRef.current = true
+            setSelectedConversation(match)
+        }
+    }, [conversations, location.state])
 
     // Charger les messages de la conversation sélectionnée
     useEffect(() => {
