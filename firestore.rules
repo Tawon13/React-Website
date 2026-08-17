@@ -24,8 +24,13 @@ service cloud.firestore {
     match /influencers/{influencerId} {
       // Tout le monde peut lire les profils d'influenceurs
       allow read: if true;
-      // Seul l'influenceur peut modifier son propre profil
-      allow write: if isOwner(influencerId);
+      // Création du profil par l'influenceur lui-même, toujours non approuvé au départ
+      allow create: if isOwner(influencerId) && request.resource.data.approved == false;
+      // L'influenceur peut modifier son profil, sauf le champ "approved" (réservé à l'admin)
+      allow update: if isAdmin() ||
+                       (isOwner(influencerId) &&
+                        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['approved']));
+      allow delete: if isOwner(influencerId) || isAdmin();
     }
 
     // Coordonnées bancaires (RIB) des influenceurs: jamais publiques,
@@ -40,8 +45,10 @@ service cloud.firestore {
     match /brands/{brandId} {
       // Tout le monde peut lire les profils de marques
       allow read: if true;
-      // Seule la marque peut modifier son propre profil
+      // Seule la marque peut créer/modifier son propre profil
       allow write: if isOwner(brandId);
+      // L'admin peut aussi supprimer un compte marque
+      allow delete: if isOwner(brandId) || isAdmin();
     }
     
     // Règles pour les collaborations

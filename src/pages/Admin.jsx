@@ -15,11 +15,13 @@ const Admin = () => {
   const [paidPayouts, setPaidPayouts] = useState([])
   const [markingPaidId, setMarkingPaidId] = useState('')
   const [activeTab, setActiveTab] = useState('users')
+  const [approvingId, setApprovingId] = useState('')
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalInfluencers: 0,
     totalBrands: 0,
-    totalContacts: 0
+    totalContacts: 0,
+    pendingApproval: 0
   })
 
   useEffect(() => {
@@ -60,8 +62,12 @@ const Admin = () => {
       }))
       console.log('Brands data:', brandsData)
 
-      // Combiner les deux
-      const allUsers = [...influencersData, ...brandsData]
+      // Combiner les deux, influenceurs en attente de validation en premier
+      const allUsers = [...influencersData, ...brandsData].sort((a, b) => {
+        const aPending = a.userType === 'influenceur' && a.approved !== true ? 0 : 1
+        const bPending = b.userType === 'influenceur' && b.approved !== true ? 0 : 1
+        return aPending - bPending
+      })
       console.log('Total users:', allUsers.length)
       setUsers(allUsers)
 
@@ -106,7 +112,8 @@ const Admin = () => {
         totalUsers: allUsers.length,
         totalInfluencers: influencersData.length,
         totalBrands: brandsData.length,
-        totalContacts: contactsData.length
+        totalContacts: contactsData.length,
+        pendingApproval: influencersData.filter(i => i.approved !== true).length
       }
       console.log('Calculated stats:', calculatedStats)
       setStats(calculatedStats)
@@ -135,6 +142,23 @@ const Admin = () => {
         console.error('Erreur lors de la suppression:', error)
         alert('Erreur lors de la suppression')
       }
+    }
+  }
+
+  const handleApproveInfluencer = async (influencerId, approve) => {
+    setApprovingId(influencerId)
+    try {
+      await updateDoc(doc(db, 'influencers', influencerId), { approved: approve })
+      setUsers((prev) => prev.map((u) => (u.id === influencerId ? { ...u, approved: approve } : u)))
+      setStats((prev) => ({
+        ...prev,
+        pendingApproval: prev.pendingApproval + (approve ? -1 : 1)
+      }))
+    } catch (error) {
+      console.error('Erreur lors de la validation du profil:', error)
+      alert('Erreur lors de la validation du profil')
+    } finally {
+      setApprovingId('')
     }
   }
 
@@ -210,7 +234,7 @@ const Admin = () => {
         </div>
 
         {/* Statistiques */}
-        <div className='grid grid-cols-1 md:grid-cols-4 gap-4 mb-6'>
+        <div className='grid grid-cols-1 md:grid-cols-5 gap-4 mb-6'>
           <div className='bg-white rounded-lg shadow-md p-6'>
             <div className='flex items-center justify-between'>
               <div>
@@ -249,6 +273,20 @@ const Admin = () => {
                 <svg className='w-6 h-6 text-green-600' fill='currentColor' viewBox='0 0 20 20'>
                   <path d='M4 3a2 2 0 100 4h12a2 2 0 100-4H4z'/>
                   <path fillRule='evenodd' d='M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z' clipRule='evenodd'/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className='bg-white rounded-lg shadow-md p-6'>
+            <div className='flex items-center justify-between'>
+              <div>
+                <p className='text-gray-500 text-sm'>En attente de validation</p>
+                <p className='text-3xl font-bold text-orange-600'>{stats.pendingApproval}</p>
+              </div>
+              <div className='w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center'>
+                <svg className='w-6 h-6 text-orange-600' fill='currentColor' viewBox='0 0 20 20'>
+                  <path fillRule='evenodd' d='M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z' clipRule='evenodd'/>
                 </svg>
               </div>
             </div>
@@ -318,6 +356,7 @@ const Admin = () => {
                       <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Email</th>
                       <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Type</th>
                       <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Réseaux</th>
+                      <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Validé</th>
                       <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Actions</th>
                     </tr>
                   </thead>
@@ -352,13 +391,53 @@ const Admin = () => {
                             )}
                           </div>
                         </td>
+                        <td className='px-6 py-4 whitespace-nowrap'>
+                          {user.userType === 'influenceur' ? (
+                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                              user.approved === true
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-orange-100 text-orange-800'
+                            }`}>
+                              {user.approved === true ? 'Validé' : 'En attente'}
+                            </span>
+                          ) : (
+                            <span className='text-gray-400 text-sm'>—</span>
+                          )}
+                        </td>
                         <td className='px-6 py-4 whitespace-nowrap text-sm'>
-                          <button
-                            onClick={() => deleteUser(user.id, user.userType)}
-                            className='text-red-600 hover:text-red-900'
-                          >
-                            Supprimer
-                          </button>
+                          <div className='flex items-center gap-3'>
+                            {user.userType === 'influenceur' && (
+                              <a
+                                href={`/influencer/${user.id}`}
+                                target='_blank'
+                                rel='noopener noreferrer'
+                                className='text-blue-600 hover:text-blue-800'
+                              >
+                                Voir le profil
+                              </a>
+                            )}
+                            {user.userType === 'influenceur' && (
+                              <button
+                                onClick={() => handleApproveInfluencer(user.id, user.approved !== true)}
+                                disabled={approvingId === user.id}
+                                className={`disabled:opacity-50 ${
+                                  user.approved === true
+                                    ? 'text-gray-600 hover:text-gray-900'
+                                    : 'text-primary hover:text-primary/80 font-medium'
+                                }`}
+                              >
+                                {approvingId === user.id
+                                  ? '...'
+                                  : user.approved === true ? 'Retirer' : 'Approuver'}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => deleteUser(user.id, user.userType)}
+                              className='text-red-600 hover:text-red-900'
+                            >
+                              Supprimer
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

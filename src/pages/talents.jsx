@@ -1,18 +1,15 @@
 import React, { useContext, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AppContext } from '../context/AppContext'
-import { db } from '../config/firebase'
-import { collection, getDocs } from 'firebase/firestore'
 
 const Talents = () => {
 
 	const {speciality} = useParams()
 	const [filterDoc, setFilterDoc] = useState([])
 	const [showFilter, setShowFilter] = useState(false)
-	const [pricingMap, setPricingMap] = useState({})
   const navigate = useNavigate()
 
-	const {doctors} = useContext(AppContext)
+	const {doctors, doctorsLoading} = useContext(AppContext)
 
   const applyFilter = () => {
     if (speciality) {
@@ -26,43 +23,20 @@ const Talents = () => {
     applyFilter()
   },[doctors,speciality])
 
-  // Charger les prix réels choisis par chaque influenceur depuis Firestore
-  useEffect(() => {
-    const loadPricing = async () => {
-      try {
-        const snapshot = await getDocs(collection(db, 'influencers'))
-        const map = {}
-        snapshot.forEach((docSnap) => {
-          const data = docSnap.data()
-          if (data.pricing?.tiktok_video !== undefined) {
-            map[docSnap.id] = data.pricing.tiktok_video
-          }
-        })
-        setPricingMap(map)
-      } catch (error) {
-        console.error('Erreur lors du chargement des prix des influenceurs:', error)
-      }
-    }
-
-    loadPricing()
-  }, [])
-
-  const getDisplayPrice = (item) => pricingMap[item._id] ?? item.fees ?? 800
-
 	return (
 		<div className='py-8'>
 			<h1 className='text-3xl font-medium text-center mb-2'>Nos Talents</h1>
 			<p className='text-gray-600 text-center mb-8'>Parcourez notre liste complète d'influenceurs de confiance.</p>
-			
+
 			<div className='flex flex-col sm:flex-row items-start gap-5 mt-5'>
 				{/* Filter sidebar */}
 
 				{/* Talents Grid */}
 				<div className='w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 gap-y-6'>
 					{filterDoc.map((item, index) => (
-						<div 
+						<div
 							onClick={() => {navigate(`/influencer/${item._id}`); scrollTo(0,0)}}
-							className='border border-blue-200 rounded-xl overflow-hidden cursor-pointer hover:translate-y-[-10px] transition-all duration-500' 
+							className='border border-blue-200 rounded-xl overflow-hidden cursor-pointer hover:translate-y-[-10px] transition-all duration-500'
 							key={index}
 						>
 							<img className='bg-blue-50 w-full h-64 object-cover' src={item.image} alt={`Image of ${item.name}`} />
@@ -73,14 +47,18 @@ const Talents = () => {
 								</div>
 								<p className='text-gray-900 text-lg font-medium'>{item.name}</p>
 								<p className='text-gray-600 text-sm'>{item.speciality}</p>
-								<p className='text-primary text-lg font-semibold mt-2'>{getDisplayPrice(item)}€</p>
+								<p className='text-primary text-lg font-semibold mt-2'>{item.fees}€</p>
 							</div>
 						</div>
 					))}
 				</div>
 			</div>
 
-			{filterDoc.length === 0 && (
+			{doctorsLoading ? (
+				<div className='text-center py-20'>
+					<div className='animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto'></div>
+				</div>
+			) : filterDoc.length === 0 && (
 				<div className='text-center py-20'>
 					<p className='text-gray-600'>Aucun talent trouvé pour cette catégorie.</p>
 				</div>

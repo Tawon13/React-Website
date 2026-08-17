@@ -1,16 +1,18 @@
 import React, { useContext, useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { AppContext } from '../context/AppContext'
+import { AppContext, normalizeInfluencer } from '../context/AppContext'
 import { assets } from '../assets/assets'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { db } from '../config/firebase'
-import { doc, getDocFromServer, addDoc, collection, serverTimestamp, query, where, getDocs } from 'firebase/firestore'
+import { doc, getDocFromServer, addDoc, collection, serverTimestamp, query, where, getDocs, updateDoc } from 'firebase/firestore'
+
+const ADMIN_EMAIL = 'bechagraamine@gmail.com'
 
 const InfluencerProfile = () => {
     const { influencerId } = useParams()
     const navigate = useNavigate()
-    const { doctors } = useContext(AppContext)
+    const { doctors, doctorsLoading } = useContext(AppContext)
     const { currentUser, userType, userData } = useAuth()
     const { addToCart } = useCart()
     const [influencer, setInfluencer] = useState(null)
@@ -29,6 +31,9 @@ const InfluencerProfile = () => {
     const [failedThumbnails, setFailedThumbnails] = useState({})
     const [selectedVideo, setSelectedVideo] = useState(null)
     const [addToCartError, setAddToCartError] = useState('')
+    const [isApprovedProfile, setIsApprovedProfile] = useState(true)
+    const [approvingProfile, setApprovingProfile] = useState(false)
+    const [directCheckDone, setDirectCheckDone] = useState(false)
 
     const [analyticsData, setAnalyticsData] = useState(null)
 
@@ -178,7 +183,9 @@ const InfluencerProfile = () => {
         console.log('Recherche influenceur avec ID:', influencerId)
         console.log('Influenceur trouvé dans doctors:', foundInfluencer)
         setInfluencer(foundInfluencer)
-        
+        setIsApprovedProfile(Boolean(foundInfluencer))
+        setDirectCheckDone(false)
+
         // Charger les données sociales depuis Firestore si disponibles
         const loadSocialData = async () => {
             try {
@@ -218,18 +225,28 @@ const InfluencerProfile = () => {
 
                     setTiktokVideos(normalizeTikTokVideos(rawTikTokVideos))
                     setFailedThumbnails({})
+
+                    // L'admin peut prévisualiser un profil pas encore approuvé
+                    // (donc absent de la liste publique `doctors`) pour décider de le valider.
+                    if (!foundInfluencer && currentUser?.email === ADMIN_EMAIL) {
+                        setInfluencer(normalizeInfluencer(docSnap))
+                    }
                 } else {
                     console.error('Influenceur non trouvé dans Firebase avec ID:', influencerId)
                 }
             } catch (error) {
                 console.error('Erreur lors du chargement des données sociales:', error)
+            } finally {
+                setDirectCheckDone(true)
             }
         }
-        
+
         if (influencerId) {
             loadSocialData()
+        } else {
+            setDirectCheckDone(true)
         }
-    }, [doctors, influencerId])
+    }, [doctors, influencerId, currentUser])
 
     // Fonctions pour le lightbox
     const openLightbox = (index) => {
@@ -295,6 +312,22 @@ const InfluencerProfile = () => {
         return influencer.image
     }
 
+    // Fonction pour approuver le profil directement depuis l'aperçu admin
+    const handleApproveProfile = async () => {
+        if (!firebaseInfluencerId) return
+
+        setApprovingProfile(true)
+        try {
+            await updateDoc(doc(db, 'influencers', firebaseInfluencerId), { approved: true })
+            setIsApprovedProfile(true)
+        } catch (error) {
+            console.error('Erreur lors de la validation du profil:', error)
+            alert('Erreur lors de la validation du profil')
+        } finally {
+            setApprovingProfile(false)
+        }
+    }
+
     // Fonction pour ajouter au panier
     const handleAddToCart = () => {
         if (!influencer) return
@@ -346,7 +379,15 @@ const InfluencerProfile = () => {
     }
 
     if (!influencer) {
-        return <div className="text-center py-20">Chargement...</div>
+        if (doctorsLoading || !directCheckDone) {
+            return <div className="text-center py-20">Chargement...</div>
+        }
+        return (
+            <div className='text-center py-20'>
+                <p className='text-lg text-gray-700 font-medium'>Ce profil est introuvable ou n'est pas encore validé.</p>
+                <p className='text-sm text-gray-500 mt-2'>Revenez un peu plus tard, ou contactez-nous si vous pensez qu'il s'agit d'une erreur.</p>
+            </div>
+        )
     }
 
     const currentAnalytics = analyticsData?.tiktok
@@ -377,6 +418,21 @@ const InfluencerProfile = () => {
 
     return (
         <div className='max-w-6xl mx-auto py-6 sm:py-10 px-4 sm:px-6'>
+            {!isApprovedProfile && currentUser?.email === ADMIN_EMAIL && (
+                <div className='mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3'>
+                    <p className='text-sm text-orange-800 font-medium'>
+                        Aperçu admin — ce profil n'est pas encore approuvé et n'est pas visible publiquement.
+                    </p>
+                    <button
+                        onClick={handleApproveProfile}
+                        disabled={approvingProfile}
+                        className='px-4 py-2 text-sm font-semibold rounded-md bg-primary text-white hover:bg-primary/90 disabled:opacity-50 whitespace-nowrap'
+                    >
+                        {approvingProfile ? 'Validation...' : 'Approuver ce profil'}
+                    </button>
+                </div>
+            )}
+
             {addToCartError && (
                 <div className='fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-xl rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700 shadow-lg'>
                     <p className='text-sm sm:text-base font-medium text-center'>
