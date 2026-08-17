@@ -15,13 +15,25 @@ service cloud.firestore {
              (request.auth.uid == resource.data.brandId ||
               request.auth.uid == resource.data.influencerId);
     }
-    
+
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.email == 'bechagraamine@gmail.com';
+    }
+
     // Règles pour les influenceurs
     match /influencers/{influencerId} {
       // Tout le monde peut lire les profils d'influenceurs
       allow read: if true;
       // Seul l'influenceur peut modifier son propre profil
       allow write: if isOwner(influencerId);
+    }
+
+    // Coordonnées bancaires (RIB) des influenceurs: jamais publiques,
+    // uniquement lisibles/modifiables par le titulaire, et lisibles par l'admin
+    // pour effectuer les virements manuels.
+    match /bankDetails/{influencerId} {
+      allow read, write: if isOwner(influencerId);
+      allow read: if isAdmin();
     }
     
     // Règles pour les marques
@@ -35,7 +47,8 @@ service cloud.firestore {
     // Règles pour les collaborations
     match /collaborations/{collaborationId} {
       // Les marques et influenceurs peuvent lire leurs propres collaborations
-      allow read: if isCollabParticipant();
+      // L'admin peut tout lire pour gérer les virements manuels (panel Admin)
+      allow read: if isCollabParticipant() || isAdmin();
 
       // Sécurité paiement: création/mise à jour/suppression gérées uniquement côté serveur (Admin SDK / Cloud Functions).
       allow create: if false;

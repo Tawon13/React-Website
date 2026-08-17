@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { doc, updateDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore'
+import { doc, updateDoc, setDoc, getDoc, collection, query, where, getDocs, orderBy, serverTimestamp } from 'firebase/firestore'
 import {
     db,
     TIKTOK_CONNECT_URL,
     storage,
-    STRIPE_APPROVE_COLLAB_URL,
-    STRIPE_CONNECT_ONBOARDING_URL
+    STRIPE_APPROVE_COLLAB_URL
 } from '../config/firebase'
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import PhotoUpload from '../components/PhotoUpload'
@@ -48,15 +47,14 @@ const BrandProfile = ({ currentUser, userData }) => {
                         ? {
                               ...purchase,
                               brandApproved: true,
-                              status: data?.released ? 'completed' : purchase.status,
-                              payoutStatus: data?.released ? 'paid' : purchase.payoutStatus
+                              payoutStatus: data?.awaitingManualTransfer ? 'ready_for_transfer' : purchase.payoutStatus
                           }
                         : purchase
                 )
             )
 
-            alert(data?.released
-                ? 'Validation confirmée. Paiement libéré avec succès.'
+            alert(data?.awaitingManualTransfer
+                ? 'Validation confirmée. Le virement à l\'influenceur sera effectué sous peu.'
                 : 'Validation enregistrée. En attente de validation influenceur.')
         } catch (error) {
             console.error('Erreur validation marque:', error)
@@ -296,6 +294,16 @@ const BrandProfile = ({ currentUser, userData }) => {
                                                     <p className='text-xs text-gray-500 mt-1'>
                                                         Validation influenceur: {purchase.influencerApproved ? 'Oui' : 'Non'}
                                                     </p>
+                                                    {purchase.payoutStatus === 'ready_for_transfer' && (
+                                                        <p className='text-xs text-orange-600 font-medium mt-1'>
+                                                            Versement: en attente de virement
+                                                        </p>
+                                                    )}
+                                                    {purchase.payoutStatus === 'paid' && (
+                                                        <p className='text-xs text-green-600 font-medium mt-1'>
+                                                            Versement: effectué
+                                                        </p>
+                                                    )}
 
                                                     {purchase.paymentStatus === 'funds_held' && !purchase.brandApproved && (
                                                         <button
@@ -341,8 +349,11 @@ const MyProfile = () => {
         tiktok_video: 800
     })
     const [uploading, setUploading] = useState(false)
-    const [stripeConnecting, setStripeConnecting] = useState(false)
     const [approvingCollabId, setApprovingCollabId] = useState('')
+    const [bankDetails, setBankDetails] = useState({ accountHolderName: '', iban: '', bic: '' })
+    const [bankDetailsSaved, setBankDetailsSaved] = useState(false)
+    const [editingBankDetails, setEditingBankDetails] = useState(false)
+    const [savingBankDetails, setSavingBankDetails] = useState(false)
 
     const functionsOrigin = useMemo(() => {
         try {
@@ -413,6 +424,29 @@ const MyProfile = () => {
         if (userData?.brandVideos) setBrandVideos(userData.brandVideos)
         if (userData?.pricing) setPricing(userData.pricing)
     }, [userData])
+
+    // Charger le RIB de l'influenceur (collection séparée, non publique)
+    useEffect(() => {
+        const loadBankDetails = async () => {
+            if (!currentUser) return
+            try {
+                const snap = await getDoc(doc(db, 'bankDetails', currentUser.uid))
+                if (snap.exists()) {
+                    const data = snap.data()
+                    setBankDetails({
+                        accountHolderName: data.accountHolderName || '',
+                        iban: data.iban || '',
+                        bic: data.bic || ''
+                    })
+                    setBankDetailsSaved(true)
+                }
+            } catch (error) {
+                console.error('Erreur lors du chargement du RIB:', error)
+            }
+        }
+
+        loadBankDetails()
+    }, [currentUser])
 
     // Charger les collaborations de l'influenceur
     useEffect(() => {
@@ -498,40 +532,40 @@ const MyProfile = () => {
         }
     }
 
-    const connectStripePayouts = async () => {
-        if (!STRIPE_CONNECT_ONBOARDING_URL) {
-            setMessage({ type: 'error', text: 'Configuration Stripe manquante côté frontend.' })
+    const handleSaveBankDetails = async () => {
+        const accountHolderName = bankDetails.accountHolderName.trim()
+        const iban = bankDetails.iban.replace(/\s+/g, '').toUpperCase()
+        const bic = bankDetails.bic.replace(/\s+/g, '').toUpperCase()
+
+        if (!accountHolderName) {
+            setMessage({ type: 'error', text: 'Veuillez indiquer le titulaire du compte' })
             return
         }
 
-        setStripeConnecting(true)
+        if (!/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(iban)) {
+            setMessage({ type: 'error', text: 'IBAN invalide, vérifiez le format saisi' })
+            return
+        }
+
+        setSavingBankDetails(true)
         setMessage({ type: '', text: '' })
         try {
-            const idToken = await currentUser.getIdToken()
-            const response = await fetch(STRIPE_CONNECT_ONBOARDING_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${idToken}`
-                },
-                body: JSON.stringify({})
-            })
+            await setDoc(doc(db, 'bankDetails', currentUser.uid), {
+                accountHolderName,
+                iban,
+                bic,
+                updatedAt: serverTimestamp()
+            }, { merge: true })
 
-            const data = await response.json()
-            if (!response.ok) {
-                throw new Error(data?.error || 'Impossible de créer le lien Stripe Connect')
-            }
-
-            if (!data?.url) {
-                throw new Error('Lien d\'onboarding Stripe introuvable')
-            }
-
-            window.location.href = data.url
+            setBankDetails({ accountHolderName, iban, bic })
+            setBankDetailsSaved(true)
+            setEditingBankDetails(false)
+            setMessage({ type: 'success', text: 'Coordonnées bancaires enregistrées' })
         } catch (error) {
-            console.error('Erreur connectStripePayouts:', error)
-            setMessage({ type: 'error', text: error.message || 'Erreur lors de la connexion Stripe' })
+            console.error('Erreur lors de l\'enregistrement du RIB:', error)
+            setMessage({ type: 'error', text: 'Erreur lors de l\'enregistrement des coordonnées bancaires' })
         } finally {
-            setStripeConnecting(false)
+            setSavingBankDetails(false)
         }
     }
 
@@ -564,8 +598,7 @@ const MyProfile = () => {
                         ? {
                               ...collab,
                               influencerApproved: true,
-                              status: data?.released ? 'completed' : collab.status,
-                              payoutStatus: data?.released ? 'paid' : collab.payoutStatus
+                              payoutStatus: data?.awaitingManualTransfer ? 'ready_for_transfer' : collab.payoutStatus
                           }
                         : collab
                 )
@@ -573,8 +606,8 @@ const MyProfile = () => {
 
             setMessage({
                 type: 'success',
-                text: data?.released
-                    ? 'Validation confirmée. Paiement libéré avec succès (85% versé).'
+                text: data?.awaitingManualTransfer
+                    ? 'Validation confirmée. Vous recevrez votre virement (85%) sous peu, une fois traité par l\'équipe.'
                     : 'Validation enregistrée. En attente de validation marque.'
             })
         } catch (error) {
@@ -855,24 +888,77 @@ const MyProfile = () => {
                     </div>
 
                     <div className='bg-white rounded-lg shadow-md p-6 mb-6'>
-                        <div className='flex items-center justify-between gap-4'>
-                            <div>
-                                <h2 className='text-xl font-semibold mb-1'>Paiements Stripe Connect</h2>
-                                <p className='text-sm text-gray-600'>
-                                    Connectez votre compte Stripe pour recevoir automatiquement 85% des collaborations validées.
-                                </p>
-                            </div>
-                            <button
-                                onClick={connectStripePayouts}
-                                disabled={stripeConnecting}
-                                className='px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50'
-                            >
-                                {stripeConnecting ? 'Connexion...' : 'Connecter Stripe'}
-                            </button>
-                        </div>
-                        <p className='text-xs text-gray-500 mt-3'>
-                            Statut actuel: {userData?.stripeAccountId ? 'Compte connecté' : 'Compte non connecté'}
+                        <h2 className='text-xl font-semibold mb-1'>Coordonnées bancaires (RIB)</h2>
+                        <p className='text-sm text-gray-600 mb-4'>
+                            Renseignez votre RIB pour recevoir vos virements. Une fois une collaboration validée par vous et la marque, nous vous versons 85% du montant par virement bancaire.
                         </p>
+
+                        {bankDetailsSaved && !editingBankDetails ? (
+                            <div className='flex items-center justify-between gap-4 bg-gray-50 rounded-lg p-4'>
+                                <div>
+                                    <p className='text-sm font-medium text-gray-900'>{bankDetails.accountHolderName}</p>
+                                    <p className='text-sm text-gray-600 font-mono'>
+                                        •••• •••• •••• {bankDetails.iban.slice(-4)}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setEditingBankDetails(true)}
+                                    className='px-4 py-2 text-sm bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300'
+                                >
+                                    Modifier
+                                </button>
+                            </div>
+                        ) : (
+                            <div className='space-y-4'>
+                                <div>
+                                    <label className='block text-sm font-medium text-gray-700 mb-2'>Titulaire du compte</label>
+                                    <input
+                                        type='text'
+                                        value={bankDetails.accountHolderName}
+                                        onChange={(e) => setBankDetails({ ...bankDetails, accountHolderName: e.target.value })}
+                                        className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent'
+                                        placeholder='Nom et prénom'
+                                    />
+                                </div>
+                                <div>
+                                    <label className='block text-sm font-medium text-gray-700 mb-2'>IBAN</label>
+                                    <input
+                                        type='text'
+                                        value={bankDetails.iban}
+                                        onChange={(e) => setBankDetails({ ...bankDetails, iban: e.target.value })}
+                                        className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent font-mono'
+                                        placeholder='FR76 XXXX XXXX XXXX XXXX XXXX XXX'
+                                    />
+                                </div>
+                                <div>
+                                    <label className='block text-sm font-medium text-gray-700 mb-2'>BIC / SWIFT (optionnel)</label>
+                                    <input
+                                        type='text'
+                                        value={bankDetails.bic}
+                                        onChange={(e) => setBankDetails({ ...bankDetails, bic: e.target.value })}
+                                        className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent font-mono'
+                                        placeholder='BNPAFRPPXXX'
+                                    />
+                                </div>
+                                <div className='flex gap-2'>
+                                    <button
+                                        onClick={handleSaveBankDetails}
+                                        disabled={savingBankDetails}
+                                        className='px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50'
+                                    >
+                                        {savingBankDetails ? 'Enregistrement...' : 'Enregistrer le RIB'}
+                                    </button>
+                                    {bankDetailsSaved && (
+                                        <button
+                                            onClick={() => setEditingBankDetails(false)}
+                                            className='px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300'
+                                        >
+                                            Annuler
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* TikTok */}
@@ -991,6 +1077,16 @@ const MyProfile = () => {
                                             <p className='text-xs text-gray-500 mt-1'>
                                                 Validation influenceur: {collab.influencerApproved ? 'Oui' : 'Non'}
                                             </p>
+                                            {collab.payoutStatus === 'ready_for_transfer' && (
+                                                <p className='text-xs text-orange-600 font-medium mt-1'>
+                                                    Versement: en attente de virement
+                                                </p>
+                                            )}
+                                            {collab.payoutStatus === 'paid' && (
+                                                <p className='text-xs text-green-600 font-medium mt-1'>
+                                                    Versement: effectué
+                                                </p>
+                                            )}
 
                                             {collab.paymentStatus === 'funds_held' && !collab.influencerApproved && (
                                                 <button

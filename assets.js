@@ -155,4 +155,3 @@ export const influencers = [
             line2: 'Circle, Ring Road, London'
         }
     },
-]

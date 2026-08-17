@@ -44,6 +44,7 @@ STATE_SIGNING_SECRET = os.getenv('STATE_SIGNING_SECRET')
 STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
 STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET')
 FRONTEND_BASE_URL = os.getenv('FRONTEND_BASE_URL', 'http://localhost:5173').rstrip('/')
+ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', 'bechagraamine@gmail.com')
 
 if STRIPE_SECRET_KEY:
     stripe.api_key = STRIPE_SECRET_KEY
@@ -127,6 +128,23 @@ def _get_authenticated_uid(req: https_fn.Request) -> str:
     uid = decoded.get('uid')
     if not uid:
         raise AuthorizationError('Invalid authenticated user', status=401)
+    return uid
+
+
+def _require_admin(req: https_fn.Request) -> str:
+    id_token = _extract_id_token(req)
+    if not id_token:
+        raise AuthorizationError('Missing idToken parameter', status=401)
+    try:
+        decoded = firebase_auth.verify_id_token(id_token)
+    except Exception as exc:
+        raise AuthorizationError('Invalid ID token', status=401) from exc
+
+    uid = decoded.get('uid')
+    if not uid:
+        raise AuthorizationError('Invalid authenticated user', status=401)
+    if decoded.get('email') != ADMIN_EMAIL:
+        raise AuthorizationError('Réservé aux administrateurs', status=403)
     return uid
 
 
@@ -481,69 +499,8 @@ def instagram_callback_handler(req: https_fn.Request) -> https_fn.Response:
 
 
 # ============================================
-# ROUTES HTTP - Stripe Connect + Escrow logique
+# ROUTES HTTP - Paiement marque (séquestre) + virement manuel influenceur
 # ============================================
-
-@https_fn.on_request()
-def create_stripe_connect_onboarding_handler(req: https_fn.Request) -> https_fn.Response:
-    """
-    Crée (ou réutilise) un compte Stripe Connect Express pour un influenceur
-    et retourne un lien d'onboarding.
-    """
-    options_response = _handle_options(req)
-    if options_response:
-        return options_response
-
-    if req.method != 'POST':
-        return _json_response({'error': 'Méthode non autorisée'}, status=405)
-
-    if not STRIPE_SECRET_KEY:
-        return _json_response({'error': 'STRIPE_SECRET_KEY manquante'}, status=500)
-
-    try:
-        uid = _get_authenticated_uid(req)
-        db_client = firestore.client()
-        influencer_ref = db_client.collection('influencers').document(uid)
-        influencer_snap = influencer_ref.get()
-
-        if not influencer_snap.exists:
-            return _json_response({'error': 'Compte influenceur introuvable'}, status=403)
-
-        influencer_data = influencer_snap.to_dict() or {}
-        stripe_account_id = influencer_data.get('stripeAccountId')
-
-        if not stripe_account_id:
-            account = stripe.Account.create(
-                type='express',
-                country='FR',
-                email=influencer_data.get('email'),
-                capabilities={'transfers': {'requested': True}},
-                business_type='individual'
-            )
-            stripe_account_id = account.id
-            influencer_ref.update({
-                'stripeAccountId': stripe_account_id,
-                'stripeOnboardingStatus': 'pending',
-                'updatedAt': firestore.SERVER_TIMESTAMP
-            })
-
-        account_link = stripe.AccountLink.create(
-            account=stripe_account_id,
-            refresh_url=f'{FRONTEND_BASE_URL}/my_profil?stripe=refresh',
-            return_url=f'{FRONTEND_BASE_URL}/my_profil?stripe=connected',
-            type='account_onboarding'
-        )
-
-        return _json_response({
-            'success': True,
-            'accountId': stripe_account_id,
-            'url': account_link.url
-        })
-    except AuthorizationError as auth_err:
-        return _json_response({'error': str(auth_err)}, status=auth_err.status)
-    except Exception as exc:
-        print(f'Erreur create_stripe_connect_onboarding_handler: {str(exc)}')
-        return _json_response({'error': str(exc)}, status=500)
 
 
 @https_fn.on_request()
@@ -770,8 +727,9 @@ def stripe_webhook_handler(req: https_fn.Request) -> https_fn.Response:
 @https_fn.on_request()
 def approve_collaboration_delivery_handler(req: https_fn.Request) -> https_fn.Response:
     """
-    Validation par marque/influenceur. Quand les 2 ont validé,
-    versement 85% à l'influenceur (Stripe Connect Transfer), 15% conservés plateforme.
+    Validation par marque/influenceur. Quand les 2 ont validé, la collaboration passe
+    en attente de virement manuel (85% influenceur / 15% plateforme, versés à la main
+    par l'admin via RIB une fois le compte 'Paiements' consulté).
     """
     options_response = _handle_options(req)
     if options_response:
@@ -779,9 +737,6 @@ def approve_collaboration_delivery_handler(req: https_fn.Request) -> https_fn.Re
 
     if req.method != 'POST':
         return _json_response({'error': 'Méthode non autorisée'}, status=405)
-
-    if not STRIPE_SECRET_KEY:
-        return _json_response({'error': 'STRIPE_SECRET_KEY manquante'}, status=500)
 
     try:
         uid = _get_authenticated_uid(req)
@@ -841,16 +796,6 @@ def approve_collaboration_delivery_handler(req: https_fn.Request) -> https_fn.Re
                 'message': 'Validation enregistrée. En attente de l\'autre partie.'
             })
 
-        influencer_ref = db_client.collection('influencers').document(influencer_id)
-        influencer_snap = influencer_ref.get()
-        influencer_data = influencer_snap.to_dict() or {}
-        stripe_account_id = influencer_data.get('stripeAccountId')
-
-        if not stripe_account_id:
-            return _json_response({
-                'error': 'Influenceur non connecté à Stripe. Créez le compte Stripe Connect avant libération.'
-            }, status=400)
-
         gross_cents = int(round(float(latest_collab.get('amount', 0)) * 100))
         if gross_cents <= 0:
             return _json_response({'error': 'Montant invalide'}, status=400)
@@ -858,30 +803,17 @@ def approve_collaboration_delivery_handler(req: https_fn.Request) -> https_fn.Re
         influencer_cents = int(round(gross_cents * 0.85))
         platform_fee_cents = gross_cents - influencer_cents
 
-        transfer = stripe.Transfer.create(
-            amount=influencer_cents,
-            currency='eur',
-            destination=stripe_account_id,
-            metadata={
-                'collaborationId': collaboration_id,
-                'brandId': brand_id,
-                'influencerId': influencer_id
-            }
-        )
-
         collab_ref.update({
-            'payoutStatus': 'paid',
-            'status': 'completed',
-            'stripeTransferId': transfer.id,
+            'payoutStatus': 'ready_for_transfer',
             'influencerPayoutAmount': round(influencer_cents / 100, 2),
             'platformFeeAmount': round(platform_fee_cents / 100, 2),
-            'paidOutAt': firestore.SERVER_TIMESTAMP,
+            'readyForTransferAt': firestore.SERVER_TIMESTAMP,
             'updatedAt': firestore.SERVER_TIMESTAMP
         })
 
         return _json_response({
             'success': True,
-            'released': True,
+            'awaitingManualTransfer': True,
             'influencerPayoutAmount': round(influencer_cents / 100, 2),
             'platformFeeAmount': round(platform_fee_cents / 100, 2)
         })
@@ -889,6 +821,63 @@ def approve_collaboration_delivery_handler(req: https_fn.Request) -> https_fn.Re
         return _json_response({'error': str(auth_err)}, status=auth_err.status)
     except Exception as exc:
         print(f'Erreur approve_collaboration_delivery_handler: {str(exc)}')
+        return _json_response({'error': str(exc)}, status=500)
+
+
+@https_fn.on_request()
+def mark_collaboration_paid_handler(req: https_fn.Request) -> https_fn.Response:
+    """
+    Réservé à l'admin: confirme qu'un virement manuel (RIB) a bien été effectué
+    vers l'influenceur pour une collaboration en attente de virement.
+    """
+    options_response = _handle_options(req)
+    if options_response:
+        return options_response
+
+    if req.method != 'POST':
+        return _json_response({'error': 'Méthode non autorisée'}, status=405)
+
+    try:
+        _require_admin(req)
+        payload = req.get_json(silent=True) or {}
+        collaboration_id = payload.get('collaborationId')
+
+        if not collaboration_id:
+            return _json_response({'error': 'collaborationId requis'}, status=400)
+
+        db_client = firestore.client()
+        collab_ref = db_client.collection('collaborations').document(collaboration_id)
+        collab_snap = collab_ref.get()
+
+        if not collab_snap.exists:
+            return _json_response({'error': 'Collaboration introuvable'}, status=404)
+
+        collab = collab_snap.to_dict() or {}
+
+        if collab.get('payoutStatus') == 'paid':
+            return _json_response({
+                'success': True,
+                'alreadyPaid': True,
+                'message': 'Versement déjà marqué comme effectué'
+            })
+
+        if collab.get('payoutStatus') != 'ready_for_transfer':
+            return _json_response({
+                'error': 'Cette collaboration n\'est pas encore prête pour le virement'
+            }, status=400)
+
+        collab_ref.update({
+            'payoutStatus': 'paid',
+            'status': 'completed',
+            'paidOutAt': firestore.SERVER_TIMESTAMP,
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        })
+
+        return _json_response({'success': True, 'paid': True})
+    except AuthorizationError as auth_err:
+        return _json_response({'error': str(auth_err)}, status=auth_err.status)
+    except Exception as exc:
+        print(f'Erreur mark_collaboration_paid_handler: {str(exc)}')
         return _json_response({'error': str(exc)}, status=500)
 
 

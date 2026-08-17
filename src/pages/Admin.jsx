@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { auth, db } from '../config/firebase'
-import { collection, getDocs, doc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore'
+import { auth, db, MARK_PAYOUT_PAID_URL } from '../config/firebase'
+import { collection, getDocs, doc, getDoc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore'
 
 const ADMIN_EMAIL = 'bechagraamine@gmail.com'
 
@@ -11,6 +11,9 @@ const Admin = () => {
   const [isAdmin, setIsAdmin] = useState(false)
   const [users, setUsers] = useState([])
   const [contacts, setContacts] = useState([])
+  const [pendingPayouts, setPendingPayouts] = useState([])
+  const [paidPayouts, setPaidPayouts] = useState([])
+  const [markingPaidId, setMarkingPaidId] = useState('')
   const [activeTab, setActiveTab] = useState('users')
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -71,6 +74,33 @@ const Admin = () => {
       }))
       setContacts(contactsData)
 
+      // Charger les collaborations à payer (virement manuel) et l'historique des virements
+      const collabsSnapshot = await getDocs(collection(db, 'collaborations'))
+      const collabsData = collabsSnapshot.docs.map(docSnap => ({
+        id: docSnap.id,
+        ...docSnap.data()
+      }))
+
+      const readyCollabs = collabsData.filter(c => c.payoutStatus === 'ready_for_transfer')
+      const paidCollabs = collabsData
+        .filter(c => c.payoutStatus === 'paid')
+        .sort((a, b) => (b.paidOutAt?.toMillis?.() || 0) - (a.paidOutAt?.toMillis?.() || 0))
+
+      const readyWithBankDetails = await Promise.all(
+        readyCollabs.map(async (collab) => {
+          try {
+            const bankSnap = await getDoc(doc(db, 'bankDetails', collab.influencerId))
+            return { ...collab, bankDetails: bankSnap.exists() ? bankSnap.data() : null }
+          } catch (error) {
+            console.error('Erreur lors du chargement du RIB:', error)
+            return { ...collab, bankDetails: null }
+          }
+        })
+      )
+
+      setPendingPayouts(readyWithBankDetails)
+      setPaidPayouts(paidCollabs)
+
       // Calculer les statistiques
       const calculatedStats = {
         totalUsers: allUsers.length,
@@ -118,6 +148,43 @@ const Admin = () => {
         console.error('Erreur lors de la suppression:', error)
         alert('Erreur lors de la suppression')
       }
+    }
+  }
+
+  const handleMarkPaid = async (collaborationId) => {
+    if (!MARK_PAYOUT_PAID_URL) {
+      alert('Configuration manquante: VITE_MARK_PAYOUT_PAID_URL')
+      return
+    }
+    if (!window.confirm('Confirmez-vous avoir effectué le virement bancaire à l\'influenceur ?')) return
+
+    setMarkingPaidId(collaborationId)
+    try {
+      const idToken = await auth.currentUser.getIdToken()
+      const response = await fetch(MARK_PAYOUT_PAID_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ collaborationId })
+      })
+
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data?.error || 'Erreur lors de la validation du virement')
+      }
+
+      const paidCollab = pendingPayouts.find(c => c.id === collaborationId)
+      setPendingPayouts(prev => prev.filter(c => c.id !== collaborationId))
+      if (paidCollab) {
+        setPaidPayouts(prev => [{ ...paidCollab, payoutStatus: 'paid' }, ...prev])
+      }
+    } catch (error) {
+      console.error('Erreur lors du marquage du virement:', error)
+      alert(error.message || 'Erreur lors du marquage du virement')
+    } finally {
+      setMarkingPaidId('')
     }
   }
 
@@ -227,6 +294,16 @@ const Admin = () => {
               >
                 Messages ({stats.totalContacts})
               </button>
+              <button
+                onClick={() => setActiveTab('payouts')}
+                className={`py-4 px-6 font-medium text-sm border-b-2 ${
+                  activeTab === 'payouts'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Paiements ({pendingPayouts.length})
+              </button>
             </nav>
           </div>
 
@@ -331,6 +408,81 @@ const Admin = () => {
                 {contacts.length === 0 && (
                   <div className='text-center py-8 text-gray-500'>Aucun message</div>
                 )}
+              </div>
+            )}
+
+            {activeTab === 'payouts' && (
+              <div className='space-y-8'>
+                <div>
+                  <h3 className='text-lg font-semibold text-gray-900 mb-4'>À virer ({pendingPayouts.length})</h3>
+                  <div className='space-y-4'>
+                    {pendingPayouts.map((collab) => (
+                      <div key={collab.id} className='border border-orange-200 bg-orange-50 rounded-lg p-4'>
+                        <div className='flex justify-between items-start gap-4'>
+                          <div className='flex-1'>
+                            <h4 className='font-semibold text-gray-900'>{collab.influencerName || 'Influenceur'}</h4>
+                            <p className='text-sm text-gray-600'>Marque: {collab.brandName || 'N/A'} — {collab.description || 'Collaboration'}</p>
+                            <p className='text-sm text-gray-700 mt-2'>
+                              Montant total: {collab.amount?.toLocaleString('fr-FR') || '0'} € — À virer (85%): <span className='font-bold text-orange-700'>{collab.influencerPayoutAmount?.toLocaleString('fr-FR') || '0'} €</span>
+                            </p>
+                            {collab.bankDetails ? (
+                              <div className='text-sm text-gray-700 mt-2 bg-white rounded-md p-3 border border-gray-200'>
+                                <p><span className='font-medium'>Titulaire:</span> {collab.bankDetails.accountHolderName}</p>
+                                <p className='font-mono'><span className='font-medium font-sans'>IBAN:</span> {collab.bankDetails.iban}</p>
+                                {collab.bankDetails.bic && (
+                                  <p className='font-mono'><span className='font-medium font-sans'>BIC:</span> {collab.bankDetails.bic}</p>
+                                )}
+                              </div>
+                            ) : (
+                              <p className='text-sm text-red-600 font-medium mt-2'>RIB manquant — l'influenceur doit le renseigner dans son profil</p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handleMarkPaid(collab.id)}
+                            disabled={!collab.bankDetails || markingPaidId === collab.id}
+                            className='px-4 py-2 text-sm font-semibold rounded-md bg-primary text-white hover:bg-primary/90 disabled:opacity-50 whitespace-nowrap'
+                          >
+                            {markingPaidId === collab.id ? 'Validation...' : 'Marquer comme viré'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {pendingPayouts.length === 0 && (
+                      <div className='text-center py-8 text-gray-500'>Aucun virement en attente</div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className='text-lg font-semibold text-gray-900 mb-4'>Historique des virements</h3>
+                  <div className='overflow-x-auto'>
+                    <table className='min-w-full divide-y divide-gray-200'>
+                      <thead className='bg-gray-50'>
+                        <tr>
+                          <th className='px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase'>Influenceur</th>
+                          <th className='px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase'>Marque</th>
+                          <th className='px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase'>Montant versé</th>
+                          <th className='px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase'>Date</th>
+                        </tr>
+                      </thead>
+                      <tbody className='bg-white divide-y divide-gray-200'>
+                        {paidPayouts.map((collab) => (
+                          <tr key={collab.id}>
+                            <td className='px-4 py-2 text-sm text-gray-900'>{collab.influencerName || 'N/A'}</td>
+                            <td className='px-4 py-2 text-sm text-gray-500'>{collab.brandName || 'N/A'}</td>
+                            <td className='px-4 py-2 text-sm text-gray-900'>{collab.influencerPayoutAmount?.toLocaleString('fr-FR') || '0'} €</td>
+                            <td className='px-4 py-2 text-sm text-gray-500'>
+                              {collab.paidOutAt?.toDate?.()?.toLocaleDateString('fr-FR') || 'N/A'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {paidPayouts.length === 0 && (
+                      <div className='text-center py-8 text-gray-500'>Aucun virement effectué</div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>
