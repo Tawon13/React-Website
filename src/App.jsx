@@ -16,6 +16,7 @@ import Privacy from './pages/Privacy'
 import Admin from './pages/Admin'
 import Messages from './pages/Messages'
 import Cart from './pages/Cart'
+import Favorites from './pages/Favorites'
 import ForCreators from './pages/ForCreators'
 import ForBrands from './pages/ForBrands'
 import BrandOnboarding from './pages/BrandOnboarding'
@@ -55,6 +56,7 @@ const App = () => {
               <Route path='/admin' element={<Admin />} />
               <Route path='/messages' element={<Messages />} />
               <Route path='/cart' element={<Cart />} />
+              <Route path='/favoris' element={<Favorites />} />
             </Routes>
             <Footer/>
           </div>

@@ -6,14 +6,17 @@ import { BrowserRouter } from 'react-router-dom'
 import AppContextProvider from './context/AppContext.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
 import { CartProvider } from './context/CartContext.jsx'
+import { FavoritesProvider } from './context/FavoritesContext.jsx'
 
 createRoot(document.getElementById('root')).render(
   <BrowserRouter>
     <AuthProvider>
       <CartProvider>
-        <AppContextProvider>
-          <App />
-        </AppContextProvider>
+        <FavoritesProvider>
+          <AppContextProvider>
+            <App />
+          </AppContextProvider>
+        </FavoritesProvider>
       </CartProvider>
     </AuthProvider>
   </BrowserRouter>,
