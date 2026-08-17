@@ -45,7 +45,9 @@ const Talents = () => {
 									<p className='w-2 h-2 bg-green-500 rounded-full'></p>
 									<p>Disponible</p>
 								</div>
-								<p className='text-gray-900 text-lg font-medium'>{item.name}</p>
+								{item.tiktokUsername && (
+									<p className='text-gray-900 text-lg font-medium'>@{item.tiktokUsername}</p>
+								)}
 								<p className='text-gray-600 text-sm'>{item.speciality}</p>
 								<p className='text-primary text-lg font-semibold mt-2'>{item.fees}€</p>
 							</div>

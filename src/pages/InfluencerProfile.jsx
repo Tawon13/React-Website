@@ -140,9 +140,6 @@ const InfluencerProfile = () => {
             let engagementRate = null
             if (totalViews > 0 && likes > 0) {
                 engagementRate = (likes / totalViews) * 100
-            } else if (followers > 0 && likes > 0 && videoCount > 0) {
-                const likesPerVideo = likes / videoCount
-                engagementRate = (likesPerVideo / followers) * 100
             }
 
             const normalizedEngagement = engagementRate !== null
@@ -155,10 +152,7 @@ const InfluencerProfile = () => {
                 engagementRate: normalizedEngagement,
                 likes,
                 videoCount,
-                totalViews,
-                audienceLocation: Array.isArray(platformData.audienceLocation) ? platformData.audienceLocation : [],
-                audienceAge: Array.isArray(platformData.audienceAge) ? platformData.audienceAge : [],
-                audienceGender: platformData.audienceGender || null
+                totalViews
             }
         }
 
@@ -391,9 +385,6 @@ const InfluencerProfile = () => {
     }
 
     const currentAnalytics = analyticsData?.tiktok
-    const audienceLocations = currentAnalytics?.audienceLocation || []
-    const audienceAges = currentAnalytics?.audienceAge || []
-    const audienceGender = currentAnalytics?.audienceGender
     const canAddToCart = currentUser && userType === 'brand'
     const isFollowersLocked = !currentUser
     const isAnalyticsLocked = !currentUser
@@ -768,112 +759,6 @@ const InfluencerProfile = () => {
                             <div className='text-sm text-gray-600 mt-1'>Engagement</div>
                         </div>
                     </div>
-
-                    {/* Audience Data */}
-                    <div className='grid md:grid-cols-2 gap-8'>
-                        {/* Audience Location */}
-                        <div>
-                            <h3 className='text-lg font-semibold mb-4'>Localisation du Public</h3>
-                            {audienceLocations.length > 0 ? (
-                                <div className='space-y-3'>
-                                    {audienceLocations.map((location, index) => (
-                                    <div key={index} className='flex items-center gap-3'>
-                                        <span className='text-2xl'>{location.flag}</span>
-                                        <div className='flex-1'>
-                                            <div className='flex items-center justify-between mb-1'>
-                                                <span className='text-sm font-medium text-gray-700'>{location.country}</span>
-                                                <span className='text-sm font-semibold text-gray-900'>{location.percentage}%</span>
-                                            </div>
-                                            <div className='w-full bg-gray-200 rounded-full h-2'>
-                                                <div 
-                                                    className='bg-primary h-2 rounded-full transition-all'
-                                                    style={{ width: `${location.percentage}%` }}
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className='text-sm text-gray-500'>Données de localisation non fournies.</p>
-                            )}
-                        </div>
-
-                        {/* Audience Age */}
-                        <div>
-                            <h3 className='text-lg font-semibold mb-4'>Âge du Public</h3>
-                            {audienceAges.length > 0 ? (
-                                <div className='flex items-end justify-between h-48 gap-2'>
-                                    {audienceAges.map((age, index) => {
-                                    // Calculer la hauteur proportionnelle au pourcentage réel
-                                    const height = (age.percentage / 100) * 100 // pourcentage direct
-                                    const isHighest = age.percentage === Math.max(...audienceAges.map(a => a.percentage))
-                                    return (
-                                        <div key={index} className='flex-1 flex flex-col items-center justify-end' style={{ height: '100%' }}>
-                                            <div className='text-xs font-semibold mb-1'>{age.percentage}%</div>
-                                            <div 
-                                                className='w-full rounded-t-lg transition-all' 
-                                                style={{ 
-                                                    height: `${height}%`,
-                                                    backgroundColor: isHighest ? '#5569ff' : '#e0e0e0'
-                                                }}
-                                            />
-                                            <div className='text-xs text-gray-600 mt-2'>{age.range}</div>
-                                        </div>
-                                    )
-                                    })}
-                                </div>
-                            ) : (
-                                <p className='text-sm text-gray-500'>Données d’âge non fournies.</p>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Audience Gender */}
-                    <div className='mt-8'>
-                        <h3 className='text-lg font-semibold mb-4'>Genre du Public</h3>
-                        {audienceGender ? (
-                            <div className='flex items-center gap-6'>
-                                <div className='relative w-32 h-32'>
-                                    <svg className='w-full h-full transform -rotate-90' viewBox='0 0 100 100'>
-                                        {/* Female segment */}
-                                        <circle
-                                            cx='50'
-                                            cy='50'
-                                            r='40'
-                                            fill='none'
-                                            stroke='#e0e0e0'
-                                            strokeWidth='20'
-                                        />
-                                        {/* Male segment */}
-                                        <circle
-                                            cx='50'
-                                            cy='50'
-                                            r='40'
-                                            fill='none'
-                                            stroke='#5569ff'
-                                            strokeWidth='20'
-                                            strokeDasharray={`${audienceGender.male * 2.51} ${251 - (audienceGender.male * 2.51)}`}
-                                        />
-                                    </svg>
-                                </div>
-                                <div className='space-y-3'>
-                                    <div className='flex items-center gap-3'>
-                                        <div className='w-4 h-4 rounded-full bg-primary' />
-                                        <span className='text-sm text-gray-700'>Homme</span>
-                                        <span className='text-sm font-semibold text-gray-900'>{audienceGender.male}%</span>
-                                    </div>
-                                    <div className='flex items-center gap-3'>
-                                        <div className='w-4 h-4 rounded-full bg-gray-300' />
-                                        <span className='text-sm text-gray-700'>Femme</span>
-                                        <span className='text-sm font-semibold text-gray-900'>{audienceGender.female}%</span>
-                                    </div>
-                                </div>
-                            </div>
-                        ) : (
-                            <p className='text-sm text-gray-500'>Données de genre non fournies.</p>
-                        )}
-                    </div>
                 </div>
 
                 {isAnalyticsLocked && (
@@ -942,7 +827,7 @@ const InfluencerProfile = () => {
                         )}
                     </div>
                 
-                <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6'>
+                <div className={tiktokVideos.length > 0 ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6' : ''}>
                     {tiktokVideos.length > 0 ? (
                         tiktokVideos.map((video, index) => {
                             const videoKey = video.id || video.url || `video-${index}`
@@ -1033,118 +918,17 @@ const InfluencerProfile = () => {
                             )
                         })
                     ) : (
-                        // Exemple de posts si aucune vidéo n'est ajoutée
-                        <>
-                            <div 
-                                className='group cursor-pointer'
-                                  onClick={() => openTikTokModal({
-                                      id: '7583700688794848534',
-                                      url: 'https://www.tiktok.com/@armigno/video/7583700688794848534?lang=fr'
-                                  })}
-                            >
-                                <div className='relative aspect-[9/16] bg-gray-100 rounded-xl overflow-hidden mb-3 hover:opacity-90 transition-opacity'>
-                                    <div className='absolute inset-0 flex items-center justify-center bg-gradient-to-br from-pink-500 to-purple-600'>
-                                        <svg className='w-20 h-20 text-white' fill='currentColor' viewBox='0 0 24 24'>
-                                            <path d='M8 5v14l11-7z'/>
-                                        </svg>
-                                    </div>
-                                    <div className='absolute top-3 right-3 bg-black/70 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1'>
-                                        <svg className='w-3 h-3' fill='currentColor' viewBox='0 0 20 20'>
-                                            <path d='M10 12a2 2 0 100-4 2 2 0 000 4z'/>
-                                            <path fillRule='evenodd' d='M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z' clipRule='evenodd'/>
-                                        </svg>
-                                        1.2M
-                                    </div>
-                                    <div className='absolute bottom-3 left-3 bg-black/70 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1'>
-                                        <svg className='w-3 h-3' fill='currentColor' viewBox='0 0 20 20'>
-                                            <path fillRule='evenodd' d='M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z' clipRule='evenodd'/>
-                                        </svg>
-                                        45.2K
-                                    </div>
-                                </div>
-                                <div className='space-y-1'>
-                                    <p className='text-sm text-gray-900 font-medium line-clamp-2 group-hover:text-primary transition-colors'>
-                                        Cliquez pour voir la vidéo
-                                    </p>
-                                    <p className='text-xs text-gray-500'>Il y a 2 jours</p>
-                                </div>
+                        <div className='flex flex-col items-center justify-center py-16 px-6 text-center border border-dashed border-gray-200 rounded-xl'>
+                            <div className='w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-4'>
+                                <svg className='w-7 h-7 text-gray-400' fill='currentColor' viewBox='0 0 24 24'>
+                                    <path d='M8 5v14l11-7z'/>
+                                </svg>
                             </div>
-
-                            <div 
-                                className='group cursor-pointer'
-                                onClick={() => window.open('https://www.tiktok.com/@armigno/photo/7582254909920169238?lang=fr', '_blank')}
-                            >
-                                <div className='relative aspect-[9/16] bg-gray-100 rounded-xl overflow-hidden mb-3 hover:opacity-90 transition-opacity'>
-                                    <div className='absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-500 to-cyan-600'>
-                                        <svg className='w-20 h-20 text-white' fill='currentColor' viewBox='0 0 24 24'>
-                                            <path d='M8 5v14l11-7z'/>
-                                        </svg>
-                                    </div>
-                                    <div className='absolute top-3 right-3 bg-black/70 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1'>
-                                        <svg className='w-3 h-3' fill='currentColor' viewBox='0 0 20 20'>
-                                            <path d='M10 12a2 2 0 100-4 2 2 0 000 4z'/>
-                                            <path fillRule='evenodd' d='M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z' clipRule='evenodd'/>
-                                        </svg>
-                                        850K
-                                    </div>
-                                    <div className='absolute bottom-3 left-3 bg-black/70 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1'>
-                                        <svg className='w-3 h-3' fill='currentColor' viewBox='0 0 20 20'>
-                                            <path fillRule='evenodd' d='M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z' clipRule='evenodd'/>
-                                        </svg>
-                                        32.5K
-                                    </div>
-                                </div>
-                                <div className='space-y-1'>
-                                    <p className='text-sm text-gray-900 font-medium line-clamp-2 group-hover:text-primary transition-colors'>
-                                        Cliquez pour voir la photo
-                                    </p>
-                                    <p className='text-xs text-gray-500'>Il y a 3 jours</p>
-                                </div>
-                            </div>
-
-                            <div 
-                                className='group cursor-pointer'
-                                  onClick={() => openTikTokModal({
-                                      id: '7582181799346933014',
-                                      url: 'https://www.tiktok.com/@armigno/video/7582181799346933014?lang=fr'
-                                  })}
-                            >
-                                <div className='relative aspect-[9/16] bg-gray-100 rounded-xl overflow-hidden mb-3 hover:opacity-90 transition-opacity'>
-                                    <div className='absolute inset-0 flex items-center justify-center bg-gradient-to-br from-orange-500 to-red-600'>
-                                        <svg className='w-20 h-20 text-white' fill='currentColor' viewBox='0 0 24 24'>
-                                            <path d='M8 5v14l11-7z'/>
-                                        </svg>
-                                    </div>
-                                    <div className='absolute top-3 right-3 bg-black/70 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1'>
-                                        <svg className='w-3 h-3' fill='currentColor' viewBox='0 0 20 20'>
-                                            <path d='M10 12a2 2 0 100-4 2 2 0 000 4z'/>
-                                            <path fillRule='evenodd' d='M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z' clipRule='evenodd'/>
-                                        </svg>
-                                        920K
-                                    </div>
-                                    <div className='absolute bottom-3 left-3 bg-black/70 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1'>
-                                        <svg className='w-3 h-3' fill='currentColor' viewBox='0 0 20 20'>
-                                            <path fillRule='evenodd' d='M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z' clipRule='evenodd'/>
-                                        </svg>
-                                        38.7K
-                                    </div>
-                                </div>
-                                <div className='space-y-1'>
-                                    <p className='text-sm text-gray-900 font-medium line-clamp-2 group-hover:text-primary transition-colors'>
-                                        Cliquez pour voir la vidéo
-                                    </p>
-                                    <p className='text-xs text-gray-500'>Il y a 4 jours</p>
-                                </div>
-                            </div>
-                        </>
+                            <p className='text-gray-700 font-medium'>Aucune vidéo publiée pour le moment</p>
+                            <p className='text-sm text-gray-500 mt-1'>Cet influenceur n'a pas encore publié de vidéo TikTok publique.</p>
+                        </div>
                     )}
                 </div>
-
-                {tiktokVideos.length === 0 && (
-                    <p className='text-center text-sm text-gray-500 mt-6'>
-                        💡 Les influenceurs peuvent ajouter leurs vidéos TikTok depuis leur profil
-                    </p>
-                )}
             </div>
 
               {/* Modal Vidéo TikTok */}
