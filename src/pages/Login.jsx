@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import socialMediaImage from '../assets/social_media_login.jpg'
+import SEO from '../components/SEO'
 
 const Login = () => {
     const navigate = useNavigate()
@@ -202,6 +203,7 @@ const Login = () => {
 
     return (
         <div className='min-h-screen flex items-center justify-center p-4 sm:p-8 bg-gradient-to-br from-orange-400 via-orange-500 to-red-500'>
+            <SEO title='Connexion' noindex />
             {/* Main Container */}
             <div className='w-full max-w-6xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row'>
                 {/* Left Side - Image */}

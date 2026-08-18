@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /my-profile
+Disallow: /messages
+Disallow: /cart
+Disallow: /favoris
+
+Sitemap: https://collabzz.com/sitemap.xml

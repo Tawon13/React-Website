@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { CREATE_COLLABORATION_REQUEST_URL } from '../config/firebase'
+import SEO from '../components/SEO'
 
 const Cart = () => {
     const navigate = useNavigate()
@@ -71,6 +72,7 @@ const Cart = () => {
     if (cartItems.length === 0) {
         return (
             <div className='min-h-screen bg-gray-50 py-10'>
+                <SEO title='Panier' noindex />
                 <div className='max-w-7xl mx-auto px-4'>
                     <div className='text-center py-20'>
                         <svg className='w-24 h-24 text-gray-400 mx-auto mb-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
@@ -92,6 +94,7 @@ const Cart = () => {
 
     return (
         <div className='min-h-screen bg-gray-50 py-10'>
+            <SEO title='Panier' noindex />
             <div className='max-w-7xl mx-auto px-4'>
                 <div className='mb-6'>
                     <button

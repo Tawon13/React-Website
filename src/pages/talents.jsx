@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AppContext } from '../context/AppContext'
+import SEO from '../components/SEO'
 
 const Talents = () => {
 
@@ -25,6 +26,11 @@ const Talents = () => {
 
 	return (
 		<div className='py-8'>
+			<SEO
+				title='Nos Talents'
+				description="Parcourez la liste complète des influenceurs vérifiés sur Collabzz et trouvez le créateur idéal pour votre marque."
+				path='/talents'
+			/>
 			<h1 className='text-3xl font-medium text-center mb-2'>Nos Talents</h1>
 			<p className='text-gray-600 text-center mb-8'>Parcourez notre liste complète d'influenceurs de confiance.</p>
 

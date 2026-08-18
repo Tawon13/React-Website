@@ -1,11 +1,17 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
+import SEO from '../components/SEO'
 
 const ForBrands = () => {
     const navigate = useNavigate()
 
     return (
         <div className='min-h-screen'>
+            <SEO
+                title='Pour les marques'
+                description="Trouvez les meilleurs influenceurs pour votre marque sur Collabzz et lancez vos campagnes en quelques clics."
+                path='/for-brands'
+            />
             {/* Hero Section */}
             <div className='bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white py-20 px-4'>
                 <div className='max-w-6xl mx-auto text-center'>

@@ -13,6 +13,7 @@ import {
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import PhotoUpload from '../components/PhotoUpload'
 import PortfolioGallery from '../components/PortfolioGallery'
+import SEO from '../components/SEO'
 
 // Libellé + couleur du badge de statut d'une collaboration, communs marque/influenceur.
 const COLLAB_STATUS_BADGES = {
@@ -165,6 +166,7 @@ const BrandProfile = ({ currentUser, userData }) => {
 
     return (
         <div className='max-w-6xl mx-auto py-10 px-4'>
+            <SEO title='Mon profil' noindex />
             {showRequestSent && (
                 <div className='fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-xl rounded-lg border border-green-200 bg-green-50 px-4 py-3 shadow-lg flex items-center gap-3'>
                     <svg className='w-5 h-5 text-green-600 flex-shrink-0' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
@@ -933,6 +935,7 @@ const MyProfile = () => {
 
     return (
         <div className='max-w-6xl mx-auto py-10 px-4'>
+            <SEO title='Mon profil' noindex />
             {/* En-tête avec statistiques */}
             <div className='bg-white rounded-xl shadow-md p-6 mb-6'>
                 <div className='flex items-center gap-6 mb-6'>

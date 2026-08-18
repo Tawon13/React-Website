@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { auth, db, MARK_PAYOUT_PAID_URL } from '../config/firebase'
+import SEO from '../components/SEO'
 import { collection, getDocs, doc, getDoc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore'
 
 const ADMIN_EMAIL = 'bechagraamine@gmail.com'
@@ -226,6 +227,7 @@ const Admin = () => {
 
   return (
     <div className='min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8'>
+      <SEO title='Admin' noindex />
       <div className='max-w-7xl mx-auto'>
         {/* En-tête */}
         <div className='bg-white rounded-lg shadow-md p-6 mb-6'>

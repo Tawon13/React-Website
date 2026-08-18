@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { db } from '../config/firebase'
+import SEO from '../components/SEO'
 import {
     collection,
     query,
@@ -314,6 +315,7 @@ const Messages = () => {
 
     return (
         <div className='min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-6 sm:py-10'>
+            <SEO title='Messagerie' noindex />
             {showPaymentSuccess && (
                 <div className='fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-xl rounded-lg border border-green-200 bg-green-50 px-4 py-3 shadow-lg flex items-center gap-3'>
                     <svg className='w-5 h-5 text-green-600 flex-shrink-0' fill='none' stroke='currentColor' viewBox='0 0 24 24'>

@@ -6,10 +6,12 @@ import Banner from '../components/Banner'
 import Search from '../components/Search'
 import Cards from '../components/Cards'
 import Features from '../components/Features'
+import SEO from '../components/SEO'
 
 const Home = () => {
   return (
     <div>
+      <SEO path='/' />
       <Header></Header>
         {/* <Cards /> */}
         <Search/>

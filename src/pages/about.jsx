@@ -1,6 +1,7 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'motion/react'
+import SEO from '../components/SEO'
 
 const fadeUp = {
   hidden: { opacity: 0, y: 28 },
@@ -25,6 +26,11 @@ const About = () => {
 
   return (
     <div className='min-h-screen bg-gradient-to-b from-gray-50 to-white'>
+      <SEO
+        title='À propos'
+        description="Découvrez Collabzz, la plateforme qui connecte marques et influenceurs pour des collaborations rémunérées simples et sécurisées."
+        path='/about'
+      />
       {/* Hero Section */}
       <div className='relative overflow-hidden bg-gradient-to-br from-primary via-primary to-blue-600 text-white py-24 px-4'>
         <div className='absolute -top-24 -left-24 w-96 h-96 bg-white/10 rounded-full blur-3xl'></div>

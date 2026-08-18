@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { AppContext, normalizeInfluencer } from '../context/AppContext'
+import SEO from '../components/SEO'
 import { assets } from '../assets/assets'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
@@ -440,6 +441,13 @@ const InfluencerProfile = () => {
 
     return (
         <div className='max-w-6xl mx-auto py-6 sm:py-10 px-4 sm:px-6'>
+            <SEO
+                title={influencer.name}
+                description={`Découvrez le profil de ${influencer.name} sur Collabzz${influencer.city ? `, basé(e) à ${influencer.city}` : ''} et lancez une collaboration.`}
+                path={`/influencer/${influencerId}`}
+                image={influencer.image}
+                noindex={!isApprovedProfile}
+            />
             {!isApprovedProfile && currentUser?.email === ADMIN_EMAIL && (
                 <div className='mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3'>
                     <p className='text-sm text-orange-800 font-medium'>

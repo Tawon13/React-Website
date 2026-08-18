@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { CONTACT_EMAIL_URL } from '../config/firebase'
+import SEO from '../components/SEO'
 
 const Contact = () => {
   const [formData, setFormData] = useState({
@@ -77,6 +78,11 @@ const Contact = () => {
 
   return (
     <div className='min-h-screen flex items-center justify-center p-4 sm:p-8 bg-gradient-to-br from-gray-50 to-gray-100'>
+      <SEO
+        title='Contact'
+        description='Une question sur Collabzz ? Contactez notre équipe, réponse sous 24-48h.'
+        path='/contact'
+      />
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}

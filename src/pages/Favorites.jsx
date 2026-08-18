@@ -2,6 +2,7 @@ import React, { useContext } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AppContext } from '../context/AppContext'
 import { useFavorites } from '../context/FavoritesContext'
+import SEO from '../components/SEO'
 
 const Favorites = () => {
 	const navigate = useNavigate()
@@ -12,6 +13,7 @@ const Favorites = () => {
 
 	return (
 		<div className='py-8'>
+			<SEO title='Mes Favoris' noindex />
 			<h1 className='text-3xl font-medium text-center mb-2'>Mes Favoris</h1>
 			<p className='text-gray-600 text-center mb-8'>Retrouvez ici les profils d'influenceurs que vous avez enregistrés.</p>
 
