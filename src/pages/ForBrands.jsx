@@ -19,7 +19,7 @@ const ForBrands = () => {
                         Trouvez les meilleurs influenceurs pour votre marque
                     </h1>
                     <p className='text-xl md:text-2xl mb-8 opacity-90'>
-                        Accédez à des milliers de créateurs vérifiés et lancez vos campagnes en quelques clics
+                        Accédez à des centaines de créateurs vérifiés et lancez vos campagnes en quelques clics
                     </p>
                     <button
                         onClick={() => navigate('/login?type=brand&isSignUp=true')}
@@ -35,19 +35,19 @@ const ForBrands = () => {
             <div className='bg-white py-12 px-4'>
                 <div className='max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 text-center'>
                     <div>
-                        <div className='text-4xl font-bold text-gray-900 mb-2'>250K+</div>
+                        <div className='text-4xl font-bold text-gray-900 mb-2'>100+</div>
                         <div className='text-gray-600'>Influenceurs disponibles</div>
                     </div>
                     <div>
-                        <div className='text-4xl font-bold text-gray-900 mb-2'>50K+</div>
+                        <div className='text-4xl font-bold text-gray-900 mb-2'>50+</div>
                         <div className='text-gray-600'>Marques satisfaites</div>
                     </div>
                     <div>
-                        <div className='text-4xl font-bold text-gray-900 mb-2'>100K+</div>
+                        <div className='text-4xl font-bold text-gray-900 mb-2'>80+</div>
                         <div className='text-gray-600'>Campagnes lancées</div>
                     </div>
                     <div>
-                        <div className='text-4xl font-bold text-gray-900 mb-2'>95%</div>
+                        <div className='text-4xl font-bold text-gray-900 mb-2'>98%</div>
                         <div className='text-gray-600'>Taux de satisfaction</div>
                     </div>
                 </div>
@@ -308,7 +308,7 @@ const ForBrands = () => {
                         Lancez votre première campagne aujourd'hui
                     </h2>
                     <p className='text-xl mb-8 opacity-90'>
-                        Rejoignez 50,000+ marques qui font confiance à Collabzz pour leurs campagnes d'influence
+                        Rejoignez 100+ marques qui font confiance à Collabzz pour leurs campagnes d'influence
                     </p>
                     <button
                         onClick={() => navigate('/login?type=brand&isSignUp=true')}

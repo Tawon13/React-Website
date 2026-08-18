@@ -19,7 +19,7 @@ const ForCreators = () => {
                         Gagnez de l'argent en tant que Créateur
                     </h1>
                     <p className='text-xl md:text-2xl mb-8 opacity-90'>
-                        Rejoignez des milliers d'influenceurs qui collaborent avec les plus grandes marques
+                        Rejoignez des centaines d'influenceurs qui collaborent avec les plus grandes marques
                     </p>
                     <button
                         onClick={() => navigate('/login?isSignUp=true')}
@@ -33,22 +33,18 @@ const ForCreators = () => {
 
             {/* Stats Section */}
             <div className='bg-gray-50 py-12 px-4'>
-                <div className='max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 text-center'>
+                <div className='max-w-3xl mx-auto grid grid-cols-3 gap-8 text-center'>
                     <div>
-                        <div className='text-4xl font-bold text-primary mb-2'>250K+</div>
+                        <div className='text-4xl font-bold text-primary mb-2'>100+</div>
                         <div className='text-gray-600'>Créateurs actifs</div>
                     </div>
                     <div>
-                        <div className='text-4xl font-bold text-primary mb-2'>50K+</div>
+                        <div className='text-4xl font-bold text-primary mb-2'>50+</div>
                         <div className='text-gray-600'>Marques partenaires</div>
                     </div>
                     <div>
-                        <div className='text-4xl font-bold text-primary mb-2'>100K+</div>
+                        <div className='text-4xl font-bold text-primary mb-2'>80+</div>
                         <div className='text-gray-600'>Collaborations réussies</div>
-                    </div>
-                    <div>
-                        <div className='text-4xl font-bold text-primary mb-2'>5M€+</div>
-                        <div className='text-gray-600'>Versés aux créateurs</div>
                     </div>
                 </div>
             </div>
@@ -155,7 +151,7 @@ const ForCreators = () => {
                                 </div>
                                 <div>
                                     <h3 className='text-xl font-semibold mb-2'>Opportunités illimitées</h3>
-                                    <p className='text-gray-600'>Accédez à des milliers de marques cherchant à collaborer avec des créateurs comme vous.</p>
+                                    <p className='text-gray-600'>Accédez à des centaines de marques cherchant à collaborer avec des créateurs comme vous.</p>
                                 </div>
                             </div>
                         </div>
@@ -244,7 +240,7 @@ const ForCreators = () => {
                         Prêt à commencer votre aventure ?
                     </h2>
                     <p className='text-xl mb-8 opacity-90'>
-                        Rejoignez des milliers de créateurs qui gagnent déjà de l'argent avec leur contenu
+                        Rejoignez des centaines de créateurs qui gagnent déjà de l'argent avec leur contenu
                     </p>
                     <button
                         onClick={() => navigate('/login?isSignUp=true')}
