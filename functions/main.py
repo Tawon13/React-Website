@@ -9,6 +9,8 @@ import hmac
 import base64
 import hashlib
 import json
+import secrets
+from datetime import datetime, timedelta, timezone
 import stripe
 from firebase_functions import https_fn, scheduler_fn
 from firebase_functions.options import set_global_options
@@ -688,6 +690,25 @@ def respond_to_collaboration_request_handler(req: https_fn.Request) -> https_fn.
         return _json_response({'error': str(exc)}, status=500)
 
 
+def _lookup_user_profile(db_client, uid):
+    """
+    Retrouve le profil (influenceur ou marque) associé à un uid.
+    Retourne (user_type, name, email) ou (None, None, None) si introuvable.
+    """
+    influencer_snap = db_client.collection('influencers').document(uid).get()
+    if influencer_snap.exists:
+        data = influencer_snap.to_dict() or {}
+        return 'influencer', data.get('name', ''), data.get('email', '')
+
+    brand_snap = db_client.collection('brands').document(uid).get()
+    if brand_snap.exists:
+        data = brand_snap.to_dict() or {}
+        name = data.get('brandName', '') or data.get('fullName', '')
+        return 'brand', name, data.get('email', '')
+
+    return None, None, None
+
+
 @https_fn.on_request()
 def send_welcome_email_handler(req: https_fn.Request) -> https_fn.Response:
     """
@@ -704,20 +725,9 @@ def send_welcome_email_handler(req: https_fn.Request) -> https_fn.Response:
         uid = _get_authenticated_uid(req)
         db_client = firestore.client()
 
-        influencer_snap = db_client.collection('influencers').document(uid).get()
-        if influencer_snap.exists:
-            user_type = 'influencer'
-            user_data = influencer_snap.to_dict() or {}
-            name = user_data.get('name', '')
-        else:
-            brand_snap = db_client.collection('brands').document(uid).get()
-            if not brand_snap.exists:
-                return _json_response({'error': 'Profil introuvable'}, status=404)
-            user_type = 'brand'
-            user_data = brand_snap.to_dict() or {}
-            name = user_data.get('brandName', '') or user_data.get('fullName', '')
-
-        email = user_data.get('email', '')
+        user_type, name, email = _lookup_user_profile(db_client, uid)
+        if not user_type:
+            return _json_response({'error': 'Profil introuvable'}, status=404)
         if not email:
             return _json_response({'error': 'Email introuvable pour ce compte'}, status=400)
 
@@ -734,6 +744,109 @@ def send_welcome_email_handler(req: https_fn.Request) -> https_fn.Response:
         return _json_response({'error': str(auth_err)}, status=auth_err.status)
     except Exception as exc:
         print(f'Erreur send_welcome_email_handler: {str(exc)}')
+        return _json_response({'error': str(exc)}, status=500)
+
+
+VERIFICATION_CODE_TTL_MINUTES = 15
+VERIFICATION_CODE_MAX_ATTEMPTS = 5
+
+
+@https_fn.on_request()
+def send_verification_code_handler(req: https_fn.Request) -> https_fn.Response:
+    """
+    Génère et envoie par email un code à 6 chiffres pour valider l'adresse email du compte.
+    Peut aussi être appelé pour renvoyer un nouveau code.
+    """
+    options_response = _handle_options(req)
+    if options_response:
+        return options_response
+
+    if req.method != 'POST':
+        return _json_response({'error': 'Méthode non autorisée'}, status=405)
+
+    try:
+        uid = _get_authenticated_uid(req)
+        db_client = firestore.client()
+
+        user_type, name, email = _lookup_user_profile(db_client, uid)
+        if not user_type:
+            return _json_response({'error': 'Profil introuvable'}, status=404)
+        if not email:
+            return _json_response({'error': 'Email introuvable pour ce compte'}, status=400)
+
+        code = f'{secrets.randbelow(1000000):06d}'
+        db_client.collection('emailVerificationCodes').document(uid).set({
+            'code': code,
+            'email': email,
+            'attempts': 0,
+            'expiresAt': datetime.now(timezone.utc) + timedelta(minutes=VERIFICATION_CODE_TTL_MINUTES),
+            'createdAt': firestore.SERVER_TIMESTAMP
+        })
+
+        from lib.notifications import send_verification_code_email
+        send_verification_code_email(
+            to_email=email,
+            name=name or ('Marque' if user_type == 'brand' else 'Influenceur'),
+            code=code
+        )
+
+        return _json_response({'success': True})
+    except AuthorizationError as auth_err:
+        return _json_response({'error': str(auth_err)}, status=auth_err.status)
+    except Exception as exc:
+        print(f'Erreur send_verification_code_handler: {str(exc)}')
+        return _json_response({'error': str(exc)}, status=500)
+
+
+@https_fn.on_request()
+def verify_email_code_handler(req: https_fn.Request) -> https_fn.Response:
+    """
+    Vérifie le code à 6 chiffres saisi par l'utilisateur et marque son email comme vérifié.
+    """
+    options_response = _handle_options(req)
+    if options_response:
+        return options_response
+
+    if req.method != 'POST':
+        return _json_response({'error': 'Méthode non autorisée'}, status=405)
+
+    try:
+        uid = _get_authenticated_uid(req)
+        payload = req.get_json(silent=True) or {}
+        submitted_code = str(payload.get('code', '')).strip()
+
+        if not submitted_code:
+            return _json_response({'error': 'Code requis'}, status=400)
+
+        db_client = firestore.client()
+        code_ref = db_client.collection('emailVerificationCodes').document(uid)
+        code_snap = code_ref.get()
+
+        if not code_snap.exists:
+            return _json_response({'error': 'Aucun code en attente. Demandez-en un nouveau.'}, status=404)
+
+        code_data = code_snap.to_dict() or {}
+        expires_at = code_data.get('expiresAt')
+        if expires_at and datetime.now(timezone.utc) > expires_at:
+            code_ref.delete()
+            return _json_response({'error': 'Ce code a expiré. Demandez-en un nouveau.'}, status=400)
+
+        if code_data.get('attempts', 0) >= VERIFICATION_CODE_MAX_ATTEMPTS:
+            code_ref.delete()
+            return _json_response({'error': 'Trop de tentatives. Demandez un nouveau code.'}, status=429)
+
+        if submitted_code != code_data.get('code'):
+            code_ref.update({'attempts': firestore.Increment(1)})
+            return _json_response({'error': 'Code invalide'}, status=400)
+
+        firebase_auth.update_user(uid, email_verified=True)
+        code_ref.delete()
+
+        return _json_response({'success': True})
+    except AuthorizationError as auth_err:
+        return _json_response({'error': str(auth_err)}, status=auth_err.status)
+    except Exception as exc:
+        print(f'Erreur verify_email_code_handler: {str(exc)}')
         return _json_response({'error': str(exc)}, status=500)
 
 

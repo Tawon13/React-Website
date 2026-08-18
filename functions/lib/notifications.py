@@ -8,12 +8,18 @@ import requests
 RESEND_API_URL = 'https://api.resend.com/emails'
 
 
-def _send_notification_email(to_email, subject, title, body_html, cta_url, cta_label):
+def _send_notification_email(to_email, subject, title, body_html, cta_url=None, cta_label=None):
     resend_api_key = os.environ.get('RESEND_API_KEY')
     sender_email = os.environ.get('RESEND_FROM_EMAIL', 'Collabzz <onboarding@resend.dev>')
 
     if not resend_api_key or not to_email:
         return {'success': False, 'error': 'Configuration email non disponible'}
+
+    cta_html = f"""
+                <div style="text-align: center; margin-top: 30px;">
+                    <a href="{cta_url}" style="background-color: #E6B067; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">{cta_label}</a>
+                </div>
+    """ if cta_url and cta_label else ""
 
     html_content = f"""
     <html>
@@ -24,9 +30,7 @@ def _send_notification_email(to_email, subject, title, body_html, cta_url, cta_l
             </div>
             <div style="background-color: white; padding: 30px; border-radius: 0 0 8px 8px;">
                 {body_html}
-                <div style="text-align: center; margin-top: 30px;">
-                    <a href="{cta_url}" style="background-color: #E6B067; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">{cta_label}</a>
-                </div>
+                {cta_html}
             </div>
         </div>
     </body>
@@ -53,6 +57,29 @@ def _send_notification_email(to_email, subject, title, body_html, cta_url, cta_l
     except Exception as exc:
         print(f'Erreur envoi email notification: {str(exc)}')
         return {'success': False, 'error': str(exc)}
+
+
+def send_verification_code_email(to_email, name, code):
+    """
+    Envoie le code à 6 chiffres permettant de valider l'adresse email lors de l'inscription.
+    """
+    subject = f"{code} est votre code de vérification Collabzz"
+    title = "Validation de l'adresse email"
+    body_html = f"""
+        <p>Bonjour {name},</p>
+        <p>Voici votre code de vérification pour valider votre adresse email :</p>
+        <div style="text-align: center; margin: 24px 0;">
+            <span style="display: inline-block; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #E6B067; background-color: #FBF3E7; padding: 16px 24px; border-radius: 8px;">{code}</span>
+        </div>
+        <p>Ce code expire dans 15 minutes. Si vous n'avez pas demandé ce code, vous pouvez ignorer cet e-mail.</p>
+    """
+
+    return _send_notification_email(
+        to_email=to_email,
+        subject=subject,
+        title=title,
+        body_html=body_html
+    )
 
 
 def send_welcome_email(to_email, name, user_type, frontend_base_url):

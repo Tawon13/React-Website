@@ -67,6 +67,11 @@ service cloud.firestore {
     match /paymentSessions/{sessionId} {
       allow read, write: if false;
     }
+
+    // Codes de vérification email: générés et vérifiés uniquement côté serveur (Cloud Functions).
+    match /emailVerificationCodes/{userId} {
+      allow read, write: if false;
+    }
     
     // Règles pour les conversations
     match /conversations/{conversationId} {

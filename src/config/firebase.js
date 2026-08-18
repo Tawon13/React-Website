@@ -55,6 +55,8 @@ export const MARK_PAYOUT_PAID_URL = import.meta.env.VITE_MARK_PAYOUT_PAID_URL;
 export const CREATE_COLLABORATION_REQUEST_URL = import.meta.env.VITE_CREATE_COLLABORATION_REQUEST_URL;
 export const RESPOND_TO_COLLABORATION_REQUEST_URL = import.meta.env.VITE_RESPOND_TO_COLLABORATION_REQUEST_URL;
 export const SEND_WELCOME_EMAIL_URL = import.meta.env.VITE_SEND_WELCOME_EMAIL_URL;
+export const SEND_VERIFICATION_CODE_URL = import.meta.env.VITE_SEND_VERIFICATION_CODE_URL;
+export const VERIFY_EMAIL_CODE_URL = import.meta.env.VITE_VERIFY_EMAIL_CODE_URL;
 
 // Validate required function URLs
 if (!INSTAGRAM_CONNECT_URL || !TIKTOK_CONNECT_URL || !YOUTUBE_CONNECT_URL) {
@@ -71,6 +73,10 @@ if (!CREATE_COLLABORATION_REQUEST_URL || !RESPOND_TO_COLLABORATION_REQUEST_URL) 
 
 if (!SEND_WELCOME_EMAIL_URL) {
     console.warn('VITE_SEND_WELCOME_EMAIL_URL is missing. The welcome email will not be sent.');
+}
+
+if (!SEND_VERIFICATION_CODE_URL || !VERIFY_EMAIL_CODE_URL) {
+    console.warn('Some email verification function URLs are missing. The sign-up verification code flow may not work.');
 }
 
 export default app;

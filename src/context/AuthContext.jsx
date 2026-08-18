@@ -4,36 +4,65 @@ import {
     signInWithEmailAndPassword,
     signOut,
     onAuthStateChanged,
-    sendEmailVerification,
     GoogleAuthProvider,
     FacebookAuthProvider,
     signInWithPopup
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { auth, db, SEND_WELCOME_EMAIL_URL } from '../config/firebase';
+import {
+    auth,
+    db,
+    SEND_WELCOME_EMAIL_URL,
+    SEND_VERIFICATION_CODE_URL,
+    VERIFY_EMAIL_CODE_URL
+} from '../config/firebase';
 
-// Envoie l'email de vérification Firebase (sauf comptes Google/Facebook, déjà vérifiés) +
-// l'email de bienvenue (Resend) après la création du compte. Ne doit jamais faire échouer
-// l'inscription si l'un de ces envois échoue.
+// Appelle une Cloud Function authentifiée (idToken du user Firebase) et lève une erreur
+// avec le message renvoyé par le backend si la requête échoue.
+const callAuthenticatedFunction = async (url, user, body) => {
+    const idToken = await user.getIdToken();
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`
+        },
+        body: body ? JSON.stringify(body) : undefined
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(data.error || 'Une erreur est survenue');
+    }
+    return data;
+};
+
+// Envoie (ou renvoie) le code à 6 chiffres permettant de valider l'adresse email.
+const sendVerificationCode = (user) => {
+    if (!SEND_VERIFICATION_CODE_URL) return Promise.resolve();
+    return callAuthenticatedFunction(SEND_VERIFICATION_CODE_URL, user);
+};
+
+// Vérifie le code saisi par l'utilisateur ; marque son email comme validé côté Firebase Auth.
+const verifyEmailCode = async (user, code) => {
+    await callAuthenticatedFunction(VERIFY_EMAIL_CODE_URL, user, { code });
+    await user.reload();
+};
+
+// Envoie le code de vérification (email/mot de passe uniquement, pas Google/Facebook qui sont
+// déjà vérifiés) + l'email de bienvenue (Resend) après la création du compte. Ne doit jamais
+// faire échouer l'inscription si l'un de ces envois échoue.
 const sendPostSignupEmails = async (user, { verifyEmail = true } = {}) => {
     if (verifyEmail) {
         try {
-            await sendEmailVerification(user, { url: `${window.location.origin}/login` });
+            await sendVerificationCode(user);
         } catch (error) {
-            console.error('Error sending verification email:', error);
+            console.error('Error sending verification code:', error);
         }
     }
 
     try {
         if (!SEND_WELCOME_EMAIL_URL) return;
-        const idToken = await user.getIdToken();
-        await fetch(SEND_WELCOME_EMAIL_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${idToken}`
-            }
-        });
+        await callAuthenticatedFunction(SEND_WELCOME_EMAIL_URL, user);
     } catch (error) {
         console.error('Error sending welcome email:', error);
     }
@@ -303,6 +332,8 @@ export const AuthProvider = ({ children }) => {
         signInWithFacebook,
         logout,
         loading,
+        sendVerificationCode,
+        verifyEmailCode,
         refreshUserData: () => currentUser && fetchUserData(currentUser.uid)
     };
 

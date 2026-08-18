@@ -8,11 +8,19 @@ const Login = () => {
     const routerLocation = useLocation()
     const location = window.location.pathname
     const [searchParams] = useSearchParams()
-    const { signUpInfluencer, signUpBrand, signIn, signInWithGoogle, signInWithFacebook } = useAuth()
+    const { signUpInfluencer, signUpBrand, signIn, signInWithGoogle, signInWithFacebook, sendVerificationCode, verifyEmailCode } = useAuth()
 
     // Après connexion, revenir à la page d'origine (ex: /messages?brandId=...)
     // si l'utilisateur a été redirigé ici depuis une page protégée.
     const redirectTarget = routerLocation.state?.from
+
+    // Compte fraîchement créé, en attente de la saisie du code de vérification email.
+    const [pendingUser, setPendingUser] = useState(null)
+    const [codeInput, setCodeInput] = useState('')
+    const [codeError, setCodeError] = useState('')
+    const [verifyingCode, setVerifyingCode] = useState(false)
+    const [resendingCode, setResendingCode] = useState(false)
+    const [codeResent, setCodeResent] = useState(false)
 
     // Déterminer si c'est un influenceur ou une marque (par défaut influenceur)
     // Support du paramètre query ou du chemin URL
@@ -112,24 +120,22 @@ const Login = () => {
                     return
                 }
 
+                let user
                 if (userType === 'influencer') {
                     const fullName = `${formData.firstName} ${formData.lastName}`
-                    await signUpInfluencer(formData.email, formData.password, {
+                    user = await signUpInfluencer(formData.email, formData.password, {
                         name: fullName
                     })
                 } else {
-                    await signUpBrand(formData.email, formData.password, {
+                    user = await signUpBrand(formData.email, formData.password, {
                         fullName: formData.fullName,
                         brandName: formData.brandName
                     })
                 }
 
-                alert('Compte créé avec succès !')
-                if (userType === 'brand') {
-                    navigate('/brand-onboarding')
-                } else {
-                    navigate('/')
-                }
+                // Le compte est créé mais pas encore utilisable : on attend que l'utilisateur
+                // saisisse le code reçu par email pour valider son adresse.
+                setPendingUser(user)
             } else {
                 await signIn(formData.email, formData.password)
                 navigate(redirectTarget || '/')
@@ -161,6 +167,39 @@ const Login = () => {
         }
     }
 
+    const handleVerifyCode = async (e) => {
+        e.preventDefault()
+        setCodeError('')
+        setVerifyingCode(true)
+        try {
+            await verifyEmailCode(pendingUser, codeInput.trim())
+            alert('Compte créé avec succès !')
+            if (userType === 'brand') {
+                navigate('/brand-onboarding')
+            } else {
+                navigate(redirectTarget || '/')
+            }
+        } catch (error) {
+            setCodeError(error.message || 'Code invalide')
+        } finally {
+            setVerifyingCode(false)
+        }
+    }
+
+    const handleResendCode = async () => {
+        setCodeError('')
+        setCodeResent(false)
+        setResendingCode(true)
+        try {
+            await sendVerificationCode(pendingUser)
+            setCodeResent(true)
+        } catch (error) {
+            setCodeError(error.message || "Impossible de renvoyer le code")
+        } finally {
+            setResendingCode(false)
+        }
+    }
+
     return (
         <div className='min-h-screen flex items-center justify-center p-4 sm:p-8 bg-gradient-to-br from-orange-400 via-orange-500 to-red-500'>
             {/* Main Container */}
@@ -179,8 +218,76 @@ const Login = () => {
                 {/* Right Side - Form */}
                 <div className='w-full lg:w-1/2 flex items-center justify-center p-8 lg:p-12'>
                     <div className='w-full max-w-md'>
+                        {pendingUser ? (
+                        <>
+                        {/* Back Button (annule la vérification, revient au formulaire) */}
+                        <button
+                            onClick={() => setPendingUser(null)}
+                            className='mb-6 text-gray-600 hover:text-gray-900 transition-colors'
+                        >
+                            <svg className='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 19l-7-7 7-7' />
+                            </svg>
+                        </button>
+
+                        <h1 className='text-3xl lg:text-4xl font-bold text-gray-900 mb-2'>Vérifiez votre email</h1>
+                        <p className='text-gray-600 mb-8'>
+                            Nous avons envoyé un code à 6 chiffres à{' '}
+                            <span className='font-semibold text-gray-900'>{pendingUser.email}</span>.
+                            Saisissez-le ci-dessous pour activer votre compte.
+                        </p>
+
+                        {codeError && (
+                            <div className='mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-xl text-sm'>
+                                {codeError}
+                            </div>
+                        )}
+
+                        {codeResent && !codeError && (
+                            <div className='mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded-xl text-sm'>
+                                Un nouveau code a été envoyé.
+                            </div>
+                        )}
+
+                        <form onSubmit={handleVerifyCode} className='space-y-4'>
+                            <div>
+                                <label className='block text-sm font-medium text-gray-700 mb-2'>
+                                    Code de vérification
+                                </label>
+                                <input
+                                    type='text'
+                                    inputMode='numeric'
+                                    maxLength={6}
+                                    value={codeInput}
+                                    onChange={(e) => setCodeInput(e.target.value.replace(/\D/g, ''))}
+                                    className='w-full px-4 py-3 border border-gray-300 rounded-full text-center text-2xl tracking-[0.5em] focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none transition-all'
+                                    placeholder='------'
+                                    required
+                                />
+                            </div>
+
+                            <button
+                                type='submit'
+                                disabled={verifyingCode || codeInput.length !== 6}
+                                className='w-full bg-gray-900 text-white py-3 rounded-full font-semibold hover:bg-gray-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed'
+                            >
+                                {verifyingCode ? 'Vérification...' : 'Vérifier'}
+                            </button>
+
+                            <button
+                                type='button'
+                                onClick={handleResendCode}
+                                disabled={resendingCode}
+                                className='w-full text-sm text-gray-600 hover:text-gray-900 transition-colors disabled:opacity-50'
+                            >
+                                {resendingCode ? 'Envoi...' : 'Renvoyer le code'}
+                            </button>
+                        </form>
+                        </>
+                        ) : (
+                        <>
                         {/* Back Button */}
-                        <button 
+                        <button
                             onClick={() => navigate('/')}
                             className='mb-6 text-gray-600 hover:text-gray-900 transition-colors'
                         >
@@ -515,6 +622,8 @@ const Login = () => {
                                 </div>
                             )}
                         </form>
+                        </>
+                        )}
                     </div>
                 </div>
             </div>
