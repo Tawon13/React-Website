@@ -1,28 +1,16 @@
-import React, { useState, useEffect } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
-import { STRIPE_CREATE_CHECKOUT_URL } from '../config/firebase'
+import { CREATE_COLLABORATION_REQUEST_URL } from '../config/firebase'
 
 const Cart = () => {
     const navigate = useNavigate()
-    const location = useLocation()
     const { cartItems, removeFromCart, updateQuantity, clearCart, getTotal } = useCart()
     const { currentUser, userType } = useAuth()
     const [loading, setLoading] = useState(false)
-    const [showPaymentCancelled, setShowPaymentCancelled] = useState(false)
 
-    useEffect(() => {
-        const params = new URLSearchParams(location.search)
-        if (params.get('payment') === 'cancelled') {
-            setShowPaymentCancelled(true)
-            navigate('/cart', { replace: true })
-            const timeout = setTimeout(() => setShowPaymentCancelled(false), 6000)
-            return () => clearTimeout(timeout)
-        }
-    }, [location.search])
-
-    const handleCheckout = async () => {
+    const handleSendRequest = async () => {
         if (!currentUser) {
             alert('Veuillez vous connecter en tant que marque pour continuer')
             navigate('/login?type=brand')
@@ -30,7 +18,7 @@ const Cart = () => {
         }
 
         if (userType !== 'brand') {
-            alert('Seules les marques peuvent acheter des collaborations')
+            alert('Seules les marques peuvent envoyer des demandes de collaboration')
             return
         }
 
@@ -41,12 +29,12 @@ const Cart = () => {
 
         setLoading(true)
         try {
-            if (!STRIPE_CREATE_CHECKOUT_URL) {
-                throw new Error('Configuration Stripe manquante côté frontend (URL checkout).')
+            if (!CREATE_COLLABORATION_REQUEST_URL) {
+                throw new Error('Configuration manquante côté frontend (URL de demande de collaboration).')
             }
 
             const idToken = await currentUser.getIdToken()
-            const response = await fetch(STRIPE_CREATE_CHECKOUT_URL, {
+            const response = await fetch(CREATE_COLLABORATION_REQUEST_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -65,39 +53,24 @@ const Cart = () => {
 
             const data = await response.json()
             if (!response.ok) {
-                throw new Error(data?.error || 'Impossible de créer la session de paiement')
+                throw new Error(data?.error || 'Impossible d\'envoyer la demande')
             }
 
-            if (!data?.url) {
-                throw new Error('Stripe n\'a pas retourné d\'URL de paiement')
-            }
-
-            window.location.href = data.url
+            clearCart()
+            navigate('/my-profile', { state: { initialTab: 'purchases', requestSent: true } })
         } catch (error) {
             console.error('Erreur complète:', error)
             console.error('Message d\'erreur:', error.message)
             console.error('Stack:', error.stack)
-            alert(`Erreur lors du paiement: ${error.message}`)
+            alert(`Erreur lors de l'envoi de la demande: ${error.message}`)
         } finally {
             setLoading(false)
         }
     }
 
-    const paymentCancelledBanner = showPaymentCancelled && (
-        <div className='fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-xl rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 shadow-lg flex items-center gap-3'>
-            <svg className='w-5 h-5 text-amber-600 flex-shrink-0' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'/>
-            </svg>
-            <p className='text-sm sm:text-base font-medium text-amber-800'>
-                Paiement annulé. Votre panier a été conservé.
-            </p>
-        </div>
-    )
-
     if (cartItems.length === 0) {
         return (
             <div className='min-h-screen bg-gray-50 py-10'>
-                {paymentCancelledBanner}
                 <div className='max-w-7xl mx-auto px-4'>
                     <div className='text-center py-20'>
                         <svg className='w-24 h-24 text-gray-400 mx-auto mb-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
@@ -119,7 +92,6 @@ const Cart = () => {
 
     return (
         <div className='min-h-screen bg-gray-50 py-10'>
-            {paymentCancelledBanner}
             <div className='max-w-7xl mx-auto px-4'>
                 <div className='mb-6'>
                     <button
@@ -224,7 +196,7 @@ const Cart = () => {
                             </div>
 
                             <button
-                                onClick={handleCheckout}
+                                onClick={handleSendRequest}
                                 disabled={loading}
                                 className='w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary/90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2'
                             >
@@ -234,14 +206,14 @@ const Cart = () => {
                                             <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4'></circle>
                                             <path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'></path>
                                         </svg>
-                                        <span>Traitement...</span>
+                                        <span>Envoi...</span>
                                     </>
                                 ) : (
                                     <>
                                         <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
                                             <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z'/>
                                         </svg>
-                                        Valider la commande
+                                        Envoyer la demande
                                     </>
                                 )}
                             </button>
@@ -260,7 +232,7 @@ const Cart = () => {
                                     </svg>
                                     <div className='text-sm text-blue-900'>
                                         <p className='font-semibold mb-1'>À propos de votre commande</p>
-                                        <p>Le paiement est sécurisé et conservé en attente. Les fonds sont libérés uniquement quand la marque et l'influenceur valident la collaboration.</p>
+                                        <p>Aucun paiement n'est demandé maintenant. Chaque influenceur doit d'abord accepter votre demande ; vous serez ensuite invité(e) à payer uniquement pour les collaborations acceptées.</p>
                                     </div>
                                 </div>
                             </div>

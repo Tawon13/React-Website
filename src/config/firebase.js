@@ -52,6 +52,8 @@ export const CONTACT_EMAIL_URL = import.meta.env.VITE_CONTACT_EMAIL_URL;
 export const STRIPE_CREATE_CHECKOUT_URL = import.meta.env.VITE_STRIPE_CREATE_CHECKOUT_URL;
 export const STRIPE_APPROVE_COLLAB_URL = import.meta.env.VITE_STRIPE_APPROVE_COLLAB_URL;
 export const MARK_PAYOUT_PAID_URL = import.meta.env.VITE_MARK_PAYOUT_PAID_URL;
+export const CREATE_COLLABORATION_REQUEST_URL = import.meta.env.VITE_CREATE_COLLABORATION_REQUEST_URL;
+export const RESPOND_TO_COLLABORATION_REQUEST_URL = import.meta.env.VITE_RESPOND_TO_COLLABORATION_REQUEST_URL;
 
 // Validate required function URLs
 if (!INSTAGRAM_CONNECT_URL || !TIKTOK_CONNECT_URL || !YOUTUBE_CONNECT_URL) {
@@ -60,6 +62,10 @@ if (!INSTAGRAM_CONNECT_URL || !TIKTOK_CONNECT_URL || !YOUTUBE_CONNECT_URL) {
 
 if (!STRIPE_CREATE_CHECKOUT_URL || !STRIPE_APPROVE_COLLAB_URL) {
     console.warn('Some Stripe function URLs are missing. Payments may not work.');
+}
+
+if (!CREATE_COLLABORATION_REQUEST_URL || !RESPOND_TO_COLLABORATION_REQUEST_URL) {
+    console.warn('Some collaboration request function URLs are missing. The request/accept flow may not work.');
 }
 
 export default app;

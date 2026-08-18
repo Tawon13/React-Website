@@ -1,23 +1,81 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { doc, updateDoc, setDoc, getDoc, collection, query, where, getDocs, orderBy, serverTimestamp } from 'firebase/firestore'
 import {
     db,
     TIKTOK_CONNECT_URL,
     storage,
-    STRIPE_APPROVE_COLLAB_URL
+    STRIPE_APPROVE_COLLAB_URL,
+    STRIPE_CREATE_CHECKOUT_URL,
+    RESPOND_TO_COLLABORATION_REQUEST_URL
 } from '../config/firebase'
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import PhotoUpload from '../components/PhotoUpload'
 import PortfolioGallery from '../components/PortfolioGallery'
 
+// Libellé + couleur du badge de statut d'une collaboration, communs marque/influenceur.
+const COLLAB_STATUS_BADGES = {
+    pending_acceptance: { label: 'En attente de réponse', className: 'bg-blue-100 text-blue-800' },
+    accepted_awaiting_payment: { label: 'Acceptée - à payer', className: 'bg-purple-100 text-purple-800' },
+    declined: { label: 'Refusée', className: 'bg-red-100 text-red-800' },
+    pending: { label: 'En cours', className: 'bg-yellow-100 text-yellow-800' },
+    completed: { label: 'Terminé', className: 'bg-green-100 text-green-800' }
+}
+
+const getCollabStatusBadge = (status) =>
+    COLLAB_STATUS_BADGES[status] || { label: status || 'N/A', className: 'bg-gray-100 text-gray-800' }
+
 // Composant pour le profil des marques
 const BrandProfile = ({ currentUser, userData }) => {
+    const location = useLocation()
     const [purchases, setPurchases] = useState([])
     const [loading, setLoading] = useState(true)
-    const [activeTab, setActiveTab] = useState('profile')
+    const [activeTab, setActiveTab] = useState(location.state?.initialTab || 'profile')
     const [approvingId, setApprovingId] = useState('')
+    const [payingId, setPayingId] = useState('')
+    const [showRequestSent, setShowRequestSent] = useState(Boolean(location.state?.requestSent))
+
+    useEffect(() => {
+        if (!showRequestSent) return
+        const timeout = setTimeout(() => setShowRequestSent(false), 6000)
+        return () => clearTimeout(timeout)
+    }, [showRequestSent])
+
+    const handlePayNow = async (purchaseId) => {
+        if (!STRIPE_CREATE_CHECKOUT_URL) {
+            alert('Configuration Stripe manquante pour le paiement.')
+            return
+        }
+
+        setPayingId(purchaseId)
+        try {
+            const idToken = await currentUser.getIdToken()
+            const response = await fetch(STRIPE_CREATE_CHECKOUT_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${idToken}`
+                },
+                body: JSON.stringify({ collaborationIds: [purchaseId] })
+            })
+
+            const data = await response.json()
+            if (!response.ok) {
+                throw new Error(data?.error || 'Impossible de créer la session de paiement')
+            }
+            if (!data?.url) {
+                throw new Error('Stripe n\'a pas retourné d\'URL de paiement')
+            }
+
+            window.location.href = data.url
+        } catch (error) {
+            console.error('Erreur paiement:', error)
+            alert(error.message || 'Erreur lors du paiement')
+        } finally {
+            setPayingId('')
+        }
+    }
 
     const handleApprovePurchase = async (purchaseId) => {
         if (!STRIPE_APPROVE_COLLAB_URL) {
@@ -107,6 +165,16 @@ const BrandProfile = ({ currentUser, userData }) => {
 
     return (
         <div className='max-w-6xl mx-auto py-10 px-4'>
+            {showRequestSent && (
+                <div className='fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-xl rounded-lg border border-green-200 bg-green-50 px-4 py-3 shadow-lg flex items-center gap-3'>
+                    <svg className='w-5 h-5 text-green-600 flex-shrink-0' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'/>
+                    </svg>
+                    <p className='text-sm sm:text-base font-medium text-green-800'>
+                        Demande envoyée ! Vous serez invité(e) à payer dès qu'un influenceur accepte.
+                    </p>
+                </div>
+            )}
             {/* En-tête du profil */}
             <div className='bg-white rounded-xl shadow-md p-6 mb-6'>
                 <div className='flex items-center gap-6'>
@@ -271,30 +339,26 @@ const BrandProfile = ({ currentUser, userData }) => {
                                                 </div>
                                                 <div className='text-right'>
                                                     <p className='font-bold text-gray-900'>{purchase.amount?.toLocaleString('fr-FR') || '0'} €</p>
-                                                    <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full mt-2 ${
-                                                        purchase.status === 'completed' 
-                                                            ? 'bg-green-100 text-green-800'
-                                                            : purchase.status === 'pending'
-                                                            ? 'bg-yellow-100 text-yellow-800'
-                                                            : 'bg-gray-100 text-gray-800'
-                                                    }`}>
-                                                        {purchase.status === 'completed' ? 'Terminé' : 
-                                                         purchase.status === 'pending' ? 'En cours' : 
-                                                         purchase.status || 'N/A'}
+                                                    <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full mt-2 ${getCollabStatusBadge(purchase.status).className}`}>
+                                                        {getCollabStatusBadge(purchase.status).label}
                                                     </span>
-                                                    <p className='text-xs text-gray-500 mt-2'>
-                                                        Paiement: {purchase.paymentStatus === 'funds_held'
-                                                            ? 'Fonds en attente'
-                                                            : purchase.paymentStatus === 'awaiting_payment'
-                                                            ? 'Paiement en attente'
-                                                            : purchase.paymentStatus || 'N/A'}
-                                                    </p>
-                                                    <p className='text-xs text-gray-500 mt-1'>
-                                                        Validation marque: {purchase.brandApproved ? 'Oui' : 'Non'}
-                                                    </p>
-                                                    <p className='text-xs text-gray-500 mt-1'>
-                                                        Validation influenceur: {purchase.influencerApproved ? 'Oui' : 'Non'}
-                                                    </p>
+                                                    {purchase.status !== 'pending_acceptance' && purchase.status !== 'declined' && (
+                                                        <p className='text-xs text-gray-500 mt-2'>
+                                                            Paiement: {purchase.paymentStatus === 'funds_held'
+                                                                ? 'Fonds en attente'
+                                                                : purchase.paymentStatus || 'N/A'}
+                                                        </p>
+                                                    )}
+                                                    {purchase.paymentStatus === 'funds_held' && (
+                                                        <>
+                                                            <p className='text-xs text-gray-500 mt-1'>
+                                                                Validation marque: {purchase.brandApproved ? 'Oui' : 'Non'}
+                                                            </p>
+                                                            <p className='text-xs text-gray-500 mt-1'>
+                                                                Validation influenceur: {purchase.influencerApproved ? 'Oui' : 'Non'}
+                                                            </p>
+                                                        </>
+                                                    )}
                                                     {purchase.payoutStatus === 'ready_for_transfer' && (
                                                         <p className='text-xs text-orange-600 font-medium mt-1'>
                                                             Versement: en attente de virement
@@ -304,6 +368,16 @@ const BrandProfile = ({ currentUser, userData }) => {
                                                         <p className='text-xs text-green-600 font-medium mt-1'>
                                                             Versement: effectué
                                                         </p>
+                                                    )}
+
+                                                    {purchase.status === 'accepted_awaiting_payment' && (
+                                                        <button
+                                                            onClick={() => handlePayNow(purchase.id)}
+                                                            disabled={payingId === purchase.id}
+                                                            className='mt-3 px-3 py-2 text-xs font-semibold rounded-md bg-primary text-white hover:bg-primary/90 disabled:opacity-50'
+                                                        >
+                                                            {payingId === purchase.id ? 'Redirection...' : 'Payer maintenant'}
+                                                        </button>
                                                     )}
 
                                                     {purchase.paymentStatus === 'funds_held' && !purchase.brandApproved && (
@@ -352,6 +426,7 @@ const MyProfile = () => {
     })
     const [uploading, setUploading] = useState(false)
     const [approvingCollabId, setApprovingCollabId] = useState('')
+    const [respondingCollabId, setRespondingCollabId] = useState('')
     const [bankDetails, setBankDetails] = useState({ accountHolderName: '', iban: '', bic: '' })
     const [bankDetailsSaved, setBankDetailsSaved] = useState(false)
     const [editingBankDetails, setEditingBankDetails] = useState(false)
@@ -568,6 +643,51 @@ const MyProfile = () => {
             setMessage({ type: 'error', text: 'Erreur lors de l\'enregistrement des coordonnées bancaires' })
         } finally {
             setSavingBankDetails(false)
+        }
+    }
+
+    const respondToCollaborationRequest = async (collaborationId, accept) => {
+        if (!RESPOND_TO_COLLABORATION_REQUEST_URL) {
+            setMessage({ type: 'error', text: 'Configuration manquante pour répondre à cette demande.' })
+            return
+        }
+
+        setRespondingCollabId(collaborationId)
+        try {
+            const idToken = await currentUser.getIdToken()
+            const response = await fetch(RESPOND_TO_COLLABORATION_REQUEST_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${idToken}`
+                },
+                body: JSON.stringify({ collaborationId, accept })
+            })
+
+            const data = await response.json()
+            if (!response.ok) {
+                throw new Error(data?.error || 'Erreur lors de la réponse à la demande')
+            }
+
+            setCollaborations((prev) =>
+                prev.map((collab) =>
+                    collab.id === collaborationId
+                        ? { ...collab, status: data.status, influencerAccepted: accept }
+                        : collab
+                )
+            )
+
+            setMessage({
+                type: 'success',
+                text: accept
+                    ? 'Demande acceptée. La marque a été prévenue et peut maintenant payer.'
+                    : 'Demande refusée. La marque a été prévenue.'
+            })
+        } catch (error) {
+            console.error('Erreur réponse à la demande:', error)
+            setMessage({ type: 'error', text: error.message || 'Erreur lors de la réponse à la demande' })
+        } finally {
+            setRespondingCollabId('')
         }
     }
 
@@ -1059,30 +1179,26 @@ const MyProfile = () => {
                                         </div>
                                         <div className='text-right'>
                                             <p className='font-bold text-green-600'>{collab.amount?.toLocaleString('fr-FR') || '0'} €</p>
-                                            <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full mt-2 ${
-                                                collab.status === 'completed' 
-                                                    ? 'bg-green-100 text-green-800'
-                                                    : collab.status === 'pending'
-                                                    ? 'bg-yellow-100 text-yellow-800'
-                                                    : 'bg-gray-100 text-gray-800'
-                                            }`}>
-                                                {collab.status === 'completed' ? 'Terminé' : 
-                                                 collab.status === 'pending' ? 'En cours' : 
-                                                 collab.status || 'N/A'}
+                                            <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full mt-2 ${getCollabStatusBadge(collab.status).className}`}>
+                                                {getCollabStatusBadge(collab.status).label}
                                             </span>
-                                            <p className='text-xs text-gray-500 mt-2'>
-                                                Paiement: {collab.paymentStatus === 'funds_held'
-                                                    ? 'Fonds en attente'
-                                                    : collab.paymentStatus === 'awaiting_payment'
-                                                    ? 'Paiement en attente'
-                                                    : collab.paymentStatus || 'N/A'}
-                                            </p>
-                                            <p className='text-xs text-gray-500 mt-1'>
-                                                Validation marque: {collab.brandApproved ? 'Oui' : 'Non'}
-                                            </p>
-                                            <p className='text-xs text-gray-500 mt-1'>
-                                                Validation influenceur: {collab.influencerApproved ? 'Oui' : 'Non'}
-                                            </p>
+                                            {collab.status !== 'pending_acceptance' && collab.status !== 'declined' && collab.status !== 'accepted_awaiting_payment' && (
+                                                <p className='text-xs text-gray-500 mt-2'>
+                                                    Paiement: {collab.paymentStatus === 'funds_held'
+                                                        ? 'Fonds en attente'
+                                                        : collab.paymentStatus || 'N/A'}
+                                                </p>
+                                            )}
+                                            {collab.paymentStatus === 'funds_held' && (
+                                                <>
+                                                    <p className='text-xs text-gray-500 mt-1'>
+                                                        Validation marque: {collab.brandApproved ? 'Oui' : 'Non'}
+                                                    </p>
+                                                    <p className='text-xs text-gray-500 mt-1'>
+                                                        Validation influenceur: {collab.influencerApproved ? 'Oui' : 'Non'}
+                                                    </p>
+                                                </>
+                                            )}
                                             {collab.payoutStatus === 'ready_for_transfer' && (
                                                 <p className='text-xs text-orange-600 font-medium mt-1'>
                                                     Versement: en attente de virement
@@ -1092,6 +1208,31 @@ const MyProfile = () => {
                                                 <p className='text-xs text-green-600 font-medium mt-1'>
                                                     Versement: effectué
                                                 </p>
+                                            )}
+
+                                            {collab.status === 'pending_acceptance' && (
+                                                <div className='flex gap-2 mt-3 justify-end'>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            respondToCollaborationRequest(collab.id, false)
+                                                        }}
+                                                        disabled={respondingCollabId === collab.id}
+                                                        className='px-3 py-2 text-xs font-semibold rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50'
+                                                    >
+                                                        Refuser
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            respondToCollaborationRequest(collab.id, true)
+                                                        }}
+                                                        disabled={respondingCollabId === collab.id}
+                                                        className='px-3 py-2 text-xs font-semibold rounded-md bg-primary text-white hover:bg-primary/90 disabled:opacity-50'
+                                                    >
+                                                        {respondingCollabId === collab.id ? '...' : 'Accepter'}
+                                                    </button>
+                                                </div>
                                             )}
 
                                             {collab.paymentStatus === 'funds_held' && !collab.influencerApproved && (

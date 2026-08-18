@@ -504,10 +504,10 @@ def instagram_callback_handler(req: https_fn.Request) -> https_fn.Response:
 
 
 @https_fn.on_request()
-def create_checkout_session_handler(req: https_fn.Request) -> https_fn.Response:
+def create_collaboration_request_handler(req: https_fn.Request) -> https_fn.Response:
     """
-    Crée la session Stripe Checkout et des collaborations en statut paiement en attente.
-    Les fonds restent sur le compte plateforme jusqu'à validation des 2 parties.
+    Crée des demandes de collaboration à partir du panier, sans paiement.
+    L'influenceur doit accepter avant que le paiement ne soit proposé à la marque.
     """
     options_response = _handle_options(req)
     if options_response:
@@ -515,9 +515,6 @@ def create_checkout_session_handler(req: https_fn.Request) -> https_fn.Response:
 
     if req.method != 'POST':
         return _json_response({'error': 'Méthode non autorisée'}, status=405)
-
-    if not STRIPE_SECRET_KEY:
-        return _json_response({'error': 'STRIPE_SECRET_KEY manquante'}, status=500)
 
     try:
         uid = _get_authenticated_uid(req)
@@ -531,7 +528,7 @@ def create_checkout_session_handler(req: https_fn.Request) -> https_fn.Response:
         brand_ref = db_client.collection('brands').document(uid)
         brand_snap = brand_ref.get()
         if not brand_snap.exists:
-            return _json_response({'error': 'Seules les marques peuvent payer'}, status=403)
+            return _json_response({'error': 'Seules les marques peuvent envoyer des demandes'}, status=403)
 
         brand_data = brand_snap.to_dict() or {}
         brand_name = brand_data.get('brandName', 'Marque')
@@ -540,9 +537,7 @@ def create_checkout_session_handler(req: https_fn.Request) -> https_fn.Response:
         collaborations_ref = db_client.collection('collaborations')
         conversations_ref = db_client.collection('conversations')
 
-        line_items = []
-        collaboration_ids = []
-        first_influencer_id = None
+        request_ids = []
 
         for item in items:
             influencer_id = item.get('influencerId')
@@ -562,10 +557,7 @@ def create_checkout_session_handler(req: https_fn.Request) -> https_fn.Response:
             influencer_name = influencer_data.get('name', 'Influenceur')
             influencer_email = influencer_data.get('email', '')
 
-            if first_influencer_id is None:
-                first_influencer_id = influencer_id
-
-            # Crée une collaboration par quantité pour faciliter la validation et le paiement final.
+            # Crée une demande par quantité pour faciliter le suivi individuel.
             for _ in range(quantity):
                 collab_ref = collaborations_ref.document()
                 collab_ref.set({
@@ -578,26 +570,16 @@ def create_checkout_session_handler(req: https_fn.Request) -> https_fn.Response:
                     'description': f'Collaboration: {package_name}',
                     'package': package_name,
                     'amount': unit_price,
-                    'status': 'pending',
-                    'paymentStatus': 'awaiting_payment',
+                    'status': 'pending_acceptance',
+                    'paymentStatus': 'not_requested',
                     'payoutStatus': 'not_released',
+                    'influencerAccepted': None,
                     'brandApproved': False,
                     'influencerApproved': False,
                     'createdAt': firestore.SERVER_TIMESTAMP,
                     'updatedAt': firestore.SERVER_TIMESTAMP
                 })
-                collaboration_ids.append(collab_ref.id)
-
-            line_items.append({
-                'price_data': {
-                    'currency': 'eur',
-                    'product_data': {
-                        'name': f'{influencer_name} - {package_name}'
-                    },
-                    'unit_amount': int(round(unit_price * 100))
-                },
-                'quantity': quantity
-            })
+                request_ids.append(collab_ref.id)
 
             # Conversation unique brand <-> influencer
             existing_conv = conversations_ref.where('brandId', '==', uid).where('influencerId', '==', influencer_id).limit(1).get()
@@ -609,14 +591,158 @@ def create_checkout_session_handler(req: https_fn.Request) -> https_fn.Response:
                     'influencerId': influencer_id,
                     'influencerName': influencer_name,
                     'influencerEmail': influencer_email,
-                    'lastMessage': f'Nouvelle collaboration: {package_name}',
+                    'lastMessage': f'Nouvelle demande de collaboration: {package_name}',
                     'lastMessageAt': firestore.SERVER_TIMESTAMP,
                     'lastMessageBy': uid,
                     'createdAt': firestore.SERVER_TIMESTAMP
                 })
 
-        if len(line_items) == 0 or len(collaboration_ids) == 0:
-            return _json_response({'error': 'Impossible de créer le paiement pour ce panier'}, status=400)
+        if len(request_ids) == 0:
+            return _json_response({'error': 'Impossible de créer la demande pour ce panier'}, status=400)
+
+        return _json_response({
+            'success': True,
+            'requestCount': len(request_ids)
+        })
+    except AuthorizationError as auth_err:
+        return _json_response({'error': str(auth_err)}, status=auth_err.status)
+    except Exception as exc:
+        print(f'Erreur create_collaboration_request_handler: {str(exc)}')
+        return _json_response({'error': str(exc)}, status=500)
+
+
+@https_fn.on_request()
+def respond_to_collaboration_request_handler(req: https_fn.Request) -> https_fn.Response:
+    """
+    L'influenceur accepte ou refuse une demande de collaboration en attente.
+    Envoie un email à la marque pour l'informer de la réponse.
+    """
+    options_response = _handle_options(req)
+    if options_response:
+        return options_response
+
+    if req.method != 'POST':
+        return _json_response({'error': 'Méthode non autorisée'}, status=405)
+
+    try:
+        uid = _get_authenticated_uid(req)
+        payload = req.get_json(silent=True) or {}
+        collaboration_id = payload.get('collaborationId')
+        accept = payload.get('accept')
+
+        if not collaboration_id or accept is None:
+            return _json_response({'error': 'collaborationId et accept requis'}, status=400)
+
+        db_client = firestore.client()
+        collab_ref = db_client.collection('collaborations').document(collaboration_id)
+        collab_snap = collab_ref.get()
+
+        if not collab_snap.exists:
+            return _json_response({'error': 'Collaboration introuvable'}, status=404)
+
+        collab = collab_snap.to_dict() or {}
+
+        if collab.get('influencerId') != uid:
+            return _json_response({'error': 'Non autorisé pour cette collaboration'}, status=403)
+
+        if collab.get('status') != 'pending_acceptance':
+            return _json_response({'error': 'Cette demande n\'est plus en attente'}, status=400)
+
+        new_status = 'accepted_awaiting_payment' if accept else 'declined'
+        collab_ref.update({
+            'status': new_status,
+            'influencerAccepted': bool(accept),
+            'respondedAt': firestore.SERVER_TIMESTAMP,
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        })
+
+        from lib.notifications import send_collaboration_response_email
+        send_collaboration_response_email(
+            brand_email=collab.get('brandEmail', ''),
+            brand_name=collab.get('brandName', 'Marque'),
+            influencer_name=collab.get('influencerName', 'Influenceur'),
+            package=collab.get('package', 'Collaboration'),
+            accepted=bool(accept),
+            frontend_base_url=FRONTEND_BASE_URL
+        )
+
+        return _json_response({
+            'success': True,
+            'status': new_status
+        })
+    except AuthorizationError as auth_err:
+        return _json_response({'error': str(auth_err)}, status=auth_err.status)
+    except Exception as exc:
+        print(f'Erreur respond_to_collaboration_request_handler: {str(exc)}')
+        return _json_response({'error': str(exc)}, status=500)
+
+
+@https_fn.on_request()
+def create_checkout_session_handler(req: https_fn.Request) -> https_fn.Response:
+    """
+    Crée la session Stripe Checkout pour des collaborations déjà acceptées par l'influenceur.
+    Les fonds restent sur le compte plateforme jusqu'à validation des 2 parties.
+    """
+    options_response = _handle_options(req)
+    if options_response:
+        return options_response
+
+    if req.method != 'POST':
+        return _json_response({'error': 'Méthode non autorisée'}, status=405)
+
+    if not STRIPE_SECRET_KEY:
+        return _json_response({'error': 'STRIPE_SECRET_KEY manquante'}, status=500)
+
+    try:
+        uid = _get_authenticated_uid(req)
+        payload = req.get_json(silent=True) or {}
+        collaboration_ids = payload.get('collaborationIds', [])
+
+        if not isinstance(collaboration_ids, list) or len(collaboration_ids) == 0:
+            return _json_response({'error': 'Aucune collaboration à payer'}, status=400)
+
+        db_client = firestore.client()
+        brand_snap = db_client.collection('brands').document(uid).get()
+        if not brand_snap.exists:
+            return _json_response({'error': 'Seules les marques peuvent payer'}, status=403)
+
+        line_items = []
+        valid_collaboration_ids = []
+        first_influencer_id = None
+
+        for collaboration_id in collaboration_ids:
+            collab_ref = db_client.collection('collaborations').document(collaboration_id)
+            collab_snap = collab_ref.get()
+            if not collab_snap.exists:
+                continue
+
+            collab_data = collab_snap.to_dict() or {}
+            if collab_data.get('brandId') != uid:
+                continue
+            if collab_data.get('status') != 'accepted_awaiting_payment':
+                continue
+
+            unit_price = float(collab_data.get('amount', 0))
+            if unit_price <= 0:
+                continue
+
+            if first_influencer_id is None:
+                first_influencer_id = collab_data.get('influencerId')
+
+            line_items.append({
+                'price_data': {
+                    'currency': 'eur',
+                    'product_data': {
+                        'name': f"{collab_data.get('influencerName', 'Influenceur')} - {collab_data.get('package', 'Collaboration')}"
+                    },
+                    'unit_amount': int(round(unit_price * 100))
+                },
+                'quantity': 1
+            })
+            valid_collaboration_ids.append(collaboration_id)
+
+        if len(line_items) == 0:
+            return _json_response({'error': 'Aucune collaboration acceptée à payer'}, status=400)
 
         success_url = f'{FRONTEND_BASE_URL}/messages?payment=success'
         if first_influencer_id:
@@ -627,7 +753,7 @@ def create_checkout_session_handler(req: https_fn.Request) -> https_fn.Response:
             payment_method_types=['card'],
             line_items=line_items,
             success_url=success_url,
-            cancel_url=f'{FRONTEND_BASE_URL}/cart?payment=cancelled',
+            cancel_url=f'{FRONTEND_BASE_URL}/my-profile?payment=cancelled',
             metadata={
                 'brandId': uid
             }
@@ -635,7 +761,7 @@ def create_checkout_session_handler(req: https_fn.Request) -> https_fn.Response:
 
         db_client.collection('paymentSessions').document(checkout_session.id).set({
             'brandId': uid,
-            'collaborationIds': collaboration_ids,
+            'collaborationIds': valid_collaboration_ids,
             'checkoutSessionId': checkout_session.id,
             'status': 'created',
             'createdAt': firestore.SERVER_TIMESTAMP,
@@ -646,7 +772,7 @@ def create_checkout_session_handler(req: https_fn.Request) -> https_fn.Response:
             'success': True,
             'sessionId': checkout_session.id,
             'url': checkout_session.url,
-            'collaborationCount': len(collaboration_ids)
+            'collaborationCount': len(valid_collaboration_ids)
         })
     except AuthorizationError as auth_err:
         return _json_response({'error': str(auth_err)}, status=auth_err.status)
@@ -693,6 +819,7 @@ def stripe_webhook_handler(req: https_fn.Request) -> https_fn.Response:
                 for collab_id in collab_ids:
                     collab_ref = db_client.collection('collaborations').document(collab_id)
                     collab_ref.update({
+                        'status': 'pending',
                         'paymentStatus': 'funds_held',
                         'stripeCheckoutSessionId': session_id,
                         'stripePaymentIntentId': payment_intent_id,
@@ -717,7 +844,7 @@ def stripe_webhook_handler(req: https_fn.Request) -> https_fn.Response:
                 for collab_id in collab_ids:
                     collab_ref = db_client.collection('collaborations').document(collab_id)
                     collab_ref.update({
-                        'paymentStatus': 'cancelled',
+                        'paymentStatus': 'not_requested',
                         'updatedAt': firestore.SERVER_TIMESTAMP
                     })
 
