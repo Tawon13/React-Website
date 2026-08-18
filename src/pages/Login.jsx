@@ -1,14 +1,19 @@
 import React, { useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import socialMediaImage from '../assets/social_media_login.jpg'
 
 const Login = () => {
     const navigate = useNavigate()
+    const routerLocation = useLocation()
     const location = window.location.pathname
     const [searchParams] = useSearchParams()
     const { signUpInfluencer, signUpBrand, signIn, signInWithGoogle, signInWithFacebook } = useAuth()
-    
+
+    // Après connexion, revenir à la page d'origine (ex: /messages?brandId=...)
+    // si l'utilisateur a été redirigé ici depuis une page protégée.
+    const redirectTarget = routerLocation.state?.from
+
     // Déterminer si c'est un influenceur ou une marque (par défaut influenceur)
     // Support du paramètre query ou du chemin URL
     const getDefaultType = () => {
@@ -65,7 +70,7 @@ const Login = () => {
         setLoading(true)
         try {
             await signInWithGoogle(userType === 'influencer')
-            navigate('/')
+            navigate(redirectTarget || '/')
         } catch (error) {
             console.error('Google sign in error:', error)
             setError(getSocialAuthErrorMessage(error, 'Google'))
@@ -79,7 +84,7 @@ const Login = () => {
         setLoading(true)
         try {
             await signInWithFacebook(userType === 'influencer')
-            navigate('/')
+            navigate(redirectTarget || '/')
         } catch (error) {
             console.error('Facebook sign in error:', error)
             setError(getSocialAuthErrorMessage(error, 'Facebook'))
@@ -127,7 +132,7 @@ const Login = () => {
                 }
             } else {
                 await signIn(formData.email, formData.password)
-                navigate('/')
+                navigate(redirectTarget || '/')
             }
         } catch (error) {
             console.error('Error:', error)

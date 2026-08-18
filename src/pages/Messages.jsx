@@ -37,7 +37,7 @@ const getAvatarGradient = (name) => {
 const Messages = () => {
     const navigate = useNavigate()
     const location = useLocation()
-    const { currentUser, userType, userData } = useAuth()
+    const { currentUser, userType, userData, loading: authLoading } = useAuth()
     const { clearCart } = useCart()
     const [conversations, setConversations] = useState([])
     const [showPaymentSuccess, setShowPaymentSuccess] = useState(false)
@@ -50,12 +50,14 @@ const Messages = () => {
     const [searchTerm, setSearchTerm] = useState('')
     const messagesEndRef = useRef(null)
 
-    // Rediriger si non connecté
+    // Rediriger si non connecté, en conservant la page visée (ex: lien reçu par email)
+    // pour y revenir automatiquement une fois connecté.
     useEffect(() => {
+        if (authLoading) return
         if (!currentUser) {
-            navigate('/login')
+            navigate('/login', { state: { from: `${location.pathname}${location.search}` } })
         }
-    }, [currentUser, navigate])
+    }, [currentUser, authLoading, navigate, location])
 
     // Confirmation après un paiement Stripe réussi : vider le panier et afficher un message,
     // puis nettoyer l'URL pour ne pas redéclencher au rechargement de la page.
@@ -183,13 +185,16 @@ const Messages = () => {
     // Sélectionner automatiquement la bonne conversation quand on arrive depuis :
     // - "Mes Collaborations" côté influenceur (clic sur une collaboration -> brandId)
     // - un paiement Stripe réussi côté marque (-> influencerId)
+    // - le lien "Voir la demande" reçu par email par l'influenceur (?brandId=... dans l'URL,
+    //   pas de state React Router puisque c'est une navigation externe)
     // Ne s'applique qu'une fois pour ne pas re-forcer la sélection après un retour manuel.
     const appliedRedirectRef = useRef(false)
     useEffect(() => {
         if (appliedRedirectRef.current || conversations.length === 0) return
 
-        const brandId = location.state?.brandId
-        const influencerId = location.state?.influencerId
+        const params = new URLSearchParams(location.search)
+        const brandId = location.state?.brandId || params.get('brandId')
+        const influencerId = location.state?.influencerId || params.get('influencerId')
         if (!brandId && !influencerId) return
 
         const match = brandId
@@ -200,7 +205,7 @@ const Messages = () => {
             appliedRedirectRef.current = true
             setSelectedConversation(match)
         }
-    }, [conversations, location.state])
+    }, [conversations, location.state, location.search])
 
     // Charger les messages de la conversation sélectionnée
     useEffect(() => {
@@ -315,7 +320,7 @@ const Messages = () => {
                         <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'/>
                     </svg>
                     <p className='text-sm sm:text-base font-medium text-green-800'>
-                        Paiement confirmé ! Vous pouvez discuter avec l'influenceur ci-dessous.
+                        Paiement confirmé ! Merci d'avoir réalisé une collaboration chez Collabzz.
                     </p>
                 </div>
             )}

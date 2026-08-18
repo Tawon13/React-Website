@@ -3,20 +3,84 @@ Notifications par email liées aux demandes de collaboration
 """
 
 import os
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, Email, To, Content
+import requests
+
+RESEND_API_URL = 'https://api.resend.com/emails'
+
+
+def _send_notification_email(to_email, subject, title, body_html, cta_url, cta_label):
+    resend_api_key = os.environ.get('RESEND_API_KEY')
+    sender_email = os.environ.get('RESEND_FROM_EMAIL', 'Collabzz <onboarding@resend.dev>')
+
+    if not resend_api_key or not to_email:
+        return {'success': False, 'error': 'Configuration email non disponible'}
+
+    html_content = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+            <div style="background-color: #E6B067; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+                <h1 style="margin: 0; font-size: 20px;">{title}</h1>
+            </div>
+            <div style="background-color: white; padding: 30px; border-radius: 0 0 8px 8px;">
+                {body_html}
+                <div style="text-align: center; margin-top: 30px;">
+                    <a href="{cta_url}" style="background-color: #E6B067; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">{cta_label}</a>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    try:
+        response = requests.post(
+            RESEND_API_URL,
+            headers={
+                'Authorization': f'Bearer {resend_api_key}',
+                'Content-Type': 'application/json'
+            },
+            json={
+                'from': sender_email,
+                'to': [to_email],
+                'subject': subject,
+                'html': html_content
+            },
+            timeout=20
+        )
+        response.raise_for_status()
+        return {'success': True, 'status_code': response.status_code}
+    except Exception as exc:
+        print(f'Erreur envoi email notification: {str(exc)}')
+        return {'success': False, 'error': str(exc)}
+
+
+def send_new_collaboration_request_email(influencer_email, influencer_name, brand_name, package, amount, frontend_base_url, brand_id):
+    """
+    Prévient l'influenceur par email qu'une marque lui a envoyé une nouvelle demande de collaboration.
+    """
+    subject = f"{brand_name} souhaite collaborer avec vous !"
+    title = "📩 Nouvelle demande de collaboration"
+    body_html = f"""
+        <p>Bonjour {influencer_name},</p>
+        <p><strong>{brand_name}</strong> souhaite collaborer avec vous pour <strong>{package}</strong> ({amount} €).</p>
+        <p>Rendez-vous dans vos messages pour échanger avec la marque et répondre à cette demande.</p>
+    """
+
+    return _send_notification_email(
+        to_email=influencer_email,
+        subject=subject,
+        title=title,
+        body_html=body_html,
+        cta_url=f"{frontend_base_url}/messages?brandId={brand_id}",
+        cta_label="Voir la demande"
+    )
 
 
 def send_collaboration_response_email(brand_email, brand_name, influencer_name, package, accepted, frontend_base_url):
     """
     Prévient la marque par email quand un influenceur accepte ou refuse sa demande de collaboration.
     """
-    sendgrid_api_key = os.environ.get('SENDGRID_API_KEY')
-    sender_email = os.environ.get('CONTACT_EMAIL', 'contact@collabzz.com')
-
-    if not sendgrid_api_key or not brand_email:
-        return {'success': False, 'error': 'Configuration email non disponible'}
-
     if accepted:
         subject = f"{influencer_name} a accepté votre demande de collaboration !"
         title = "✅ Collaboration acceptée"
@@ -38,34 +102,11 @@ def send_collaboration_response_email(brand_email, brand_name, influencer_name, 
         cta_url = f"{frontend_base_url}/talents"
         cta_label = "Découvrir d'autres talents"
 
-    html_content = f"""
-    <html>
-    <body style="font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
-            <div style="background-color: #E6B067; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-                <h1 style="margin: 0; font-size: 20px;">{title}</h1>
-            </div>
-            <div style="background-color: white; padding: 30px; border-radius: 0 0 8px 8px;">
-                {body_html}
-                <div style="text-align: center; margin-top: 30px;">
-                    <a href="{cta_url}" style="background-color: #E6B067; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">{cta_label}</a>
-                </div>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-
-    try:
-        message = Mail(
-            from_email=Email(sender_email, 'Collabzz'),
-            to_emails=To(brand_email),
-            subject=subject,
-            html_content=Content('text/html', html_content)
-        )
-        sg = SendGridAPIClient(sendgrid_api_key)
-        response = sg.send(message)
-        return {'success': True, 'status_code': response.status_code}
-    except Exception as exc:
-        print(f'Erreur envoi email réponse collaboration: {str(exc)}')
-        return {'success': False, 'error': str(exc)}
+    return _send_notification_email(
+        to_email=brand_email,
+        subject=subject,
+        title=title,
+        body_html=body_html,
+        cta_url=cta_url,
+        cta_label=cta_label
+    )

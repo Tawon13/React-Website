@@ -1,12 +1,12 @@
 """
-Module pour gérer l'envoi d'emails de contact via SendGrid
+Module pour gérer l'envoi d'emails de contact via Resend
 """
 
 import os
-from datetime import datetime
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, Email, To, Content
+import requests
 from firebase_admin import firestore
+
+RESEND_API_URL = 'https://api.resend.com/emails'
 
 def send_contact_email(user_type, name, email, subject, message):
     """
@@ -23,11 +23,12 @@ def send_contact_email(user_type, name, email, subject, message):
         dict: Résultat de l'envoi
     """
     try:
-        # Récupérer la clé API SendGrid depuis les variables d'environnement
-        sendgrid_api_key = os.environ.get('SENDGRID_API_KEY')
+        # Récupérer la clé API Resend depuis les variables d'environnement
+        resend_api_key = os.environ.get('RESEND_API_KEY')
+        sender_email = os.environ.get('RESEND_FROM_EMAIL', 'Collabzz Contact <onboarding@resend.dev>')
         recipient_email = os.environ.get('CONTACT_EMAIL', 'contact@collabzz.com')
-        
-        if not sendgrid_api_key:
+
+        if not resend_api_key:
             return {
                 'success': False,
                 'error': 'Configuration email non disponible'
@@ -131,25 +132,27 @@ def send_contact_email(user_type, name, email, subject, message):
         </html>
         """
         
-        # Créer l'objet email
+        # Envoyer l'email via Resend
         user_type_fr = "Marque" if user_type == "marque" else "Influenceur"
         email_subject = f"[{user_type_fr}] {subject}"
-        
-        # Utiliser l'email vérifié dans SendGrid comme expéditeur
-        message = Mail(
-            from_email=Email(recipient_email, 'Collabzz Contact'),
-            to_emails=To(recipient_email),
-            subject=email_subject,
-            html_content=Content("text/html", html_content)
+
+        response = requests.post(
+            RESEND_API_URL,
+            headers={
+                'Authorization': f'Bearer {resend_api_key}',
+                'Content-Type': 'application/json'
+            },
+            json={
+                'from': sender_email,
+                'to': [recipient_email],
+                'reply_to': email,
+                'subject': email_subject,
+                'html': html_content
+            },
+            timeout=20
         )
-        
-        # Ajouter l'email de l'expéditeur en reply-to
-        message.reply_to = Email(email, name)
-        
-        # Envoyer l'email
-        sg = SendGridAPIClient(sendgrid_api_key)
-        response = sg.send(message)
-        
+        response.raise_for_status()
+
         # Sauvegarder dans Firestore
         try:
             db = firestore.client()
@@ -167,7 +170,7 @@ def send_contact_email(user_type, name, email, subject, message):
         except Exception as db_error:
             print(f"Erreur lors de la sauvegarde dans Firestore: {str(db_error)}")
             # On continue même si la sauvegarde échoue
-        
+
         return {
             'success': True,
             'message': 'Email envoyé avec succès',

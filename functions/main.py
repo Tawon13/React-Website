@@ -581,6 +581,17 @@ def create_collaboration_request_handler(req: https_fn.Request) -> https_fn.Resp
                 })
                 request_ids.append(collab_ref.id)
 
+            from lib.notifications import send_new_collaboration_request_email
+            send_new_collaboration_request_email(
+                influencer_email=influencer_email,
+                influencer_name=influencer_name,
+                brand_name=brand_name,
+                package=package_name,
+                amount=unit_price,
+                frontend_base_url=FRONTEND_BASE_URL,
+                brand_id=uid
+            )
+
             # Conversation unique brand <-> influencer
             existing_conv = conversations_ref.where('brandId', '==', uid).where('influencerId', '==', influencer_id).limit(1).get()
             if len(existing_conv) == 0:

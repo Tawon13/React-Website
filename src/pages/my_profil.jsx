@@ -29,9 +29,9 @@ const getCollabStatusBadge = (status) =>
 // Composant pour le profil des marques
 const BrandProfile = ({ currentUser, userData }) => {
     const location = useLocation()
+    const navigate = useNavigate()
     const [purchases, setPurchases] = useState([])
     const [loading, setLoading] = useState(true)
-    const [activeTab, setActiveTab] = useState(location.state?.initialTab || 'profile')
     const [approvingId, setApprovingId] = useState('')
     const [payingId, setPayingId] = useState('')
     const [showRequestSent, setShowRequestSent] = useState(Boolean(location.state?.requestSent))
@@ -250,159 +250,145 @@ const BrandProfile = ({ currentUser, userData }) => {
                 </div>
             </div>
 
-            {/* Onglets */}
+            {/* Informations */}
             <div className='bg-white rounded-xl shadow-md mb-6'>
-                <div className='border-b border-gray-200'>
-                    <nav className='flex -mb-px'>
-                        <button
-                            onClick={() => setActiveTab('profile')}
-                            className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                                activeTab === 'profile'
-                                    ? 'border-primary text-primary'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`}
-                        >
-                            Informations
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('purchases')}
-                            className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                                activeTab === 'purchases'
-                                    ? 'border-primary text-primary'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`}
-                        >
-                            Mes Achats ({purchases.length})
-                        </button>
-                    </nav>
+                <div className='border-b border-gray-200 py-4 px-6'>
+                    <h2 className='font-medium text-sm text-gray-900'>Informations</h2>
                 </div>
 
                 <div className='p-6'>
-                    {activeTab === 'profile' && (
-                        <div className='space-y-4'>
-                            <div>
-                                <label className='block text-sm font-semibold text-gray-700 mb-2'>Nom de la marque</label>
-                                <input
-                                    type='text'
-                                    value={userData?.brandName || ''}
-                                    readOnly
-                                    className='w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50'
-                                />
-                            </div>
-                            <div>
-                                <label className='block text-sm font-semibold text-gray-700 mb-2'>Email</label>
-                                <input
-                                    type='email'
-                                    value={currentUser.email}
-                                    readOnly
-                                    className='w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50'
-                                />
-                            </div>
-                            <div>
-                                <label className='block text-sm font-semibold text-gray-700 mb-2'>Téléphone</label>
-                                <input
-                                    type='text'
-                                    value={userData?.phone || 'Non renseigné'}
-                                    readOnly
-                                    className='w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50'
-                                />
-                            </div>
-                            <div>
-                                <label className='block text-sm font-semibold text-gray-700 mb-2'>Site web</label>
-                                <input
-                                    type='text'
-                                    value={userData?.website || 'Non renseigné'}
-                                    readOnly
-                                    className='w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50'
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    {activeTab === 'purchases' && (
+                    <div className='space-y-4'>
                         <div>
-                            {loading ? (
-                                <div className='text-center py-8'>
-                                    <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto'></div>
-                                </div>
-                            ) : purchases.length > 0 ? (
-                                <div className='space-y-4'>
-                                    {purchases.map((purchase) => (
-                                        <div key={purchase.id} className='border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition'>
-                                            <div className='flex justify-between items-start'>
-                                                <div className='flex-1'>
-                                                    <h3 className='font-semibold text-gray-900'>{purchase.influencerName || 'Influenceur'}</h3>
-                                                    <p className='text-sm text-gray-600 mt-1'>{purchase.description || 'Collaboration'}</p>
-                                                    <p className='text-xs text-gray-500 mt-2'>
-                                                        {purchase.createdAt?.toDate?.()?.toLocaleDateString('fr-FR') || 'Date inconnue'}
-                                                    </p>
-                                                </div>
-                                                <div className='text-right'>
-                                                    <p className='font-bold text-gray-900'>{purchase.amount?.toLocaleString('fr-FR') || '0'} €</p>
-                                                    <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full mt-2 ${getCollabStatusBadge(purchase.status).className}`}>
-                                                        {getCollabStatusBadge(purchase.status).label}
-                                                    </span>
-                                                    {purchase.status !== 'pending_acceptance' && purchase.status !== 'declined' && (
-                                                        <p className='text-xs text-gray-500 mt-2'>
-                                                            Paiement: {purchase.paymentStatus === 'funds_held'
-                                                                ? 'Fonds en attente'
-                                                                : purchase.paymentStatus || 'N/A'}
-                                                        </p>
-                                                    )}
-                                                    {purchase.paymentStatus === 'funds_held' && (
-                                                        <>
-                                                            <p className='text-xs text-gray-500 mt-1'>
-                                                                Validation marque: {purchase.brandApproved ? 'Oui' : 'Non'}
-                                                            </p>
-                                                            <p className='text-xs text-gray-500 mt-1'>
-                                                                Validation influenceur: {purchase.influencerApproved ? 'Oui' : 'Non'}
-                                                            </p>
-                                                        </>
-                                                    )}
-                                                    {purchase.payoutStatus === 'ready_for_transfer' && (
-                                                        <p className='text-xs text-orange-600 font-medium mt-1'>
-                                                            Versement: en attente de virement
-                                                        </p>
-                                                    )}
-                                                    {purchase.payoutStatus === 'paid' && (
-                                                        <p className='text-xs text-green-600 font-medium mt-1'>
-                                                            Versement: effectué
-                                                        </p>
-                                                    )}
+                            <label className='block text-sm font-semibold text-gray-700 mb-2'>Nom de la marque</label>
+                            <input
+                                type='text'
+                                value={userData?.brandName || ''}
+                                readOnly
+                                className='w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50'
+                            />
+                        </div>
+                        <div>
+                            <label className='block text-sm font-semibold text-gray-700 mb-2'>Email</label>
+                            <input
+                                type='email'
+                                value={currentUser.email}
+                                readOnly
+                                className='w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50'
+                            />
+                        </div>
+                        <div>
+                            <label className='block text-sm font-semibold text-gray-700 mb-2'>Téléphone</label>
+                            <input
+                                type='text'
+                                value={userData?.phone || 'Non renseigné'}
+                                readOnly
+                                className='w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50'
+                            />
+                        </div>
+                        <div>
+                            <label className='block text-sm font-semibold text-gray-700 mb-2'>Site web</label>
+                            <input
+                                type='text'
+                                value={userData?.website || 'Non renseigné'}
+                                readOnly
+                                className='w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50'
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                                                    {purchase.status === 'accepted_awaiting_payment' && (
-                                                        <button
-                                                            onClick={() => handlePayNow(purchase.id)}
-                                                            disabled={payingId === purchase.id}
-                                                            className='mt-3 px-3 py-2 text-xs font-semibold rounded-md bg-primary text-white hover:bg-primary/90 disabled:opacity-50'
-                                                        >
-                                                            {payingId === purchase.id ? 'Redirection...' : 'Payer maintenant'}
-                                                        </button>
-                                                    )}
+            {/* Achats */}
+            <div className='bg-white rounded-xl shadow-md mb-6'>
+                <div className='border-b border-gray-200 py-4 px-6'>
+                    <h2 className='font-medium text-sm text-gray-900'>Mes Achats ({purchases.length})</h2>
+                </div>
 
-                                                    {purchase.paymentStatus === 'funds_held' && !purchase.brandApproved && (
-                                                        <button
-                                                            onClick={() => handleApprovePurchase(purchase.id)}
-                                                            disabled={approvingId === purchase.id}
-                                                            className='mt-3 px-3 py-2 text-xs font-semibold rounded-md bg-primary text-white hover:bg-primary/90 disabled:opacity-50'
-                                                        >
-                                                            {approvingId === purchase.id ? 'Validation...' : 'Valider et autoriser le déblocage'}
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </div>
+                <div className='p-6'>
+                    {loading ? (
+                        <div className='text-center py-8'>
+                            <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto'></div>
+                        </div>
+                    ) : purchases.length > 0 ? (
+                        <div className='space-y-4'>
+                            {purchases.map((purchase) => (
+                                <div
+                                    key={purchase.id}
+                                    onClick={() => navigate('/messages', { state: { influencerId: purchase.influencerId } })}
+                                    className='border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition'
+                                >
+                                    <div className='flex justify-between items-start'>
+                                        <div className='flex-1'>
+                                            <h3 className='font-semibold text-gray-900'>{purchase.influencerName || 'Influenceur'}</h3>
+                                            <p className='text-sm text-gray-600 mt-1'>{purchase.description || 'Collaboration'}</p>
+                                            <p className='text-xs text-gray-500 mt-2'>
+                                                {purchase.createdAt?.toDate?.()?.toLocaleDateString('fr-FR') || 'Date inconnue'}
+                                            </p>
                                         </div>
-                                    ))}
+                                        <div className='text-right'>
+                                            <p className='font-bold text-gray-900'>{purchase.amount?.toLocaleString('fr-FR') || '0'} €</p>
+                                            <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full mt-2 ${getCollabStatusBadge(purchase.status).className}`}>
+                                                {getCollabStatusBadge(purchase.status).label}
+                                            </span>
+                                            {purchase.status !== 'pending_acceptance' && purchase.status !== 'declined' && (
+                                                <p className='text-xs text-gray-500 mt-2'>
+                                                    Paiement: {purchase.paymentStatus === 'funds_held'
+                                                        ? 'Fonds en attente'
+                                                        : purchase.paymentStatus || 'N/A'}
+                                                </p>
+                                            )}
+                                            {purchase.paymentStatus === 'funds_held' && (
+                                                <>
+                                                    <p className='text-xs text-gray-500 mt-1'>
+                                                        Validation marque: {purchase.brandApproved ? 'Oui' : 'Non'}
+                                                    </p>
+                                                    <p className='text-xs text-gray-500 mt-1'>
+                                                        Validation influenceur: {purchase.influencerApproved ? 'Oui' : 'Non'}
+                                                    </p>
+                                                </>
+                                            )}
+                                            {purchase.payoutStatus === 'ready_for_transfer' && (
+                                                <p className='text-xs text-orange-600 font-medium mt-1'>
+                                                    Versement: en attente de virement
+                                                </p>
+                                            )}
+                                            {purchase.payoutStatus === 'paid' && (
+                                                <p className='text-xs text-green-600 font-medium mt-1'>
+                                                    Versement: effectué
+                                                </p>
+                                            )}
+
+                                            {purchase.status === 'accepted_awaiting_payment' && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handlePayNow(purchase.id) }}
+                                                    disabled={payingId === purchase.id}
+                                                    className='mt-3 px-3 py-2 text-xs font-semibold rounded-md bg-primary text-white hover:bg-primary/90 disabled:opacity-50'
+                                                >
+                                                    {payingId === purchase.id ? 'Redirection...' : 'Payer maintenant'}
+                                                </button>
+                                            )}
+
+                                            {purchase.paymentStatus === 'funds_held' && !purchase.brandApproved && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleApprovePurchase(purchase.id) }}
+                                                    disabled={approvingId === purchase.id}
+                                                    className='mt-3 px-3 py-2 text-xs font-semibold rounded-md bg-primary text-white hover:bg-primary/90 disabled:opacity-50'
+                                                >
+                                                    {approvingId === purchase.id ? 'Validation...' : 'Valider et autoriser le déblocage'}
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
-                            ) : (
-                                <div className='text-center py-12'>
-                                    <svg className='w-16 h-16 text-gray-400 mx-auto mb-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z'/>
-                                    </svg>
-                                    <p className='text-gray-500 text-lg'>Aucun achat pour le moment</p>
-                                    <p className='text-gray-400 text-sm mt-2'>Vos collaborations apparaîtront ici</p>
-                                </div>
-                            )}
+                            ))}
+                        </div>
+                    ) : (
+                        <div className='text-center py-12'>
+                            <svg className='w-16 h-16 text-gray-400 mx-auto mb-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z'/>
+                            </svg>
+                            <p className='text-gray-500 text-lg'>Aucun achat pour le moment</p>
+                            <p className='text-gray-400 text-sm mt-2'>Vos collaborations apparaîtront ici</p>
                         </div>
                     )}
                 </div>
