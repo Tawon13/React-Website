@@ -542,6 +542,7 @@ def create_checkout_session_handler(req: https_fn.Request) -> https_fn.Response:
 
         line_items = []
         collaboration_ids = []
+        first_influencer_id = None
 
         for item in items:
             influencer_id = item.get('influencerId')
@@ -560,6 +561,9 @@ def create_checkout_session_handler(req: https_fn.Request) -> https_fn.Response:
             influencer_data = influencer_snap.to_dict() or {}
             influencer_name = influencer_data.get('name', 'Influenceur')
             influencer_email = influencer_data.get('email', '')
+
+            if first_influencer_id is None:
+                first_influencer_id = influencer_id
 
             # Crée une collaboration par quantité pour faciliter la validation et le paiement final.
             for _ in range(quantity):
@@ -614,11 +618,15 @@ def create_checkout_session_handler(req: https_fn.Request) -> https_fn.Response:
         if len(line_items) == 0 or len(collaboration_ids) == 0:
             return _json_response({'error': 'Impossible de créer le paiement pour ce panier'}, status=400)
 
+        success_url = f'{FRONTEND_BASE_URL}/messages?payment=success'
+        if first_influencer_id:
+            success_url += f'&influencerId={first_influencer_id}'
+
         checkout_session = stripe.checkout.Session.create(
             mode='payment',
             payment_method_types=['card'],
             line_items=line_items,
-            success_url=f'{FRONTEND_BASE_URL}/messages?payment=success',
+            success_url=success_url,
             cancel_url=f'{FRONTEND_BASE_URL}/cart?payment=cancelled',
             metadata={
                 'brandId': uid

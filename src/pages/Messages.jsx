@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useCart } from '../context/CartContext'
 import { db } from '../config/firebase'
 import {
     collection,
@@ -37,7 +38,9 @@ const Messages = () => {
     const navigate = useNavigate()
     const location = useLocation()
     const { currentUser, userType, userData } = useAuth()
+    const { clearCart } = useCart()
     const [conversations, setConversations] = useState([])
+    const [showPaymentSuccess, setShowPaymentSuccess] = useState(false)
     const [selectedConversation, setSelectedConversation] = useState(null)
     const [messages, setMessages] = useState([])
     const [newMessage, setNewMessage] = useState('')
@@ -53,6 +56,20 @@ const Messages = () => {
             navigate('/login')
         }
     }, [currentUser, navigate])
+
+    // Confirmation après un paiement Stripe réussi : vider le panier et afficher un message,
+    // puis nettoyer l'URL pour ne pas redéclencher au rechargement de la page.
+    useEffect(() => {
+        const params = new URLSearchParams(location.search)
+        if (params.get('payment') === 'success') {
+            clearCart()
+            setShowPaymentSuccess(true)
+            const influencerId = params.get('influencerId')
+            navigate('/messages', { replace: true, state: influencerId ? { influencerId } : undefined })
+            const timeout = setTimeout(() => setShowPaymentSuccess(false), 6000)
+            return () => clearTimeout(timeout)
+        }
+    }, [location.search])
 
     // Charger les conversations
     useEffect(() => {
@@ -163,15 +180,22 @@ const Messages = () => {
         }
     }, [currentUser, userType])
 
-    // Sélectionner automatiquement la conversation d'une marque quand on arrive
-    // depuis "Mes Collaborations" (ex: clic sur une collaboration côté influenceur).
+    // Sélectionner automatiquement la bonne conversation quand on arrive depuis :
+    // - "Mes Collaborations" côté influenceur (clic sur une collaboration -> brandId)
+    // - un paiement Stripe réussi côté marque (-> influencerId)
     // Ne s'applique qu'une fois pour ne pas re-forcer la sélection après un retour manuel.
     const appliedRedirectRef = useRef(false)
     useEffect(() => {
-        const brandId = location.state?.brandId
-        if (!brandId || appliedRedirectRef.current || conversations.length === 0) return
+        if (appliedRedirectRef.current || conversations.length === 0) return
 
-        const match = conversations.find((conv) => conv.brandId === brandId)
+        const brandId = location.state?.brandId
+        const influencerId = location.state?.influencerId
+        if (!brandId && !influencerId) return
+
+        const match = brandId
+            ? conversations.find((conv) => conv.brandId === brandId)
+            : conversations.find((conv) => conv.influencerId === influencerId)
+
         if (match) {
             appliedRedirectRef.current = true
             setSelectedConversation(match)
@@ -285,6 +309,16 @@ const Messages = () => {
 
     return (
         <div className='min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-6 sm:py-10'>
+            {showPaymentSuccess && (
+                <div className='fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-xl rounded-lg border border-green-200 bg-green-50 px-4 py-3 shadow-lg flex items-center gap-3'>
+                    <svg className='w-5 h-5 text-green-600 flex-shrink-0' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'/>
+                    </svg>
+                    <p className='text-sm sm:text-base font-medium text-green-800'>
+                        Paiement confirmé ! Vous pouvez discuter avec l'influenceur ci-dessous.
+                    </p>
+                </div>
+            )}
             <div className='max-w-7xl mx-auto px-4'>
                 <div className='mb-6 hidden sm:block'>
                     <h1 className='text-2xl sm:text-3xl font-bold text-gray-900'>Messages</h1>

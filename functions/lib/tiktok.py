@@ -298,6 +298,7 @@ def update_tiktok_stats(user_id: str, tokens: dict) -> dict:
 
     return {
         "success": True,
+        "followers": int(user.get("follower_count", 0) or 0),
         "statsAccess": has_stats_access,
         "videoListAccess": has_video_list_access,
         "avgViews": avg_views,

@@ -1,14 +1,26 @@
-import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { STRIPE_CREATE_CHECKOUT_URL } from '../config/firebase'
 
 const Cart = () => {
     const navigate = useNavigate()
+    const location = useLocation()
     const { cartItems, removeFromCart, updateQuantity, clearCart, getTotal } = useCart()
     const { currentUser, userType } = useAuth()
     const [loading, setLoading] = useState(false)
+    const [showPaymentCancelled, setShowPaymentCancelled] = useState(false)
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search)
+        if (params.get('payment') === 'cancelled') {
+            setShowPaymentCancelled(true)
+            navigate('/cart', { replace: true })
+            const timeout = setTimeout(() => setShowPaymentCancelled(false), 6000)
+            return () => clearTimeout(timeout)
+        }
+    }, [location.search])
 
     const handleCheckout = async () => {
         if (!currentUser) {
@@ -71,9 +83,21 @@ const Cart = () => {
         }
     }
 
+    const paymentCancelledBanner = showPaymentCancelled && (
+        <div className='fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-xl rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 shadow-lg flex items-center gap-3'>
+            <svg className='w-5 h-5 text-amber-600 flex-shrink-0' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'/>
+            </svg>
+            <p className='text-sm sm:text-base font-medium text-amber-800'>
+                Paiement annulé. Votre panier a été conservé.
+            </p>
+        </div>
+    )
+
     if (cartItems.length === 0) {
         return (
             <div className='min-h-screen bg-gray-50 py-10'>
+                {paymentCancelledBanner}
                 <div className='max-w-7xl mx-auto px-4'>
                     <div className='text-center py-20'>
                         <svg className='w-24 h-24 text-gray-400 mx-auto mb-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
@@ -95,6 +119,7 @@ const Cart = () => {
 
     return (
         <div className='min-h-screen bg-gray-50 py-10'>
+            {paymentCancelledBanner}
             <div className='max-w-7xl mx-auto px-4'>
                 <div className='mb-6'>
                     <button
