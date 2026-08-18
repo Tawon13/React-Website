@@ -921,7 +921,7 @@ const MyProfile = () => {
         return (
             <div className='max-w-4xl mx-auto py-10'>
                 <div className='bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded'>
-                    Chargement de votre profil...
+                    Connectez-vous pour accéder à votre profil et gérer vos collaborations.
                 </div>
             </div>
         )
