@@ -1,42 +1,42 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://collabzz.com/</loc>
+    <loc>https://www.collabzz.com/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://collabzz.com/talents</loc>
+    <loc>https://www.collabzz.com/talents</loc>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://collabzz.com/for-brands</loc>
+    <loc>https://www.collabzz.com/for-brands</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://collabzz.com/for-creators</loc>
+    <loc>https://www.collabzz.com/for-creators</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://collabzz.com/about</loc>
+    <loc>https://www.collabzz.com/about</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://collabzz.com/contact</loc>
+    <loc>https://www.collabzz.com/contact</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://collabzz.com/terms</loc>
+    <loc>https://www.collabzz.com/terms</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://collabzz.com/privacy</loc>
+    <loc>https://www.collabzz.com/privacy</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>

@@ -2,7 +2,7 @@ import React from 'react'
 import { Helmet } from 'react-helmet-async'
 
 const SITE_NAME = 'Collabzz'
-const SITE_URL = 'https://collabzz.com'
+const SITE_URL = 'https://www.collabzz.com'
 const DEFAULT_DESCRIPTION = "Collabzz connecte les marques et les influenceurs pour créer des collaborations rémunérées simplement et en toute sécurité."
 const DEFAULT_IMAGE = `${SITE_URL}/favicon.png`
 
