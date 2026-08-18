@@ -105,9 +105,9 @@ const About = () => {
           <div className='absolute -top-10 -right-10 w-64 h-64 bg-white/10 rounded-full blur-3xl'></div>
           <div className='relative grid grid-cols-2 md:grid-cols-4 gap-8 text-center text-white'>
             {[
-              { value: '500+', label: 'Influenceurs' },
-              { value: '200+', label: 'Marques' },
-              { value: '1000+', label: 'Collaborations' },
+              { value: '100+', label: 'Influenceurs' },
+              { value: '50+', label: 'Marques' },
+              { value: '80+', label: 'Collaborations' },
               { value: '98%', label: 'Satisfaction' }
             ].map((stat) => (
               <div key={stat.label}>

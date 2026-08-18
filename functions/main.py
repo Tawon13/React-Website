@@ -689,6 +689,55 @@ def respond_to_collaboration_request_handler(req: https_fn.Request) -> https_fn.
 
 
 @https_fn.on_request()
+def send_welcome_email_handler(req: https_fn.Request) -> https_fn.Response:
+    """
+    Envoie l'email de bienvenue juste après la création du compte (influenceur ou marque).
+    """
+    options_response = _handle_options(req)
+    if options_response:
+        return options_response
+
+    if req.method != 'POST':
+        return _json_response({'error': 'Méthode non autorisée'}, status=405)
+
+    try:
+        uid = _get_authenticated_uid(req)
+        db_client = firestore.client()
+
+        influencer_snap = db_client.collection('influencers').document(uid).get()
+        if influencer_snap.exists:
+            user_type = 'influencer'
+            user_data = influencer_snap.to_dict() or {}
+            name = user_data.get('name', '')
+        else:
+            brand_snap = db_client.collection('brands').document(uid).get()
+            if not brand_snap.exists:
+                return _json_response({'error': 'Profil introuvable'}, status=404)
+            user_type = 'brand'
+            user_data = brand_snap.to_dict() or {}
+            name = user_data.get('brandName', '') or user_data.get('fullName', '')
+
+        email = user_data.get('email', '')
+        if not email:
+            return _json_response({'error': 'Email introuvable pour ce compte'}, status=400)
+
+        from lib.notifications import send_welcome_email
+        send_welcome_email(
+            to_email=email,
+            name=name or ('Marque' if user_type == 'brand' else 'Influenceur'),
+            user_type=user_type,
+            frontend_base_url=FRONTEND_BASE_URL
+        )
+
+        return _json_response({'success': True})
+    except AuthorizationError as auth_err:
+        return _json_response({'error': str(auth_err)}, status=auth_err.status)
+    except Exception as exc:
+        print(f'Erreur send_welcome_email_handler: {str(exc)}')
+        return _json_response({'error': str(exc)}, status=500)
+
+
+@https_fn.on_request()
 def create_checkout_session_handler(req: https_fn.Request) -> https_fn.Response:
     """
     Crée la session Stripe Checkout pour des collaborations déjà acceptées par l'influenceur.

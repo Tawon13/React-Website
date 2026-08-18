@@ -1,15 +1,43 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import { 
-    createUserWithEmailAndPassword, 
-    signInWithEmailAndPassword, 
-    signOut, 
+import {
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
+    signOut,
     onAuthStateChanged,
+    sendEmailVerification,
     GoogleAuthProvider,
     FacebookAuthProvider,
     signInWithPopup
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
+import { auth, db, SEND_WELCOME_EMAIL_URL } from '../config/firebase';
+
+// Envoie l'email de vérification Firebase (sauf comptes Google/Facebook, déjà vérifiés) +
+// l'email de bienvenue (Resend) après la création du compte. Ne doit jamais faire échouer
+// l'inscription si l'un de ces envois échoue.
+const sendPostSignupEmails = async (user, { verifyEmail = true } = {}) => {
+    if (verifyEmail) {
+        try {
+            await sendEmailVerification(user, { url: `${window.location.origin}/login` });
+        } catch (error) {
+            console.error('Error sending verification email:', error);
+        }
+    }
+
+    try {
+        if (!SEND_WELCOME_EMAIL_URL) return;
+        const idToken = await user.getIdToken();
+        await fetch(SEND_WELCOME_EMAIL_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${idToken}`
+            }
+        });
+    } catch (error) {
+        console.error('Error sending welcome email:', error);
+    }
+};
 
 const AuthContext = createContext();
 
@@ -55,6 +83,8 @@ export const AuthProvider = ({ children }) => {
                 updatedAt: new Date().toISOString()
             });
 
+            sendPostSignupEmails(user);
+
             return user;
         } catch (error) {
             throw error;
@@ -92,6 +122,8 @@ export const AuthProvider = ({ children }) => {
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             });
+
+            sendPostSignupEmails(user);
 
             return user;
         } catch (error) {
@@ -145,6 +177,7 @@ export const AuthProvider = ({ children }) => {
                 }
 
                 await setDoc(docRef, userData);
+                sendPostSignupEmails(user, { verifyEmail: false });
             }
 
             return user;
@@ -189,6 +222,7 @@ export const AuthProvider = ({ children }) => {
                 }
 
                 await setDoc(docRef, userData);
+                sendPostSignupEmails(user, { verifyEmail: false });
             }
 
             return user;

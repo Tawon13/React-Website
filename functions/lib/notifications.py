@@ -55,6 +55,39 @@ def _send_notification_email(to_email, subject, title, body_html, cta_url, cta_l
         return {'success': False, 'error': str(exc)}
 
 
+def send_welcome_email(to_email, name, user_type, frontend_base_url):
+    """
+    Envoie un email de bienvenue après la création d'un compte influenceur ou marque.
+    """
+    is_brand = user_type == 'brand'
+    subject = "Bienvenue sur Collabzz !"
+    title = f"👋 Bienvenue sur Collabzz, {name} !"
+
+    if is_brand:
+        body_html = f"""
+            <p>Bonjour {name},</p>
+            <p>Votre compte marque a été créé avec succès. Vous pouvez dès maintenant explorer nos talents et lancer vos premières collaborations.</p>
+        """
+        cta_url = f"{frontend_base_url}/talents"
+        cta_label = "Découvrir les talents"
+    else:
+        body_html = f"""
+            <p>Bonjour {name},</p>
+            <p>Votre compte influenceur a été créé avec succès. Complétez votre profil pour commencer à recevoir des demandes de collaboration.</p>
+        """
+        cta_url = f"{frontend_base_url}/my-profile"
+        cta_label = "Compléter mon profil"
+
+    return _send_notification_email(
+        to_email=to_email,
+        subject=subject,
+        title=title,
+        body_html=body_html,
+        cta_url=cta_url,
+        cta_label=cta_label
+    )
+
+
 def send_new_collaboration_request_email(influencer_email, influencer_name, brand_name, package, amount, frontend_base_url, brand_id):
     """
     Prévient l'influenceur par email qu'une marque lui a envoyé une nouvelle demande de collaboration.

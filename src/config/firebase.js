@@ -54,6 +54,7 @@ export const STRIPE_APPROVE_COLLAB_URL = import.meta.env.VITE_STRIPE_APPROVE_COL
 export const MARK_PAYOUT_PAID_URL = import.meta.env.VITE_MARK_PAYOUT_PAID_URL;
 export const CREATE_COLLABORATION_REQUEST_URL = import.meta.env.VITE_CREATE_COLLABORATION_REQUEST_URL;
 export const RESPOND_TO_COLLABORATION_REQUEST_URL = import.meta.env.VITE_RESPOND_TO_COLLABORATION_REQUEST_URL;
+export const SEND_WELCOME_EMAIL_URL = import.meta.env.VITE_SEND_WELCOME_EMAIL_URL;
 
 // Validate required function URLs
 if (!INSTAGRAM_CONNECT_URL || !TIKTOK_CONNECT_URL || !YOUTUBE_CONNECT_URL) {
@@ -66,6 +67,10 @@ if (!STRIPE_CREATE_CHECKOUT_URL || !STRIPE_APPROVE_COLLAB_URL) {
 
 if (!CREATE_COLLABORATION_REQUEST_URL || !RESPOND_TO_COLLABORATION_REQUEST_URL) {
     console.warn('Some collaboration request function URLs are missing. The request/accept flow may not work.');
+}
+
+if (!SEND_WELCOME_EMAIL_URL) {
+    console.warn('VITE_SEND_WELCOME_EMAIL_URL is missing. The welcome email will not be sent.');
 }
 
 export default app;
