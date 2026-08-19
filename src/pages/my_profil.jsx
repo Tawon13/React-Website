@@ -436,7 +436,7 @@ const MyProfile = () => {
             'tiktok-connected': 'TikTok connecté avec succès !'
         }
 
-        const handleMessage = (event) => {
+        const handleMessage = async (event) => {
             if (event.origin !== functionsOrigin) return
             const { type } = event.data || {}
             if (!successMessages[type]) return
@@ -444,12 +444,12 @@ const MyProfile = () => {
             popupRef.current?.close()
             popupRef.current = null
             setMessage({ type: 'success', text: successMessages[type] })
-            window.location.reload()
+            await refreshUserData()
         }
 
         window.addEventListener('message', handleMessage)
         return () => window.removeEventListener('message', handleMessage)
-    }, [functionsOrigin])
+    }, [functionsOrigin, refreshUserData])
     
     console.log('MyProfile - currentUser:', currentUser)
     console.log('MyProfile - userData:', userData)
