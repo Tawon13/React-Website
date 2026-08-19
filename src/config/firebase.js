@@ -47,6 +47,7 @@ export const storage = getStorage(app);
 // Cloud Run Functions URLs (Gen2)
 export const INSTAGRAM_CONNECT_URL = import.meta.env.VITE_INSTAGRAM_CONNECT_URL;
 export const TIKTOK_CONNECT_URL = import.meta.env.VITE_TIKTOK_CONNECT_URL;
+export const TIKTOK_CALLBACK_URL = import.meta.env.VITE_TIKTOK_CALLBACK_URL;
 export const YOUTUBE_CONNECT_URL = import.meta.env.VITE_YOUTUBE_CONNECT_URL;
 export const CONTACT_EMAIL_URL = import.meta.env.VITE_CONTACT_EMAIL_URL;
 export const STRIPE_CREATE_CHECKOUT_URL = import.meta.env.VITE_STRIPE_CREATE_CHECKOUT_URL;
@@ -61,6 +62,10 @@ export const VERIFY_EMAIL_CODE_URL = import.meta.env.VITE_VERIFY_EMAIL_CODE_URL;
 // Validate required function URLs
 if (!INSTAGRAM_CONNECT_URL || !TIKTOK_CONNECT_URL || !YOUTUBE_CONNECT_URL) {
     console.warn('Some Cloud Run function URLs are missing. Social media connections may not work.');
+}
+
+if (!TIKTOK_CALLBACK_URL) {
+    console.warn('VITE_TIKTOK_CALLBACK_URL is missing. The TikTok connection popup will not be able to notify the app when done.');
 }
 
 if (!STRIPE_CREATE_CHECKOUT_URL || !STRIPE_APPROVE_COLLAB_URL) {

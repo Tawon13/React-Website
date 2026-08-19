@@ -5,6 +5,7 @@ import { doc, updateDoc, setDoc, getDoc, collection, query, where, getDocs, orde
 import {
     db,
     TIKTOK_CONNECT_URL,
+    TIKTOK_CALLBACK_URL,
     storage,
     STRIPE_APPROVE_COLLAB_URL,
     STRIPE_CREATE_CHECKOUT_URL,
@@ -422,7 +423,10 @@ const MyProfile = () => {
 
     const functionsOrigin = useMemo(() => {
         try {
-            return new URL(TIKTOK_CONNECT_URL).origin
+            // Le popup TikTok envoie son postMessage depuis tiktok_callback_handler,
+            // pas depuis tiktok_connect : ce sont deux Cloud Run distincts avec des
+            // origines différentes, il faut valider contre celle du callback.
+            return new URL(TIKTOK_CALLBACK_URL).origin
         } catch (error) {
             console.error('Invalid Cloud Run URL, cannot validate OAuth responses.', error)
             return null

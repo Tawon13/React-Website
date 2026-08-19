@@ -49,7 +49,7 @@ const Messages = () => {
     const [sending, setSending] = useState(false)
     const [shouldScroll, setShouldScroll] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
-    const messagesEndRef = useRef(null)
+    const messagesContainerRef = useRef(null)
 
     // Rediriger si non connecté, en conservant la page visée (ex: lien reçu par email)
     // pour y revenir automatiquement une fois connecté.
@@ -239,10 +239,11 @@ const Messages = () => {
         return () => unsubscribe()
     }, [selectedConversation, currentUser])
 
-    // Scroll automatique vers le bas seulement si nécessaire
+    // Scroll automatique vers le bas seulement si nécessaire, limité à la zone de
+    // messages elle-même (scrollIntoView ferait aussi défiler toute la page).
     useEffect(() => {
-        if (shouldScroll && messages.length > 0) {
-            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+        if (shouldScroll && messages.length > 0 && messagesContainerRef.current) {
+            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
             setShouldScroll(false)
         }
     }, [messages, shouldScroll])
@@ -456,7 +457,7 @@ const Messages = () => {
                                     </div>
 
                                     {/* Messages */}
-                                    <div className='flex-1 overflow-y-auto p-4 sm:p-6 space-y-3'>
+                                    <div ref={messagesContainerRef} className='flex-1 overflow-y-auto p-4 sm:p-6 space-y-3'>
                                         {messages.length === 0 ? (
                                             <div className='text-center py-12'>
                                                 <div className='w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4'>
@@ -494,7 +495,6 @@ const Messages = () => {
                                                 )
                                             })
                                         )}
-                                        <div ref={messagesEndRef} />
                                     </div>
 
                                     {/* Formulaire d'envoi */}
