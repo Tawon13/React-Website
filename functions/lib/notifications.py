@@ -3,6 +3,7 @@ Notifications par email liées aux demandes de collaboration
 """
 
 import os
+import html
 import requests
 
 RESEND_API_URL = 'https://api.resend.com/emails'
@@ -134,6 +135,55 @@ def send_new_collaboration_request_email(influencer_email, influencer_name, bran
         body_html=body_html,
         cta_url=f"{frontend_base_url}/messages?brandId={brand_id}",
         cta_label="Voir la demande"
+    )
+
+
+def send_new_message_email(to_email, recipient_name, sender_name, message_preview, frontend_base_url, cta_url):
+    """
+    Prévient un utilisateur par email qu'il a reçu un nouveau message dans la messagerie.
+    """
+    subject = f"{sender_name} vous a envoyé un message"
+    title = "💬 Nouveau message"
+    safe_preview = html.escape(message_preview)[:280]
+    body_html = f"""
+        <p>Bonjour {recipient_name},</p>
+        <p><strong>{sender_name}</strong> vous a envoyé un message sur Collabzz :</p>
+        <div style="margin: 20px 0; padding: 16px; background-color: #f9f9f9; border-left: 4px solid #E6B067; border-radius: 4px; color: #555; font-style: italic;">
+            {safe_preview}
+        </div>
+    """
+
+    return _send_notification_email(
+        to_email=to_email,
+        subject=subject,
+        title=title,
+        body_html=body_html,
+        cta_url=cta_url,
+        cta_label="Répondre"
+    )
+
+
+def send_dispute_refund_email(to_email, name, other_party_name, package, frontend_base_url):
+    """
+    Prévient l'autre partie qu'une collaboration a été annulée et intégralement remboursée
+    suite à un désaccord.
+    """
+    subject = "Collaboration annulée et remboursée"
+    title = "↩️ Collaboration annulée"
+    body_html = f"""
+        <p>Bonjour {name},</p>
+        <p><strong>{other_party_name}</strong> a signalé un désaccord sur la collaboration <strong>{package}</strong>.</p>
+        <p>La collaboration a été annulée et la marque a été intégralement remboursée. Les fonds ne seront pas versés.</p>
+        <p>Pour toute question, vous pouvez nous contacter directement.</p>
+    """
+
+    return _send_notification_email(
+        to_email=to_email,
+        subject=subject,
+        title=title,
+        body_html=body_html,
+        cta_url=f"{frontend_base_url}/messages",
+        cta_label="Voir mes messages"
     )
 
 

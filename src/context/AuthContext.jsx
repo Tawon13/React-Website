@@ -16,6 +16,7 @@ import {
     SEND_VERIFICATION_CODE_URL,
     VERIFY_EMAIL_CODE_URL
 } from '../config/firebase';
+import { trackEvent } from '../utils/analytics';
 
 // Appelle une Cloud Function authentifiée (idToken du user Firebase) et lève une erreur
 // avec le message renvoyé par le backend si la requête échoue.
@@ -113,6 +114,7 @@ export const AuthProvider = ({ children }) => {
             });
 
             sendPostSignupEmails(user);
+            trackEvent('sign_up', { method: 'password', user_type: 'influencer' });
 
             return user;
         } catch (error) {
@@ -153,6 +155,7 @@ export const AuthProvider = ({ children }) => {
             });
 
             sendPostSignupEmails(user);
+            trackEvent('sign_up', { method: 'password', user_type: 'brand' });
 
             return user;
         } catch (error) {
@@ -207,6 +210,7 @@ export const AuthProvider = ({ children }) => {
 
                 await setDoc(docRef, userData);
                 sendPostSignupEmails(user, { verifyEmail: false });
+                trackEvent('sign_up', { method: 'google', user_type: isInfluencer ? 'influencer' : 'brand' });
             }
 
             return user;
@@ -252,6 +256,7 @@ export const AuthProvider = ({ children }) => {
 
                 await setDoc(docRef, userData);
                 sendPostSignupEmails(user, { verifyEmail: false });
+                trackEvent('sign_up', { method: 'facebook', user_type: isInfluencer ? 'influencer' : 'brand' });
             }
 
             return user;

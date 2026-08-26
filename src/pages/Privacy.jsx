@@ -137,9 +137,12 @@ const Privacy = () => {
               8. Cookies
             </h2>
             <p>
-              Nous utilisons des cookies pour améliorer votre expérience sur notre
-              plateforme. Vous pouvez désactiver les cookies dans les paramètres de
-              votre navigateur, mais cela peut affecter certaines fonctionnalités.
+              Nous utilisons Google Analytics (via Firebase Analytics) pour mesurer
+              l'audience de notre plateforme. Ces cookies de mesure d'audience ne sont
+              déposés qu'après votre consentement, recueilli via le bandeau affiché lors
+              de votre première visite. Vous pouvez à tout moment changer d'avis en
+              effaçant les données de navigation de votre navigateur pour ce site, ce qui
+              réaffichera le bandeau de consentement.
             </p>
           </section>
 

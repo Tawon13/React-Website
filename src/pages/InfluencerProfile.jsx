@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { AppContext, normalizeInfluencer } from '../context/AppContext'
 import SEO from '../components/SEO'
+import { trackEvent } from '../utils/analytics'
 import { assets } from '../assets/assets'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
@@ -164,6 +165,15 @@ const InfluencerProfile = () => {
             tiktok: buildPlatformAnalytics(socialData?.tiktok)
         })
     }, [socialData])
+
+    useEffect(() => {
+        if (!influencer) return
+        trackEvent('view_item', {
+            item_id: influencerId,
+            item_name: influencer.name,
+            item_category: influencer.category
+        })
+    }, [influencerId, Boolean(influencer)])
 
     // Prix basés sur les packages — utiliser le prix du profil (`fees`) comme fallback
     const packagePrices = {

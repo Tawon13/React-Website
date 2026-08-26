@@ -20,12 +20,15 @@ import Favorites from './pages/Favorites'
 import ForCreators from './pages/ForCreators'
 import ForBrands from './pages/ForBrands'
 import BrandOnboarding from './pages/BrandOnboarding'
+import NotFound from './pages/NotFound'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
+import CookieConsent from './components/CookieConsent'
 
 const App = () => {
   return (
     <div>
+      <CookieConsent />
       <Routes>
         {/* Routes without Header/Footer */}
         <Route path='/login' element={<Login />} />
@@ -57,6 +60,7 @@ const App = () => {
               <Route path='/messages' element={<Messages />} />
               <Route path='/cart' element={<Cart />} />
               <Route path='/favoris' element={<Favorites />} />
+              <Route path='*' element={<NotFound />} />
             </Routes>
             <Footer/>
           </div>

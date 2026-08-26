@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
-import { db } from '../config/firebase'
+import { db, SEND_MESSAGE_NOTIFICATION_URL } from '../config/firebase'
 import SEO from '../components/SEO'
+import { trackEvent } from '../utils/analytics'
 import {
     collection,
     query,
@@ -67,6 +68,7 @@ const Messages = () => {
         if (params.get('payment') === 'success') {
             clearCart()
             setShowPaymentSuccess(true)
+            trackEvent('collaboration_payment_success')
             const influencerId = params.get('influencerId')
             navigate('/messages', { replace: true, state: influencerId ? { influencerId } : undefined })
             const timeout = setTimeout(() => setShowPaymentSuccess(false), 6000)
@@ -274,6 +276,23 @@ const Messages = () => {
             setNewMessage('')
             // Activer le scroll après l'envoi
             setShouldScroll(true)
+
+            // Prévenir l'autre participant par email (best-effort, ne doit pas bloquer l'envoi)
+            if (SEND_MESSAGE_NOTIFICATION_URL) {
+                try {
+                    const idToken = await currentUser.getIdToken()
+                    await fetch(SEND_MESSAGE_NOTIFICATION_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${idToken}`
+                        },
+                        body: JSON.stringify({ conversationId: selectedConversation.id })
+                    })
+                } catch (notifyError) {
+                    console.error('Erreur lors de la notification par email:', notifyError)
+                }
+            }
         } catch (error) {
             console.error('Erreur lors de l\'envoi:', error)
             alert('Erreur lors de l\'envoi du message')

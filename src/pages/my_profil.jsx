@@ -9,7 +9,8 @@ import {
     storage,
     STRIPE_APPROVE_COLLAB_URL,
     STRIPE_CREATE_CHECKOUT_URL,
-    RESPOND_TO_COLLABORATION_REQUEST_URL
+    RESPOND_TO_COLLABORATION_REQUEST_URL,
+    DISPUTE_COLLABORATION_URL
 } from '../config/firebase'
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import PhotoUpload from '../components/PhotoUpload'
@@ -22,7 +23,8 @@ const COLLAB_STATUS_BADGES = {
     accepted_awaiting_payment: { label: 'Acceptée - à payer', className: 'bg-purple-100 text-purple-800' },
     declined: { label: 'Refusée', className: 'bg-red-100 text-red-800' },
     pending: { label: 'En cours', className: 'bg-yellow-100 text-yellow-800' },
-    completed: { label: 'Terminé', className: 'bg-green-100 text-green-800' }
+    completed: { label: 'Terminé', className: 'bg-green-100 text-green-800' },
+    refunded: { label: 'Annulée - remboursée', className: 'bg-gray-200 text-gray-700' }
 }
 
 const getCollabStatusBadge = (status) =>
@@ -36,6 +38,7 @@ const BrandProfile = ({ currentUser, userData }) => {
     const [loading, setLoading] = useState(true)
     const [approvingId, setApprovingId] = useState('')
     const [payingId, setPayingId] = useState('')
+    const [disputingId, setDisputingId] = useState('')
     const [showRequestSent, setShowRequestSent] = useState(Boolean(location.state?.requestSent))
 
     useEffect(() => {
@@ -122,6 +125,50 @@ const BrandProfile = ({ currentUser, userData }) => {
             alert(error.message || 'Erreur lors de la validation')
         } finally {
             setApprovingId('')
+        }
+    }
+
+    const handleDisputeCollaboration = async (purchaseId) => {
+        if (!DISPUTE_COLLABORATION_URL) {
+            alert('Configuration manquante pour signaler un désaccord.')
+            return
+        }
+
+        if (!window.confirm('Confirmez-vous vouloir annuler cette collaboration ? La marque sera intégralement remboursée et le versement à l\'influenceur ne sera pas effectué.')) {
+            return
+        }
+
+        setDisputingId(purchaseId)
+        try {
+            const idToken = await currentUser.getIdToken()
+            const response = await fetch(DISPUTE_COLLABORATION_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${idToken}`
+                },
+                body: JSON.stringify({ collaborationId: purchaseId })
+            })
+
+            const data = await response.json()
+            if (!response.ok) {
+                throw new Error(data?.error || 'Erreur lors du remboursement')
+            }
+
+            setPurchases((prev) =>
+                prev.map((purchase) =>
+                    purchase.id === purchaseId
+                        ? { ...purchase, status: 'refunded', paymentStatus: 'refunded' }
+                        : purchase
+                )
+            )
+
+            alert('Collaboration annulée et remboursée.')
+        } catch (error) {
+            console.error('Erreur remboursement:', error)
+            alert(error.message || 'Erreur lors du remboursement')
+        } finally {
+            setDisputingId('')
         }
     }
 
@@ -380,6 +427,16 @@ const BrandProfile = ({ currentUser, userData }) => {
                                                     {approvingId === purchase.id ? 'Validation...' : 'Valider et autoriser le déblocage'}
                                                 </button>
                                             )}
+
+                                            {purchase.paymentStatus === 'funds_held' && purchase.payoutStatus !== 'ready_for_transfer' && purchase.payoutStatus !== 'paid' && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleDisputeCollaboration(purchase.id) }}
+                                                    disabled={disputingId === purchase.id}
+                                                    className='mt-3 ml-2 px-3 py-2 text-xs font-semibold rounded-md border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50'
+                                                >
+                                                    {disputingId === purchase.id ? 'Traitement...' : 'Signaler un désaccord et rembourser'}
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -416,6 +473,7 @@ const MyProfile = () => {
     const [uploading, setUploading] = useState(false)
     const [approvingCollabId, setApprovingCollabId] = useState('')
     const [respondingCollabId, setRespondingCollabId] = useState('')
+    const [disputingCollabId, setDisputingCollabId] = useState('')
     const [bankDetails, setBankDetails] = useState({ accountHolderName: '', iban: '', bic: '' })
     const [bankDetailsSaved, setBankDetailsSaved] = useState(false)
     const [editingBankDetails, setEditingBankDetails] = useState(false)
@@ -729,6 +787,50 @@ const MyProfile = () => {
             setMessage({ type: 'error', text: error.message || 'Erreur lors de la validation' })
         } finally {
             setApprovingCollabId('')
+        }
+    }
+
+    const disputeCollaborationAsInfluencer = async (collaborationId) => {
+        if (!DISPUTE_COLLABORATION_URL) {
+            setMessage({ type: 'error', text: 'Configuration manquante pour signaler un désaccord.' })
+            return
+        }
+
+        if (!window.confirm('Confirmez-vous vouloir annuler cette collaboration ? La marque sera intégralement remboursée et vous ne recevrez pas de versement.')) {
+            return
+        }
+
+        setDisputingCollabId(collaborationId)
+        try {
+            const idToken = await currentUser.getIdToken()
+            const response = await fetch(DISPUTE_COLLABORATION_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${idToken}`
+                },
+                body: JSON.stringify({ collaborationId })
+            })
+
+            const data = await response.json()
+            if (!response.ok) {
+                throw new Error(data?.error || 'Erreur lors du remboursement')
+            }
+
+            setCollaborations((prev) =>
+                prev.map((collab) =>
+                    collab.id === collaborationId
+                        ? { ...collab, status: 'refunded', paymentStatus: 'refunded' }
+                        : collab
+                )
+            )
+
+            setMessage({ type: 'success', text: 'Collaboration annulée. La marque a été remboursée.' })
+        } catch (error) {
+            console.error('Erreur remboursement:', error)
+            setMessage({ type: 'error', text: error.message || 'Erreur lors du remboursement' })
+        } finally {
+            setDisputingCollabId('')
         }
     }
 
@@ -1238,6 +1340,19 @@ const MyProfile = () => {
                                                     className='mt-3 px-3 py-2 text-xs font-semibold rounded-md bg-primary text-white hover:bg-primary/90 disabled:opacity-50'
                                                 >
                                                     {approvingCollabId === collab.id ? 'Validation...' : 'Valider et demander le versement'}
+                                                </button>
+                                            )}
+
+                                            {collab.paymentStatus === 'funds_held' && collab.payoutStatus !== 'ready_for_transfer' && collab.payoutStatus !== 'paid' && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        disputeCollaborationAsInfluencer(collab.id)
+                                                    }}
+                                                    disabled={disputingCollabId === collab.id}
+                                                    className='mt-3 ml-2 px-3 py-2 text-xs font-semibold rounded-md border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50'
+                                                >
+                                                    {disputingCollabId === collab.id ? 'Traitement...' : 'Signaler un désaccord et rembourser'}
                                                 </button>
                                             )}
                                         </div>

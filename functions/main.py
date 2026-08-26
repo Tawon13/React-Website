@@ -1,6 +1,6 @@
 """
 Cloud Functions pour Collabzz
-Intégration YouTube et TikTok avec OAuth et mise à jour automatique
+Intégration TikTok avec OAuth et mise à jour automatique
 """
 
 import os
@@ -174,113 +174,6 @@ def _handle_options(req: https_fn.Request) -> https_fn.Response | None:
 
 
 # ============================================
-# ROUTES HTTP - OAuth YouTube
-# ============================================
-
-@https_fn.on_request()
-def youtube_connect(req: https_fn.Request) -> https_fn.Response:
-    """
-    Étape 1 : Redirige vers l'autorisation YouTube
-    URL: /youtube_connect?userId=xxx
-    """
-    # Ajouter CORS headers
-    if req.method == 'OPTIONS':
-        headers = {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST',
-            'Access-Control-Allow-Headers': 'Content-Type',
-        }
-        return https_fn.Response('', status=204, headers=headers)
-    
-    user_id = req.args.get('userId')
-    
-    if not user_id:
-        return https_fn.Response('Missing userId parameter', status=400)
-    
-    try:
-        from lib.youtube import connect_youtube
-
-        authenticate_user(req, user_id)
-        signed_state = generate_signed_state(user_id)
-        auth_url = connect_youtube(user_id, signed_state)
-        # Rediriger vers YouTube
-        return https_fn.Response(
-            status=302,
-            headers={'Location': auth_url}
-        )
-    except AuthorizationError as auth_err:
-        return https_fn.Response(str(auth_err), status=auth_err.status)
-    except Exception as e:
-        print(f'Erreur youtube_connect: {str(e)}')
-        return https_fn.Response(f'Error: {str(e)}', status=500)
-
-
-@https_fn.on_request()
-def youtube_callback_handler(req: https_fn.Request) -> https_fn.Response:
-    """
-    Étape 2 : Callback après autorisation YouTube
-    URL: /youtube_callback?code=xxx&state=userId
-    """
-    # CORS headers
-    headers = {'Access-Control-Allow-Origin': '*'}
-    
-    code = req.args.get('code')
-    state = req.args.get('state')
-    
-    if not code or not state:
-        return https_fn.Response('Missing code or state', status=400)
-    
-    try:
-        from lib.youtube import youtube_callback
-
-        user_id = verify_signed_state(state)
-        result = youtube_callback(code, user_id)
-        
-        # Redirection directe vers Mon Profil sans afficher de page intermédiaire
-        result_json = json.dumps(result)
-        html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <script>
-                if (window.opener) {{
-                    window.opener.postMessage({{
-                        type: 'youtube-connected',
-                        data: {result_json}
-                    }}, '*');
-                    window.close();
-                }} else {{
-                    window.location.href = '/my_profil';
-                }}
-            </script>
-        </head>
-        <body></body>
-        </html>
-        """
-        
-        return https_fn.Response(html, headers={
-            'Content-Type': 'text/html; charset=utf-8'
-        })
-        
-    except AuthorizationError as auth_err:
-        return https_fn.Response(str(auth_err), status=auth_err.status)
-    except Exception as e:
-        print(f'Erreur youtube_callback: {str(e)}')
-        html = f"""
-        <!DOCTYPE html>
-        <html>
-        <body style="font-family: Arial; padding: 40px; text-align: center;">
-            <h1 style="color: red;">❌ Erreur</h1>
-            <p>{str(e)}</p>
-            <button onclick="window.close()">Fermer</button>
-        </body>
-        </html>
-        """
-        return https_fn.Response(html, status=500, headers={'Content-Type': 'text/html'})
-
-
-# ============================================
 # ROUTES HTTP - OAuth TikTok
 # ============================================
 
@@ -377,116 +270,6 @@ def tiktok_callback_handler(req: https_fn.Request) -> https_fn.Response:
         return https_fn.Response(str(auth_err), status=auth_err.status)
     except Exception as e:
         print(f'Erreur tiktok_callback: {str(e)}')
-        html = f"""
-        <!DOCTYPE html>
-        <html>
-        <body style="font-family: Arial; padding: 40px; text-align: center;">
-            <h1 style="color: red;">❌ Erreur</h1>
-            <p>{str(e)}</p>
-            <button onclick="window.close()">Fermer</button>
-        </body>
-        </html>
-        """
-        return https_fn.Response(html, status=500, headers={'Content-Type': 'text/html'})
-
-
-# ============================================
-# ROUTES HTTP - OAuth Instagram
-# ============================================
-
-@https_fn.on_request()
-def instagram_connect(req: https_fn.Request) -> https_fn.Response:
-    """
-    Étape 1 : Redirige vers l'autorisation Instagram
-    URL: /instagram_connect?userId=xxx
-    """
-    # CORS
-    if req.method == 'OPTIONS':
-        headers = {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST',
-            'Access-Control-Allow-Headers': 'Content-Type',
-        }
-        return https_fn.Response('', status=204, headers=headers)
-    
-    user_id = req.args.get('userId')
-    
-    if not user_id:
-        return https_fn.Response('Missing userId parameter', status=400)
-    
-    try:
-        from lib.instagram import connect_instagram
-
-        authenticate_user(req, user_id)
-        signed_state = generate_signed_state(user_id)
-        auth_url = connect_instagram(user_id, signed_state)
-        print(f'Instagram auth URL generated: {auth_url}')
-        # Rediriger vers Instagram
-        return https_fn.Response(
-            status=302,
-            headers={'Location': auth_url}
-        )
-    except AuthorizationError as auth_err:
-        return https_fn.Response(str(auth_err), status=auth_err.status)
-    except Exception as e:
-        print(f'Erreur instagram_connect: {str(e)}')
-        import traceback
-        traceback.print_exc()
-        return https_fn.Response(f'Error: {str(e)}', status=500)
-
-
-@https_fn.on_request()
-def instagram_callback_handler(req: https_fn.Request) -> https_fn.Response:
-    """
-    Étape 2 : Callback après autorisation Instagram
-    URL: /instagram_callback?code=xxx&state=userId
-    """
-    # CORS headers
-    headers = {'Access-Control-Allow-Origin': '*'}
-    
-    code = req.args.get('code')
-    state = req.args.get('state')
-    
-    if not code or not state:
-        return https_fn.Response('Missing code or state', status=400)
-    
-    try:
-        from lib.instagram import instagram_callback
-
-        user_id = verify_signed_state(state)
-        result = instagram_callback(code, user_id)
-        
-        # Redirection directe vers Mon Profil sans afficher de page intermédiaire
-        result_json = json.dumps(result)
-        html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <script>
-                if (window.opener) {{
-                    window.opener.postMessage({{
-                        type: 'instagram-connected',
-                        data: {result_json}
-                    }}, '*');
-                    window.close();
-                }} else {{
-                    window.location.href = '/my_profil';
-                }}
-            </script>
-        </head>
-        <body></body>
-        </html>
-        """
-        
-        return https_fn.Response(html, headers={
-            'Content-Type': 'text/html; charset=utf-8'
-        })
-        
-    except AuthorizationError as auth_err:
-        return https_fn.Response(str(auth_err), status=auth_err.status)
-    except Exception as e:
-        print(f'Erreur instagram_callback: {str(e)}')
         html = f"""
         <!DOCTYPE html>
         <html>
@@ -851,6 +634,63 @@ def verify_email_code_handler(req: https_fn.Request) -> https_fn.Response:
 
 
 @https_fn.on_request()
+def send_message_notification_handler(req: https_fn.Request) -> https_fn.Response:
+    """
+    Prévient par email l'autre participant d'une conversation qu'il a reçu un nouveau message.
+    Appelé côté client juste après l'écriture du message dans Firestore.
+    """
+    options_response = _handle_options(req)
+    if options_response:
+        return options_response
+
+    if req.method != 'POST':
+        return _json_response({'error': 'Méthode non autorisée'}, status=405)
+
+    try:
+        uid = _get_authenticated_uid(req)
+        payload = req.get_json(silent=True) or {}
+        conversation_id = payload.get('conversationId')
+
+        if not conversation_id:
+            return _json_response({'error': 'conversationId requis'}, status=400)
+
+        db_client = firestore.client()
+        conv_snap = db_client.collection('conversations').document(conversation_id).get()
+        if not conv_snap.exists:
+            return _json_response({'error': 'Conversation introuvable'}, status=404)
+
+        conv = conv_snap.to_dict() or {}
+        if uid not in (conv.get('brandId'), conv.get('influencerId')):
+            return _json_response({'error': 'Non autorisé pour cette conversation'}, status=403)
+
+        is_sender_brand = uid == conv.get('brandId')
+        sender_name = conv.get('brandName') if is_sender_brand else conv.get('influencerName')
+        recipient_email = conv.get('influencerEmail') if is_sender_brand else conv.get('brandEmail')
+        recipient_name = conv.get('influencerName') if is_sender_brand else conv.get('brandName')
+        cta_param = f"brandId={conv.get('brandId')}" if is_sender_brand else f"influencerId={conv.get('influencerId')}"
+
+        if not recipient_email:
+            return _json_response({'error': 'Email du destinataire introuvable'}, status=400)
+
+        from lib.notifications import send_new_message_email
+        send_new_message_email(
+            to_email=recipient_email,
+            recipient_name=recipient_name or 'Utilisateur',
+            sender_name=sender_name or 'Un utilisateur',
+            message_preview=conv.get('lastMessage', ''),
+            frontend_base_url=FRONTEND_BASE_URL,
+            cta_url=f"{FRONTEND_BASE_URL}/messages?{cta_param}"
+        )
+
+        return _json_response({'success': True})
+    except AuthorizationError as auth_err:
+        return _json_response({'error': str(auth_err)}, status=auth_err.status)
+    except Exception as exc:
+        print(f'Erreur send_message_notification_handler: {str(exc)}')
+        return _json_response({'error': str(exc)}, status=500)
+
+
+@https_fn.on_request()
 def create_checkout_session_handler(req: https_fn.Request) -> https_fn.Response:
     """
     Crée la session Stripe Checkout pour des collaborations déjà acceptées par l'influenceur.
@@ -1133,6 +973,89 @@ def approve_collaboration_delivery_handler(req: https_fn.Request) -> https_fn.Re
 
 
 @https_fn.on_request()
+def dispute_collaboration_handler(req: https_fn.Request) -> https_fn.Response:
+    """
+    Annule une collaboration et rembourse intégralement la marque quand les deux parties
+    ne sont pas d'accord sur la livraison. Uniquement possible tant que les fonds sont
+    en séquestre et n'ont pas encore été validés pour un versement à l'influenceur.
+    """
+    options_response = _handle_options(req)
+    if options_response:
+        return options_response
+
+    if req.method != 'POST':
+        return _json_response({'error': 'Méthode non autorisée'}, status=405)
+
+    if not STRIPE_SECRET_KEY:
+        return _json_response({'error': 'STRIPE_SECRET_KEY manquante'}, status=500)
+
+    try:
+        uid = _get_authenticated_uid(req)
+        payload = req.get_json(silent=True) or {}
+        collaboration_id = payload.get('collaborationId')
+        reason = str(payload.get('reason', ''))[:500]
+
+        if not collaboration_id:
+            return _json_response({'error': 'collaborationId requis'}, status=400)
+
+        db_client = firestore.client()
+        collab_ref = db_client.collection('collaborations').document(collaboration_id)
+        collab_snap = collab_ref.get()
+
+        if not collab_snap.exists:
+            return _json_response({'error': 'Collaboration introuvable'}, status=404)
+
+        collab = collab_snap.to_dict() or {}
+        brand_id = collab.get('brandId')
+        influencer_id = collab.get('influencerId')
+
+        if uid not in (brand_id, influencer_id):
+            return _json_response({'error': 'Non autorisé pour cette collaboration'}, status=403)
+
+        if collab.get('paymentStatus') != 'funds_held':
+            return _json_response({'error': 'Aucun paiement en attente à rembourser pour cette collaboration'}, status=400)
+
+        if collab.get('payoutStatus') in ('ready_for_transfer', 'paid'):
+            return _json_response({'error': 'Le versement à l\'influenceur a déjà été validé, remboursement impossible. Contactez le support.'}, status=400)
+
+        payment_intent_id = collab.get('stripePaymentIntentId')
+        if not payment_intent_id:
+            return _json_response({'error': 'Identifiant de paiement introuvable'}, status=400)
+
+        stripe.Refund.create(payment_intent=payment_intent_id)
+
+        collab_ref.update({
+            'status': 'refunded',
+            'paymentStatus': 'refunded',
+            'disputedBy': uid,
+            'disputeReason': reason,
+            'refundedAt': firestore.SERVER_TIMESTAMP,
+            'updatedAt': firestore.SERVER_TIMESTAMP
+        })
+
+        is_brand = uid == brand_id
+        other_email = collab.get('influencerEmail') if is_brand else collab.get('brandEmail')
+        other_name = collab.get('influencerName') if is_brand else collab.get('brandName')
+        disputer_name = collab.get('brandName') if is_brand else collab.get('influencerName')
+
+        from lib.notifications import send_dispute_refund_email
+        send_dispute_refund_email(
+            to_email=other_email,
+            name=other_name or 'Utilisateur',
+            other_party_name=disputer_name or 'L\'autre partie',
+            package=collab.get('package', 'Collaboration'),
+            frontend_base_url=FRONTEND_BASE_URL
+        )
+
+        return _json_response({'success': True})
+    except AuthorizationError as auth_err:
+        return _json_response({'error': str(auth_err)}, status=auth_err.status)
+    except Exception as exc:
+        print(f'Erreur dispute_collaboration_handler: {str(exc)}')
+        return _json_response({'error': str(exc)}, status=500)
+
+
+@https_fn.on_request()
 def mark_collaboration_paid_handler(req: https_fn.Request) -> https_fn.Response:
     """
     Réservé à l'admin: confirme qu'un virement manuel (RIB) a bien été effectué
@@ -1196,43 +1119,29 @@ def mark_collaboration_paid_handler(req: https_fn.Request) -> https_fn.Response:
 @scheduler_fn.on_schedule(schedule="*/30 * * * *", timezone="Europe/Paris")
 def daily_stats_update(event: scheduler_fn.ScheduledEvent) -> None:
     """
-    Mise à jour quotidienne des statistiques YouTube et TikTok
+    Mise à jour quotidienne des statistiques TikTok
     S'exécute tous les jours à 2h du matin (heure de Paris)
     """
     print("🚀 Début de la mise à jour quotidienne des stats")
-    
+
     db = firestore.client()
-    
+
     # Récupérer tous les influenceurs avec au moins un compte connecté
     influencers = db.collection('influencers').stream()
-    
+
     update_count = 0
     error_count = 0
-    
+
     from lib.token_store import get_user_tokens
-    from lib.youtube import update_youtube_stats
     from lib.tiktok import update_tiktok_stats
 
     for influencer in influencers:
         user_id = influencer.id
         data = influencer.to_dict()
-        
+
         social_accounts = data.get('socialAccounts', {})
         user_tokens = get_user_tokens(user_id)
-        
-        # Mettre à jour YouTube si connecté
-        if social_accounts.get('youtube', {}).get('connected'):
-            youtube_tokens = user_tokens.get('youtube', {})
-            if youtube_tokens:
-                print(f"📺 Mise à jour YouTube pour {user_id}")
-                result = update_youtube_stats(user_id, youtube_tokens)
-                if result.get('success'):
-                    update_count += 1
-                    print(f"✅ YouTube mis à jour: {result.get('subscribers')} abonnés")
-                else:
-                    error_count += 1
-                    print(f"❌ Erreur YouTube: {result.get('error')}")
-        
+
         # Mettre à jour TikTok si connecté
         if social_accounts.get('tiktok', {}).get('connected'):
             tiktok_tokens = user_tokens.get('tiktok', {})

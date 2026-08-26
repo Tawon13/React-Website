@@ -2,7 +2,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-import { getAnalytics } from "firebase/analytics";
+import { getAnalytics, isSupported } from "firebase/analytics";
 import { getStorage } from "firebase/storage";
 
 const requiredEnvKeys = [
@@ -41,35 +41,57 @@ const app = initializeApp(firebaseConfig);
 // Initialize services
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const analytics = getAnalytics(app);
 export const storage = getStorage(app);
 
+// Analytics n'est initialisé qu'après consentement cookies (RGPD) — voir components/CookieConsent.jsx
+export let analytics = null;
+
+export const initAnalytics = async () => {
+    if (analytics) return analytics;
+    try {
+        if (await isSupported()) {
+            analytics = getAnalytics(app);
+        }
+    } catch (error) {
+        console.error('Firebase Analytics init failed:', error);
+    }
+    return analytics;
+};
+
 // Cloud Run Functions URLs (Gen2)
-export const INSTAGRAM_CONNECT_URL = import.meta.env.VITE_INSTAGRAM_CONNECT_URL;
 export const TIKTOK_CONNECT_URL = import.meta.env.VITE_TIKTOK_CONNECT_URL;
 export const TIKTOK_CALLBACK_URL = import.meta.env.VITE_TIKTOK_CALLBACK_URL;
-export const YOUTUBE_CONNECT_URL = import.meta.env.VITE_YOUTUBE_CONNECT_URL;
 export const CONTACT_EMAIL_URL = import.meta.env.VITE_CONTACT_EMAIL_URL;
 export const STRIPE_CREATE_CHECKOUT_URL = import.meta.env.VITE_STRIPE_CREATE_CHECKOUT_URL;
 export const STRIPE_APPROVE_COLLAB_URL = import.meta.env.VITE_STRIPE_APPROVE_COLLAB_URL;
+export const DISPUTE_COLLABORATION_URL = import.meta.env.VITE_DISPUTE_COLLABORATION_URL;
 export const MARK_PAYOUT_PAID_URL = import.meta.env.VITE_MARK_PAYOUT_PAID_URL;
 export const CREATE_COLLABORATION_REQUEST_URL = import.meta.env.VITE_CREATE_COLLABORATION_REQUEST_URL;
 export const RESPOND_TO_COLLABORATION_REQUEST_URL = import.meta.env.VITE_RESPOND_TO_COLLABORATION_REQUEST_URL;
 export const SEND_WELCOME_EMAIL_URL = import.meta.env.VITE_SEND_WELCOME_EMAIL_URL;
 export const SEND_VERIFICATION_CODE_URL = import.meta.env.VITE_SEND_VERIFICATION_CODE_URL;
 export const VERIFY_EMAIL_CODE_URL = import.meta.env.VITE_VERIFY_EMAIL_CODE_URL;
+export const SEND_MESSAGE_NOTIFICATION_URL = import.meta.env.VITE_SEND_MESSAGE_NOTIFICATION_URL;
 
 // Validate required function URLs
-if (!INSTAGRAM_CONNECT_URL || !TIKTOK_CONNECT_URL || !YOUTUBE_CONNECT_URL) {
-    console.warn('Some Cloud Run function URLs are missing. Social media connections may not work.');
+if (!TIKTOK_CONNECT_URL) {
+    console.warn('VITE_TIKTOK_CONNECT_URL is missing. The TikTok connection may not work.');
 }
 
 if (!TIKTOK_CALLBACK_URL) {
     console.warn('VITE_TIKTOK_CALLBACK_URL is missing. The TikTok connection popup will not be able to notify the app when done.');
 }
 
+if (!SEND_MESSAGE_NOTIFICATION_URL) {
+    console.warn('VITE_SEND_MESSAGE_NOTIFICATION_URL is missing. New message email notifications will not be sent.');
+}
+
 if (!STRIPE_CREATE_CHECKOUT_URL || !STRIPE_APPROVE_COLLAB_URL) {
     console.warn('Some Stripe function URLs are missing. Payments may not work.');
+}
+
+if (!DISPUTE_COLLABORATION_URL) {
+    console.warn('VITE_DISPUTE_COLLABORATION_URL is missing. The dispute/refund flow will not work.');
 }
 
 if (!CREATE_COLLABORATION_REQUEST_URL || !RESPOND_TO_COLLABORATION_REQUEST_URL) {

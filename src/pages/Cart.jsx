@@ -4,6 +4,7 @@ import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { CREATE_COLLABORATION_REQUEST_URL } from '../config/firebase'
 import SEO from '../components/SEO'
+import { trackEvent } from '../utils/analytics'
 
 const Cart = () => {
     const navigate = useNavigate()
@@ -56,6 +57,12 @@ const Cart = () => {
             if (!response.ok) {
                 throw new Error(data?.error || 'Impossible d\'envoyer la demande')
             }
+
+            trackEvent('generate_lead', {
+                currency: 'EUR',
+                value: getTotal(),
+                items_count: cartItems.length
+            })
 
             clearCart()
             navigate('/my-profile', { state: { initialTab: 'purchases', requestSent: true } })
