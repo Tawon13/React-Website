@@ -20,6 +20,7 @@ import Favorites from './pages/Favorites'
 import ForCreators from './pages/ForCreators'
 import ForBrands from './pages/ForBrands'
 import BrandOnboarding from './pages/BrandOnboarding'
+import InfluencerOnboarding from './pages/InfluencerOnboarding'
 import NotFound from './pages/NotFound'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
@@ -49,6 +50,7 @@ const App = () => {
               <Route path='/for-creators' element={<ForCreators />} />
               <Route path='/for-brands' element={<ForBrands />} />
               <Route path='/brand-onboarding' element={<BrandOnboarding />} />
+              <Route path='/influencer-onboarding' element={<InfluencerOnboarding />} />
               <Route path='/about' element={<About />} />
               <Route path='/contact' element={<Contact />} />
               <Route path='/my-profile' element={<MyProfile />} />

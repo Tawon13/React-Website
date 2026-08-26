@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../config/firebase'
+import { INFLUENCER_CATEGORIES } from '../constants/categories'
 
 const BrandOnboarding = () => {
     const navigate = useNavigate()
@@ -46,24 +47,7 @@ const BrandOnboarding = () => {
         '500+'
     ]
 
-    const influencerCategories = [
-        'Beauté',
-        'Fashion',
-        'Voyage',
-        'Santé & Fitness',
-        'Nourriture & Boisson',
-        'Comédie & Divertissement',
-        'Art & Photographie',
-        'Famille & Enfants',
-        'Musique & Danse',
-        'Entrepreneur & Business',
-        'Animaux & Animaux de compagnie',
-        'Éducation',
-        'Gaming',
-        'Technologie',
-        'Sports',
-        'Lifestyle'
-    ]
+    const influencerCategories = INFLUENCER_CATEGORIES
 
     const platformOptions = [
         { value: 'instagram', label: 'Instagram' },

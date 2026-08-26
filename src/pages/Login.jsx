@@ -178,7 +178,7 @@ const Login = () => {
             if (userType === 'brand') {
                 navigate('/brand-onboarding')
             } else {
-                navigate(redirectTarget || '/')
+                navigate('/influencer-onboarding')
             }
         } catch (error) {
             setCodeError(error.message || 'Code invalide')
