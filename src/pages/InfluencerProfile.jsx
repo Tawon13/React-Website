@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from 'react'
+import React, { useContext, useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { AppContext, normalizeInfluencer } from '../context/AppContext'
 import SEO from '../components/SEO'
@@ -300,9 +300,22 @@ const InfluencerProfile = () => {
         return () => clearTimeout(timer)
     }, [addToCartError])
 
+    // Photos affichées : celles ajoutées par l'influenceur en priorité, sinon les
+    // miniatures de ses 3 dernières vidéos TikTok si le compte est connecté.
+    const displayPhotos = useMemo(() => {
+        if (profilePhotos.length > 0) return profilePhotos
+        return tiktokVideos
+            .slice(0, 3)
+            .filter((video) => video.thumbnail)
+            .map((video) => ({ id: video.id || video.url, url: video.thumbnail }))
+    }, [profilePhotos, tiktokVideos])
+
+    // Photo de profil : celle ajoutée par l'influenceur en priorité, sinon sa photo TikTok.
+    const displayAvatar = firebaseProfilePhoto || socialData?.tiktok?.avatarUrl || influencer?.image
+
     // Obtenir le nombre total d'images (photos personnalisées ou 3 par défaut)
-    const totalImages = profilePhotos.length > 0 ? profilePhotos.length : 3
-    
+    const totalImages = displayPhotos.length > 0 ? displayPhotos.length : 3
+
     // Fonctions pour naviguer dans le lightbox
     const nextImageUpdated = () => {
         setLightboxImageIndex((prev) => (prev + 1) % totalImages)
@@ -314,8 +327,8 @@ const InfluencerProfile = () => {
 
     // Obtenir l'URL de l'image actuelle dans le lightbox
     const getCurrentLightboxImage = () => {
-        if (profilePhotos.length > 0) {
-            return profilePhotos[lightboxImageIndex]?.url || influencer.image
+        if (displayPhotos.length > 0) {
+            return displayPhotos[lightboxImageIndex]?.url || influencer.image
         }
         return influencer.image
     }
@@ -455,7 +468,7 @@ const InfluencerProfile = () => {
                 title={influencer.name}
                 description={`Découvrez le profil de ${influencer.name} sur Collabzz${influencer.city ? `, basé(e) à ${influencer.city}` : ''} et lancez une collaboration.`}
                 path={`/influencer/${influencerId}`}
-                image={influencer.image}
+                image={displayAvatar}
                 noindex={!isApprovedProfile}
             />
             {!isApprovedProfile && currentUser?.email === ADMIN_EMAIL && (
@@ -510,15 +523,15 @@ const InfluencerProfile = () => {
             <div className='relative mb-4'>
                 {/* Desktop: 3 photos en grille */}
                 <div className='hidden lg:grid lg:grid-cols-3 gap-4'>
-                    {profilePhotos.length > 0 ? (
-                        profilePhotos.slice(0, 3).map((photo, index) => (
+                    {displayPhotos.length > 0 ? (
+                        displayPhotos.slice(0, 3).map((photo, index) => (
                             <div key={photo.id} className={`${index === 0 ? 'col-span-1' : 'col-span-1'} cursor-pointer${index === 2 ? ' relative' : ''}`} onClick={() => openLightbox(index)}>
-                                <img 
-                                    src={photo.url} 
+                                <img
+                                    src={photo.url}
                                     alt={`${influencer.name} ${index + 1}`}
                                     className='w-full h-[400px] object-cover rounded-lg hover:opacity-90 transition-opacity'
                                 />
-                                {index === 2 && profilePhotos.length > 3 && (
+                                {index === 2 && displayPhotos.length > 3 && (
                                     <button className='absolute bottom-4 right-4 bg-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg hover:bg-gray-50 transition-colors pointer-events-none'>
                                         <svg className='w-5 h-5' fill='currentColor' viewBox='0 0 20 20'>
                                             <path d='M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z' />
@@ -573,11 +586,11 @@ const InfluencerProfile = () => {
                             setCurrentImageIndex(index);
                         }}
                     >
-                        {profilePhotos.length > 0 ? (
-                            profilePhotos.map((photo, index) => (
+                        {displayPhotos.length > 0 ? (
+                            displayPhotos.map((photo, index) => (
                                 <div key={photo.id} className='flex-shrink-0 w-full snap-center cursor-pointer' onClick={() => openLightbox(index)}>
-                                    <img 
-                                        src={photo.url} 
+                                    <img
+                                        src={photo.url}
                                         alt={`${influencer.name} ${index + 1}`}
                                         className='w-full h-64 sm:h-80 object-cover rounded-lg'
                                     />
@@ -613,9 +626,9 @@ const InfluencerProfile = () => {
                     
                     {/* Indicateurs de pagination cliquables */}
                     <div className='flex justify-center gap-2 mt-4'>
-                        {(profilePhotos.length > 0 ? profilePhotos : [0, 1, 2]).map((item, index) => (
+                        {(displayPhotos.length > 0 ? displayPhotos : [0, 1, 2]).map((item, index) => (
                             <button
-                                key={profilePhotos.length > 0 ? item.id : index}
+                                key={displayPhotos.length > 0 ? item.id : index}
                                 onClick={() => {
                                     const container = document.querySelector('.overflow-x-auto');
                                     if (container) {
@@ -662,8 +675,8 @@ const InfluencerProfile = () => {
                 <div className='lg:col-span-2 order-2 lg:order-1'>
                     {/* Profile Header */}
                     <div className='flex items-start gap-4 mb-6'>
-                        <img 
-                            src={firebaseProfilePhoto || influencer.image} 
+                        <img
+                            src={displayAvatar}
                             alt={influencer.name}
                             className='w-20 h-20 rounded-full object-cover'
                         />
@@ -1101,8 +1114,8 @@ const InfluencerProfile = () => {
                                 className='absolute bottom-16 left-1/2 transform -translate-x-1/2 flex gap-2'
                                 onClick={(e) => e.stopPropagation()}
                             >
-                                {profilePhotos.length > 0 ? (
-                                    profilePhotos.map((photo, index) => (
+                                {displayPhotos.length > 0 ? (
+                                    displayPhotos.map((photo, index) => (
                                         <button
                                             key={photo.id}
                                             onClick={() => setLightboxImageIndex(index)}

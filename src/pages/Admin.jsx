@@ -63,11 +63,18 @@ const Admin = () => {
       }))
       console.log('Brands data:', brandsData)
 
-      // Combiner les deux, influenceurs en attente de validation en premier
+      // Combiner les deux : influenceurs en attente de validation en premier,
+      // puis du compte le plus récent au plus ancien.
+      const getCreatedAtMillis = (user) => {
+        const time = new Date(user.createdAt).getTime()
+        return Number.isFinite(time) ? time : 0
+      }
+
       const allUsers = [...influencersData, ...brandsData].sort((a, b) => {
         const aPending = a.userType === 'influenceur' && a.approved !== true ? 0 : 1
         const bPending = b.userType === 'influenceur' && b.approved !== true ? 0 : 1
-        return aPending - bPending
+        if (aPending !== bPending) return aPending - bPending
+        return getCreatedAtMillis(b) - getCreatedAtMillis(a)
       })
       console.log('Total users:', allUsers.length)
       setUsers(allUsers)
