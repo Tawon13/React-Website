@@ -11,7 +11,7 @@ export const normalizeInfluencer = (docSnap) => {
     return {
         _id: docSnap.id,
         name: data.name || 'Influenceur',
-        image: data.photoURL || assets.profile_pic,
+        image: data.photoURL || data.socialAccounts?.tiktok?.avatarUrl || assets.profile_pic,
         speciality: data.category || 'Créateur de contenu',
         tiktokUsername: data.socialAccounts?.tiktok?.username || '',
         city: data.city || '',
