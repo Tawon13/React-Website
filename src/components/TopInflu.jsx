@@ -21,13 +21,15 @@ const TopDoctors = () => {
             className='border border-blue-200 rounded-xl overflow-hidden cursor-pointer hover:translate-y-[-10px] transition-all duration-500' 
             key={index}
           >
-            <img className='bg-blue-50 w-full aspect-square object-cover' src={item.image} alt={`Image of ${item.name}`} />
+            <img className='bg-blue-50 w-full aspect-square object-cover' src={item.image} alt={item.tiktokUsername ? `@${item.tiktokUsername}` : 'Influenceur'} />
             <div className='p-3 sm:p-4'>
               <div className='flex items-center gap-2 text-xs sm:text-sm text-center text-green500'>
                 <p className='w-2 h-2 bg-green-500 rounded-full'></p>
                 <p>Disponible</p>
               </div>
-              <p className='text-gray900 text-base sm:text-lg font-medium mt-1 truncate'>{item.name}</p>
+              {item.tiktokUsername && (
+                <p className='text-gray900 text-base sm:text-lg font-medium mt-1 truncate'>@{item.tiktokUsername}</p>
+              )}
               <p className='text-grey600 text-sm truncate'>{item.speciality}</p>
             </div>
           </div>

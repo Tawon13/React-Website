@@ -462,11 +462,16 @@ const InfluencerProfile = () => {
                 ? 'Likes'
                 : 'Vues Moyennes'
 
+    // Nom et prénom réels jamais affichés publiquement : on montre le pseudo TikTok à la place.
+    const publicDisplayName = influencer.tiktokUsername
+        ? `@${influencer.tiktokUsername}`
+        : (influencer.speciality || 'Créateur de contenu')
+
     return (
         <div className='max-w-6xl mx-auto py-6 sm:py-10 px-4 sm:px-6'>
             <SEO
-                title={influencer.name}
-                description={`Découvrez le profil de ${influencer.name} sur Collabzz${influencer.city ? `, basé(e) à ${influencer.city}` : ''} et lancez une collaboration.`}
+                title={publicDisplayName}
+                description={`Découvrez le profil de ${publicDisplayName} sur Collabzz${influencer.city ? `, basé(e) à ${influencer.city}` : ''} et lancez une collaboration.`}
                 path={`/influencer/${influencerId}`}
                 image={displayAvatar}
                 noindex={!isApprovedProfile}
@@ -528,7 +533,7 @@ const InfluencerProfile = () => {
                             <div key={photo.id} className={`${index === 0 ? 'col-span-1' : 'col-span-1'} cursor-pointer${index === 2 ? ' relative' : ''}`} onClick={() => openLightbox(index)}>
                                 <img
                                     src={photo.url}
-                                    alt={`${influencer.name} ${index + 1}`}
+                                    alt={`${publicDisplayName} ${index + 1}`}
                                     className='w-full h-[400px] object-cover rounded-lg hover:opacity-90 transition-opacity'
                                 />
                                 {index === 2 && displayPhotos.length > 3 && (
@@ -547,21 +552,21 @@ const InfluencerProfile = () => {
                             <div className='col-span-1 cursor-pointer' onClick={() => openLightbox(0)}>
                                 <img 
                                     src={influencer.image} 
-                                    alt={`${influencer.name} 1`}
+                                    alt={`${publicDisplayName} 1`}
                                     className='w-full h-[400px] object-cover rounded-lg hover:opacity-90 transition-opacity'
                                 />
                             </div>
                             <div className='col-span-1 cursor-pointer' onClick={() => openLightbox(1)}>
                                 <img 
                                     src={influencer.image} 
-                                    alt={`${influencer.name} 2`}
+                                    alt={`${publicDisplayName} 2`}
                                     className='w-full h-[400px] object-cover rounded-lg hover:opacity-90 transition-opacity'
                                 />
                             </div>
                             <div className='col-span-1 relative cursor-pointer' onClick={() => openLightbox(2)}>
                                 <img 
                                     src={influencer.image} 
-                                    alt={`${influencer.name} 3`}
+                                    alt={`${publicDisplayName} 3`}
                                     className='w-full h-[400px] object-cover rounded-lg hover:opacity-90 transition-opacity'
                                 />
                                 <button className='absolute bottom-4 right-4 bg-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg hover:bg-gray-50 transition-colors pointer-events-none'>
@@ -591,7 +596,7 @@ const InfluencerProfile = () => {
                                 <div key={photo.id} className='flex-shrink-0 w-full snap-center cursor-pointer' onClick={() => openLightbox(index)}>
                                     <img
                                         src={photo.url}
-                                        alt={`${influencer.name} ${index + 1}`}
+                                        alt={`${publicDisplayName} ${index + 1}`}
                                         className='w-full h-64 sm:h-80 object-cover rounded-lg'
                                     />
                                 </div>
@@ -602,21 +607,21 @@ const InfluencerProfile = () => {
                                 <div className='flex-shrink-0 w-full snap-center cursor-pointer' onClick={() => openLightbox(0)}>
                                     <img 
                                         src={influencer.image} 
-                                        alt={`${influencer.name} 1`}
+                                        alt={`${publicDisplayName} 1`}
                                         className='w-full h-64 sm:h-80 object-cover rounded-lg'
                                     />
                                 </div>
                                 <div className='flex-shrink-0 w-full snap-center cursor-pointer' onClick={() => openLightbox(1)}>
                                     <img 
                                         src={influencer.image} 
-                                        alt={`${influencer.name} 2`}
+                                        alt={`${publicDisplayName} 2`}
                                         className='w-full h-64 sm:h-80 object-cover rounded-lg'
                                     />
                                 </div>
                                 <div className='flex-shrink-0 w-full snap-center cursor-pointer' onClick={() => openLightbox(2)}>
                                     <img 
                                         src={influencer.image} 
-                                        alt={`${influencer.name} 3`}
+                                        alt={`${publicDisplayName} 3`}
                                         className='w-full h-64 sm:h-80 object-cover rounded-lg'
                                     />
                                 </div>
@@ -677,7 +682,7 @@ const InfluencerProfile = () => {
                     <div className='flex items-start gap-4 mb-6'>
                         <img
                             src={displayAvatar}
-                            alt={influencer.name}
+                            alt={publicDisplayName}
                             className='w-20 h-20 rounded-full object-cover'
                         />
                         <div className='flex-1'>
@@ -1081,7 +1086,7 @@ const InfluencerProfile = () => {
                         >
                             <img
                                 src={getCurrentLightboxImage()}
-                                alt={`${influencer.name} ${lightboxImageIndex + 1}`}
+                                alt={`${publicDisplayName} ${lightboxImageIndex + 1}`}
                                 className='max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl'
                             />
                         </div>
