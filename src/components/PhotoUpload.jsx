@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react'
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { storage } from '../config/firebase'
+import { compressImage } from '../utils/imageCompression'
 
 const PhotoUpload = ({ 
     userId, 
@@ -44,11 +45,13 @@ const PhotoUpload = ({
             }
             reader.readAsDataURL(file)
 
+            // Redimensionner/compresser avant l'upload pour un affichage quasi instantané.
+            const compressedFile = await compressImage(file)
+
             // Créer un nom de fichier unique
             const timestamp = Date.now()
-            const fileExtension = file.name.split('.').pop()
-            const fileName = `${userId}_${timestamp}.${fileExtension}`
-            
+            const fileName = `${userId}_${timestamp}.jpg`
+
             // Créer une référence dans Firebase Storage
             const storageRef = ref(storage, `${folder}/${fileName}`)
 
@@ -62,8 +65,8 @@ const PhotoUpload = ({
                 }
             }
 
-            // Upload le fichier
-            const snapshot = await uploadBytes(storageRef, file)
+            // Upload le fichier compressé
+            const snapshot = await uploadBytes(storageRef, compressedFile)
             
             // Obtenir l'URL de téléchargement
             const downloadURL = await getDownloadURL(snapshot.ref)

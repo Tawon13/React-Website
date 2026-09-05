@@ -5,6 +5,7 @@ import { doc, updateDoc } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage, TIKTOK_CONNECT_URL, TIKTOK_CALLBACK_URL } from '../config/firebase'
 import { INFLUENCER_CATEGORIES } from '../constants/categories'
+import { compressImage } from '../utils/imageCompression'
 
 const InfluencerOnboarding = () => {
     const navigate = useNavigate()
@@ -99,9 +100,11 @@ const InfluencerOnboarding = () => {
 
         setUploadingPhoto(true)
         try {
+            const compressedFile = await compressImage(file)
+
             const timestamp = Date.now()
-            const storageRef = ref(storage, `influencers/${currentUser.uid}/photos/${timestamp}_${file.name}`)
-            const snapshot = await uploadBytes(storageRef, file)
+            const storageRef = ref(storage, `influencers/${currentUser.uid}/photos/${timestamp}.jpg`)
+            const snapshot = await uploadBytes(storageRef, compressedFile)
             const downloadURL = await getDownloadURL(snapshot.ref)
 
             const newPhoto = { id: timestamp, url: downloadURL, path: snapshot.ref.fullPath, addedAt: new Date().toISOString() }

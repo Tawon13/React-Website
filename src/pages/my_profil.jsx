@@ -16,6 +16,7 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage
 import PhotoUpload from '../components/PhotoUpload'
 import PortfolioGallery from '../components/PortfolioGallery'
 import SEO from '../components/SEO'
+import { compressImage } from '../utils/imageCompression'
 
 // Libellé + couleur du badge de statut d'une collaboration, communs marque/influenceur.
 const COLLAB_STATUS_BADGES = {
@@ -902,10 +903,13 @@ const MyProfile = () => {
 
         setUploading(true)
         try {
+            // Redimensionner/compresser avant l'upload pour un affichage quasi instantané.
+            const compressedFile = await compressImage(file)
+
             // Upload vers Firebase Storage
             const timestamp = Date.now()
-            const storageRef = ref(storage, `influencers/${currentUser.uid}/photos/${timestamp}_${file.name}`)
-            const snapshot = await uploadBytes(storageRef, file)
+            const storageRef = ref(storage, `influencers/${currentUser.uid}/photos/${timestamp}.jpg`)
+            const snapshot = await uploadBytes(storageRef, compressedFile)
             const downloadURL = await getDownloadURL(snapshot.ref)
             
             const newPhoto = {

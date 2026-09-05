@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { useFavorites } from '../context/FavoritesContext'
 import { db } from '../config/firebase'
-import { doc, getDocFromServer, addDoc, collection, serverTimestamp, query, where, getDocs, updateDoc } from 'firebase/firestore'
+import { doc, getDoc, getDocFromServer, addDoc, collection, serverTimestamp, query, where, getDocs, updateDoc } from 'firebase/firestore'
 
 const ADMIN_EMAIL = 'bechagraamine@gmail.com'
 
@@ -183,28 +183,41 @@ const InfluencerProfile = () => {
     // Obtenir le prix actuel selon le package sélectionné
     const currentPrice = packagePrices[selectedPackage] ?? influencer?.fees ?? 500
 
+    const isAdminViewer = currentUser?.email === ADMIN_EMAIL
+
+    // Scroll uniquement au changement de profil (pas à chaque rechargement de `doctors`).
     useEffect(() => {
-        // Scroll vers le haut de la page
         window.scrollTo(0, 0)
-        
+    }, [influencerId])
+
+    // Recherche synchrone (déjà en mémoire) dans la liste des influenceurs approuvés.
+    useEffect(() => {
         const foundInfluencer = doctors.find(doc => doc._id === influencerId)
-        console.log('Recherche influenceur avec ID:', influencerId)
-        console.log('Influenceur trouvé dans doctors:', foundInfluencer)
         setInfluencer(foundInfluencer)
         setIsApprovedProfile(Boolean(foundInfluencer))
-        setDirectCheckDone(false)
+    }, [doctors, influencerId])
 
-        // Charger les données sociales depuis Firestore si disponibles
+    // Charge les données Firestore (photos, réseaux, tarifs...) une seule fois par profil visité :
+    // ne dépend ni de `doctors` ni de l'objet `currentUser` pour éviter de relancer inutilement
+    // cette requête réseau (et donc de retarder l'affichage des photos) à chaque re-render.
+    useEffect(() => {
+        setDirectCheckDone(false)
+        // Repartir sur une base propre : évite d'afficher un instant les photos/données
+        // du profil précédemment visité en naviguant directement d'un profil à un autre.
+        setProfilePhotos([])
+        setFirebaseProfilePhoto(null)
+        setSocialData(null)
+        setTiktokVideos([])
+        setBrandVideos([])
+        setCustomPricing(null)
+
         const loadSocialData = async () => {
             try {
-                console.log('Tentative de chargement depuis Firebase avec ID:', influencerId)
                 const docRef = doc(db, 'influencers', influencerId)
-                // Force la lecture côté serveur pour éviter de rester bloqué sur une version cache.
-                const docSnap = await getDocFromServer(docRef)
-                
+                const docSnap = await getDoc(docRef)
+
                 if (docSnap.exists()) {
                     const data = docSnap.data()
-                    console.log('Données Firebase récupérées:', data)
                     // Stocker l'ID Firebase réel
                     setFirebaseInfluencerId(docSnap.id)
                     // Charger la photo de profil uploadée
@@ -236,8 +249,8 @@ const InfluencerProfile = () => {
 
                     // L'admin peut prévisualiser un profil pas encore approuvé
                     // (donc absent de la liste publique `doctors`) pour décider de le valider.
-                    if (!foundInfluencer && currentUser?.email === ADMIN_EMAIL) {
-                        setInfluencer(normalizeInfluencer(docSnap))
+                    if (isAdminViewer) {
+                        setInfluencer((prev) => prev || normalizeInfluencer(docSnap))
                     }
                 } else {
                     console.error('Influenceur non trouvé dans Firebase avec ID:', influencerId)
@@ -254,7 +267,7 @@ const InfluencerProfile = () => {
         } else {
             setDirectCheckDone(true)
         }
-    }, [doctors, influencerId, currentUser])
+    }, [influencerId, isAdminViewer])
 
     // Fonctions pour le lightbox
     const openLightbox = (index) => {
@@ -301,14 +314,19 @@ const InfluencerProfile = () => {
     }, [addToCartError])
 
     // Photos affichées : celles ajoutées par l'influenceur en priorité, sinon les
-    // miniatures de ses 3 dernières vidéos TikTok si le compte est connecté.
+    // miniatures de ses 3 dernières vidéos TikTok si le compte est connecté. Tant que
+    // les données Firestore ne sont pas encore arrivées, on ne se rabat pas encore sur
+    // le fallback (ça évite un flash "photo de profil x3" avant les vraies photos).
     const displayPhotos = useMemo(() => {
         if (profilePhotos.length > 0) return profilePhotos
+        if (!directCheckDone) return []
         return tiktokVideos
             .slice(0, 3)
             .filter((video) => video.thumbnail)
             .map((video) => ({ id: video.id || video.url, url: video.thumbnail }))
-    }, [profilePhotos, tiktokVideos])
+    }, [profilePhotos, tiktokVideos, directCheckDone])
+
+    const isGalleryLoading = !directCheckDone && profilePhotos.length === 0
 
     // Photo de profil : celle ajoutée par l'influenceur en priorité, sinon sa photo TikTok.
     const displayAvatar = firebaseProfilePhoto || socialData?.tiktok?.avatarUrl || influencer?.image
@@ -382,7 +400,7 @@ const InfluencerProfile = () => {
         if (!influencer) return
 
         if (!currentUser) {
-            setAddToCartError('Connectez-vous pour pouvoir ajouter au panier')
+            navigate('/login?type=brand&isSignUp=true')
             return
         }
 
@@ -440,7 +458,6 @@ const InfluencerProfile = () => {
     }
 
     const currentAnalytics = analyticsData?.tiktok
-    const canAddToCart = currentUser && userType === 'brand'
     const isFollowersLocked = !currentUser
     const isAnalyticsLocked = !currentUser
     const resolvedFollowersCount = currentAnalytics?.followers
@@ -528,13 +545,21 @@ const InfluencerProfile = () => {
             <div className='relative mb-4'>
                 {/* Desktop: 3 photos en grille */}
                 <div className='hidden lg:grid lg:grid-cols-3 gap-4'>
-                    {displayPhotos.length > 0 ? (
+                    {isGalleryLoading ? (
+                        <>
+                            <div className='col-span-1 h-[400px] rounded-lg bg-gray-100 animate-pulse' />
+                            <div className='col-span-1 h-[400px] rounded-lg bg-gray-100 animate-pulse' />
+                            <div className='col-span-1 h-[400px] rounded-lg bg-gray-100 animate-pulse' />
+                        </>
+                    ) : displayPhotos.length > 0 ? (
                         displayPhotos.slice(0, 3).map((photo, index) => (
                             <div key={photo.id} className={`${index === 0 ? 'col-span-1' : 'col-span-1'} cursor-pointer${index === 2 ? ' relative' : ''}`} onClick={() => openLightbox(index)}>
                                 <img
                                     src={photo.url}
                                     alt={`${publicDisplayName} ${index + 1}`}
                                     className='w-full h-[400px] object-cover rounded-lg hover:opacity-90 transition-opacity'
+                                    loading={index === 0 ? 'eager' : 'lazy'}
+                                    fetchpriority={index === 0 ? 'high' : 'auto'}
                                 />
                                 {index === 2 && displayPhotos.length > 3 && (
                                     <button className='absolute bottom-4 right-4 bg-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg hover:bg-gray-50 transition-colors pointer-events-none'>
@@ -591,13 +616,19 @@ const InfluencerProfile = () => {
                             setCurrentImageIndex(index);
                         }}
                     >
-                        {displayPhotos.length > 0 ? (
+                        {isGalleryLoading ? (
+                            <div className='flex-shrink-0 w-full snap-center'>
+                                <div className='w-full h-64 sm:h-80 rounded-lg bg-gray-100 animate-pulse' />
+                            </div>
+                        ) : displayPhotos.length > 0 ? (
                             displayPhotos.map((photo, index) => (
                                 <div key={photo.id} className='flex-shrink-0 w-full snap-center cursor-pointer' onClick={() => openLightbox(index)}>
                                     <img
                                         src={photo.url}
                                         alt={`${publicDisplayName} ${index + 1}`}
                                         className='w-full h-64 sm:h-80 object-cover rounded-lg'
+                                        loading={index === 0 ? 'eager' : 'lazy'}
+                                        fetchpriority={index === 0 ? 'high' : 'auto'}
                                     />
                                 </div>
                             ))
@@ -684,6 +715,8 @@ const InfluencerProfile = () => {
                             src={displayAvatar}
                             alt={publicDisplayName}
                             className='w-20 h-20 rounded-full object-cover'
+                            loading='eager'
+                            fetchpriority='high'
                         />
                         <div className='flex-1'>
                             <div className='flex flex-wrap items-center gap-2 mb-2'>
@@ -787,9 +820,9 @@ const InfluencerProfile = () => {
                             </p>
                         </div>
 
-                        <button 
+                        <button
                             onClick={handleAddToCart}
-                            disabled={loading || !canAddToCart}
+                            disabled={loading || (currentUser && userType === 'influencer')}
                             className='w-full bg-primary text-white py-2.5 sm:py-3 rounded-lg text-sm sm:text-base font-semibold hover:bg-primary/90 transition-colors mb-3 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2'
                         >
                             <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>

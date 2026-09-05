@@ -22,7 +22,8 @@ export const normalizeInfluencer = (docSnap) => {
         reviews: data.reviews || 0,
         followers: {
             tiktok: data.socialAccounts?.tiktok?.followers || 0
-        }
+        },
+        createdAt: data.createdAt || null
     }
 }
 
