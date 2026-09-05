@@ -198,6 +198,7 @@ export const AuthProvider = ({ children }) => {
                 };
 
                 if (isInfluencer) {
+                    userData.approved = false;
                     userData.socialMedia = {
                         instagram: '',
                         tiktok: '',
@@ -244,6 +245,7 @@ export const AuthProvider = ({ children }) => {
                 };
 
                 if (isInfluencer) {
+                    userData.approved = false;
                     userData.socialMedia = {
                         instagram: '',
                         tiktok: '',
