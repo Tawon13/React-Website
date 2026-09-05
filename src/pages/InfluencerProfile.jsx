@@ -19,7 +19,12 @@ const InfluencerProfile = () => {
     const { currentUser, userType, userData } = useAuth()
     const { addToCart } = useCart()
     const { isFavorite, toggleFavorite } = useFavorites()
-    const [influencer, setInfluencer] = useState(null)
+    // Deux sources indépendantes pour éviter que l'une n'efface l'autre selon l'ordre
+    // d'arrivée des deux effets asynchrones : le profil public (via `doctors`) prime
+    // toujours sur l'aperçu admin d'un profil pas encore approuvé.
+    const [foundInfluencer, setFoundInfluencer] = useState(null)
+    const [adminPreviewInfluencer, setAdminPreviewInfluencer] = useState(null)
+    const influencer = foundInfluencer || adminPreviewInfluencer
     const [firebaseInfluencerId, setFirebaseInfluencerId] = useState(null)
     const [socialData, setSocialData] = useState(null)
     const [firebaseProfilePhoto, setFirebaseProfilePhoto] = useState(null)
@@ -135,6 +140,16 @@ const InfluencerProfile = () => {
             const totalViews = toNumber(platformData.views)
             const videoCount = toNumber(platformData.videoCount)
             const explicitAvgViews = toNumber(platformData.avgViews)
+            // Likes/commentaires/partages des mêmes vidéos que `views` (échantillon récent),
+            // pas le total du compte cumulé sur des années : sinon le ratio explosait
+            // largement au-delà de 100%.
+            const recentLikes = toNumber(platformData.recentLikes)
+            const recentComments = toNumber(platformData.recentComments)
+            const recentShares = toNumber(platformData.recentShares)
+            // TikTok n'expose pas le nombre d'enregistrements via l'API publique (réservé à
+            // l'API Research) : on l'estime à 15% des likes, une approximation à afficher
+            // comme telle plutôt que comme une donnée mesurée.
+            const estimatedSaves = recentLikes * 0.15
 
             const avgViews = explicitAvgViews > 0
                 ? explicitAvgViews
@@ -143,8 +158,8 @@ const InfluencerProfile = () => {
                 : null
 
             let engagementRate = null
-            if (totalViews > 0 && likes > 0) {
-                engagementRate = (likes / totalViews) * 100
+            if (totalViews > 0 && (recentLikes > 0 || recentComments > 0 || recentShares > 0)) {
+                engagementRate = ((recentLikes + recentComments + recentShares + estimatedSaves) / totalViews) * 100
             }
 
             const normalizedEngagement = engagementRate !== null
@@ -192,9 +207,9 @@ const InfluencerProfile = () => {
 
     // Recherche synchrone (déjà en mémoire) dans la liste des influenceurs approuvés.
     useEffect(() => {
-        const foundInfluencer = doctors.find(doc => doc._id === influencerId)
-        setInfluencer(foundInfluencer)
-        setIsApprovedProfile(Boolean(foundInfluencer))
+        const found = doctors.find(doc => doc._id === influencerId)
+        setFoundInfluencer(found || null)
+        setIsApprovedProfile(Boolean(found))
     }, [doctors, influencerId])
 
     // Charge les données Firestore (photos, réseaux, tarifs...) une seule fois par profil visité :
@@ -210,6 +225,7 @@ const InfluencerProfile = () => {
         setTiktokVideos([])
         setBrandVideos([])
         setCustomPricing(null)
+        setAdminPreviewInfluencer(null)
 
         const loadSocialData = async () => {
             try {
@@ -249,8 +265,9 @@ const InfluencerProfile = () => {
 
                     // L'admin peut prévisualiser un profil pas encore approuvé
                     // (donc absent de la liste publique `doctors`) pour décider de le valider.
+                    // `foundInfluencer` (liste publique) reste toujours prioritaire sur cet aperçu.
                     if (isAdminViewer) {
-                        setInfluencer((prev) => prev || normalizeInfluencer(docSnap))
+                        setAdminPreviewInfluencer(normalizeInfluencer(docSnap))
                     }
                 } else {
                     console.error('Influenceur non trouvé dans Firebase avec ID:', influencerId)
@@ -865,12 +882,15 @@ const InfluencerProfile = () => {
                             <div className='text-sm text-gray-600 mt-1'>{secondaryMetricLabel}</div>
                         </div>
                         <div>
-                            <div className='text-2xl md:text-3xl font-bold text-gray-900'>
+                            <div
+                                className='text-2xl md:text-3xl font-bold text-gray-900'
+                                title="Likes + commentaires + partages des vidéos récentes, plus une estimation des enregistrements (non fournis par l'API TikTok publique), rapportés aux vues."
+                            >
                                 {currentAnalytics?.engagementRate !== null && currentAnalytics?.engagementRate !== undefined
                                     ? `${currentAnalytics.engagementRate}%`
                                     : '—'}
                             </div>
-                            <div className='text-sm text-gray-600 mt-1'>Engagement</div>
+                            <div className='text-sm text-gray-600 mt-1'>Engagement (estimé)</div>
                         </div>
                     </div>
                 </div>
