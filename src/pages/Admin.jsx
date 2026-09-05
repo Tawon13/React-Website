@@ -15,7 +15,7 @@ const Admin = () => {
   const [pendingPayouts, setPendingPayouts] = useState([])
   const [paidPayouts, setPaidPayouts] = useState([])
   const [markingPaidId, setMarkingPaidId] = useState('')
-  const [activeTab, setActiveTab] = useState('users')
+  const [activeTab, setActiveTab] = useState('influencers')
   const [approvingId, setApprovingId] = useState('')
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -232,6 +232,9 @@ const Admin = () => {
     return null
   }
 
+  const influencers = users.filter((u) => u.userType === 'influenceur')
+  const brands = users.filter((u) => u.userType === 'marque')
+
   return (
     <div className='min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8'>
       <SEO title='Admin' noindex />
@@ -322,14 +325,24 @@ const Admin = () => {
           <div className='border-b border-gray-200'>
             <nav className='flex -mb-px'>
               <button
-                onClick={() => setActiveTab('users')}
+                onClick={() => setActiveTab('influencers')}
                 className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                  activeTab === 'users'
+                  activeTab === 'influencers'
                     ? 'border-primary text-primary'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                Utilisateurs ({stats.totalUsers})
+                Influenceurs ({stats.totalInfluencers})
+              </button>
+              <button
+                onClick={() => setActiveTab('brands')}
+                className={`py-4 px-6 font-medium text-sm border-b-2 ${
+                  activeTab === 'brands'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Marques ({stats.totalBrands})
               </button>
               <button
                 onClick={() => setActiveTab('contacts')}
@@ -356,36 +369,26 @@ const Admin = () => {
 
           {/* Contenu des onglets */}
           <div className='p-6'>
-            {activeTab === 'users' && (
+            {activeTab === 'influencers' && (
               <div className='overflow-x-auto'>
                 <table className='min-w-full divide-y divide-gray-200'>
                   <thead className='bg-gray-50'>
                     <tr>
                       <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Nom</th>
                       <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Email</th>
-                      <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Type</th>
                       <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Réseaux</th>
                       <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Validé</th>
                       <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Actions</th>
                     </tr>
                   </thead>
                   <tbody className='bg-white divide-y divide-gray-200'>
-                    {users.map((user) => (
+                    {influencers.map((user) => (
                       <tr key={user.id}>
                         <td className='px-6 py-4 whitespace-nowrap'>
                           <div className='text-sm font-medium text-gray-900'>{user.name || 'N/A'}</div>
                         </td>
                         <td className='px-6 py-4 whitespace-nowrap'>
                           <div className='text-sm text-gray-500'>{user.email}</div>
-                        </td>
-                        <td className='px-6 py-4 whitespace-nowrap'>
-                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                            user.userType === 'influenceur' 
-                              ? 'bg-primary/10 text-primary' 
-                              : 'bg-green-100 text-green-800'
-                          }`}>
-                            {user.userType || 'N/A'}
-                          </span>
                         </td>
                         <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
                           <div className='flex gap-2'>
@@ -401,45 +404,37 @@ const Admin = () => {
                           </div>
                         </td>
                         <td className='px-6 py-4 whitespace-nowrap'>
-                          {user.userType === 'influenceur' ? (
-                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                              user.approved === true
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-orange-100 text-orange-800'
-                            }`}>
-                              {user.approved === true ? 'Validé' : 'En attente'}
-                            </span>
-                          ) : (
-                            <span className='text-gray-400 text-sm'>—</span>
-                          )}
+                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                            user.approved === true
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-orange-100 text-orange-800'
+                          }`}>
+                            {user.approved === true ? 'Validé' : 'En attente'}
+                          </span>
                         </td>
                         <td className='px-6 py-4 whitespace-nowrap text-sm'>
                           <div className='flex items-center gap-3'>
-                            {user.userType === 'influenceur' && (
-                              <a
-                                href={`/influencer/${user.id}`}
-                                target='_blank'
-                                rel='noopener noreferrer'
-                                className='text-blue-600 hover:text-blue-800'
-                              >
-                                Voir le profil
-                              </a>
-                            )}
-                            {user.userType === 'influenceur' && (
-                              <button
-                                onClick={() => handleApproveInfluencer(user.id, user.approved !== true)}
-                                disabled={approvingId === user.id}
-                                className={`disabled:opacity-50 ${
-                                  user.approved === true
-                                    ? 'text-gray-600 hover:text-gray-900'
-                                    : 'text-primary hover:text-primary/80 font-medium'
-                                }`}
-                              >
-                                {approvingId === user.id
-                                  ? '...'
-                                  : user.approved === true ? 'Retirer' : 'Approuver'}
-                              </button>
-                            )}
+                            <a
+                              href={`/influencer/${user.id}`}
+                              target='_blank'
+                              rel='noopener noreferrer'
+                              className='text-blue-600 hover:text-blue-800'
+                            >
+                              Voir le profil
+                            </a>
+                            <button
+                              onClick={() => handleApproveInfluencer(user.id, user.approved !== true)}
+                              disabled={approvingId === user.id}
+                              className={`disabled:opacity-50 ${
+                                user.approved === true
+                                  ? 'text-gray-600 hover:text-gray-900'
+                                  : 'text-primary hover:text-primary/80 font-medium'
+                              }`}
+                            >
+                              {approvingId === user.id
+                                ? '...'
+                                : user.approved === true ? 'Retirer' : 'Approuver'}
+                            </button>
                             <button
                               onClick={() => deleteUser(user.id, user.userType)}
                               className='text-red-600 hover:text-red-900'
@@ -452,8 +447,49 @@ const Admin = () => {
                     ))}
                   </tbody>
                 </table>
-                {users.length === 0 && (
-                  <div className='text-center py-8 text-gray-500'>Aucun utilisateur</div>
+                {influencers.length === 0 && (
+                  <div className='text-center py-8 text-gray-500'>Aucun influenceur</div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'brands' && (
+              <div className='overflow-x-auto'>
+                <table className='min-w-full divide-y divide-gray-200'>
+                  <thead className='bg-gray-50'>
+                    <tr>
+                      <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Marque</th>
+                      <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Contact</th>
+                      <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Email</th>
+                      <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className='bg-white divide-y divide-gray-200'>
+                    {brands.map((user) => (
+                      <tr key={user.id}>
+                        <td className='px-6 py-4 whitespace-nowrap'>
+                          <div className='text-sm font-medium text-gray-900'>{user.brandName || 'N/A'}</div>
+                        </td>
+                        <td className='px-6 py-4 whitespace-nowrap'>
+                          <div className='text-sm text-gray-500'>{user.contactPerson || user.fullName || '—'}</div>
+                        </td>
+                        <td className='px-6 py-4 whitespace-nowrap'>
+                          <div className='text-sm text-gray-500'>{user.email}</div>
+                        </td>
+                        <td className='px-6 py-4 whitespace-nowrap text-sm'>
+                          <button
+                            onClick={() => deleteUser(user.id, user.userType)}
+                            className='text-red-600 hover:text-red-900'
+                          >
+                            Supprimer
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {brands.length === 0 && (
+                  <div className='text-center py-8 text-gray-500'>Aucune marque</div>
                 )}
               </div>
             )}

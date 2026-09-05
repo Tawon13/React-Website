@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { INFLUENCER_CATEGORIES } from '../constants/categories'
+import { BUDGET_OPTIONS } from '../constants/budget'
 
 const BrandOnboarding = () => {
     const navigate = useNavigate()
@@ -15,21 +16,13 @@ const BrandOnboarding = () => {
         budget: '',
         businessType: '',
         companySize: '',
-        influencerTypes: [],
-        platforms: []
+        influencerTypes: []
     })
 
-    const totalSteps = 5
+    const totalSteps = 4
 
     // Options pour chaque étape
-    const budgetOptions = [
-        'Moins de 1,000€',
-        '1,000€ - 5,000€',
-        '5,000€ - 10,000€',
-        '10,000€ - 25,000€',
-        '25,000€ - 50,000€',
-        '50,000€+'
-    ]
+    const budgetOptions = BUDGET_OPTIONS
 
     const businessTypes = [
         { value: 'agency', label: 'Agence', icon: '🏢' },
@@ -48,15 +41,6 @@ const BrandOnboarding = () => {
     ]
 
     const influencerCategories = INFLUENCER_CATEGORIES
-
-    const platformOptions = [
-        { value: 'instagram', label: 'Instagram' },
-        { value: 'tiktok', label: 'TikTok' },
-        { value: 'youtube', label: 'YouTube' },
-        { value: 'ugc', label: 'Contenu Généré par les Utilisateurs' },
-        { value: 'twitter', label: 'Twitter' },
-        { value: 'twitch', label: 'Twitch' }
-    ]
 
     const handleNext = () => {
         if (currentStep < totalSteps) {
@@ -88,12 +72,13 @@ const BrandOnboarding = () => {
                     businessType: formData.businessType,
                     companySize: formData.companySize,
                     influencerTypes: formData.influencerTypes,
-                    platforms: formData.platforms,
                     completedAt: new Date().toISOString()
                 }
             })
 
-            navigate('/talents')
+            navigate('/brand-recommendation', {
+                state: { budget: formData.budget, influencerTypes: formData.influencerTypes }
+            })
         } catch (error) {
             console.error('Error saving onboarding:', error)
         } finally {
@@ -122,8 +107,6 @@ const BrandOnboarding = () => {
                 return formData.companySize !== ''
             case 4:
                 return formData.influencerTypes.length > 0
-            case 5:
-                return formData.platforms.length > 0
             default:
                 return true
         }
@@ -277,31 +260,6 @@ const BrandOnboarding = () => {
                                         }`}
                                     >
                                         <span className='font-medium'>{category}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Step 5: Platforms */}
-                    {currentStep === 5 && (
-                        <div>
-                            <h2 className='text-3xl font-bold mb-3'>
-                                Quelle(s) plateforme(s) ciblez-vous ?
-                            </h2>
-                            <p className='text-gray-600 mb-6'>Sélectionnez une ou plusieurs plateformes</p>
-                            <div className='space-y-3 mt-8'>
-                                {platformOptions.map((platform) => (
-                                    <button
-                                        key={platform.value}
-                                        onClick={() => toggleSelection('platforms', platform.value)}
-                                        className={`w-full p-4 border-2 rounded-lg text-left transition-all ${
-                                            formData.platforms.includes(platform.value)
-                                                ? 'border-gray-900 bg-gray-900 text-white'
-                                                : 'border-gray-200 hover:border-gray-300'
-                                        }`}
-                                    >
-                                        <span className='font-medium'>{platform.label}</span>
                                     </button>
                                 ))}
                             </div>
