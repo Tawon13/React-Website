@@ -547,7 +547,7 @@ const Admin = () => {
                             <h4 className='font-semibold text-gray-900'>{collab.influencerName || 'Influenceur'}</h4>
                             <p className='text-sm text-gray-600'>Marque: {collab.brandName || 'N/A'} — {collab.description || 'Collaboration'}</p>
                             <p className='text-sm text-gray-700 mt-2'>
-                              Montant total: {collab.amount?.toLocaleString('fr-FR') || '0'} € — À virer (85%): <span className='font-bold text-orange-700'>{collab.influencerPayoutAmount?.toLocaleString('fr-FR') || '0'} €</span>
+                              Payé par la marque (frais inclus): {collab.amount?.toLocaleString('fr-FR') || '0'} € — À virer à l'influenceur: <span className='font-bold text-orange-700'>{collab.influencerPayoutAmount?.toLocaleString('fr-FR') || '0'} €</span>
                             </p>
                             {collab.bankDetails ? (
                               <div className='text-sm text-gray-700 mt-2 bg-white rounded-md p-3 border border-gray-200'>

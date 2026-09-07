@@ -36,6 +36,16 @@ const getAvatarGradient = (name) => {
     return AVATAR_GRADIENTS[Math.abs(hash) % AVATAR_GRADIENTS.length]
 }
 
+// Les conversations créées avant l'introduction du verrou paiement restent débloquées
+// (miroir de isMessagingUnlocked() dans firestore.rules — garder les deux synchronisés).
+const MESSAGING_GATE_CUTOFF_MS = new Date('2026-09-07T00:00:00Z').getTime()
+const isMessagingUnlocked = (conv) => {
+    if (!conv) return false
+    if (conv.paymentUnlocked === true) return true
+    const createdAtMs = conv.createdAt?.toMillis?.()
+    return typeof createdAtMs === 'number' && createdAtMs < MESSAGING_GATE_CUTOFF_MS
+}
+
 const Messages = () => {
     const navigate = useNavigate()
     const location = useLocation()
@@ -253,6 +263,11 @@ const Messages = () => {
     const sendMessage = async (e) => {
         e.preventDefault()
         if (!newMessage.trim() || !selectedConversation || sending) return
+
+        if (!isMessagingUnlocked(selectedConversation)) {
+            alert('La messagerie est disponible une fois la collaboration payée.')
+            return
+        }
 
         setSending(true)
         try {
@@ -518,18 +533,25 @@ const Messages = () => {
 
                                     {/* Formulaire d'envoi */}
                                     <form onSubmit={sendMessage} className='p-3 sm:p-4 border-t border-gray-100 bg-white'>
+                                        {!isMessagingUnlocked(selectedConversation) && (
+                                            <div className='mb-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800'>
+                                                {userType === 'brand'
+                                                    ? 'La messagerie sera disponible une fois que vous aurez payé cette collaboration.'
+                                                    : 'La messagerie sera disponible une fois que la marque aura payé cette collaboration.'}
+                                            </div>
+                                        )}
                                         <div className='flex items-center gap-2'>
                                             <input
                                                 type='text'
                                                 value={newMessage}
                                                 onChange={(e) => setNewMessage(e.target.value)}
-                                                placeholder='Écrivez votre message...'
-                                                className='flex-1 px-4 py-2.5 bg-gray-100 border border-transparent rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:bg-white focus:border-primary/30 transition'
-                                                disabled={sending}
+                                                placeholder={isMessagingUnlocked(selectedConversation) ? 'Écrivez votre message...' : 'Messagerie verrouillée avant paiement'}
+                                                className='flex-1 px-4 py-2.5 bg-gray-100 border border-transparent rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:bg-white focus:border-primary/30 transition disabled:opacity-60'
+                                                disabled={sending || !isMessagingUnlocked(selectedConversation)}
                                             />
                                             <button
                                                 type='submit'
-                                                disabled={!newMessage.trim() || sending}
+                                                disabled={!newMessage.trim() || sending || !isMessagingUnlocked(selectedConversation)}
                                                 className='w-11 h-11 flex-shrink-0 flex items-center justify-center bg-primary text-white rounded-full hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm'
                                             >
                                                 {sending ? (

@@ -1039,7 +1039,7 @@ const MyProfile = () => {
         )
     }
 
-    const totalReceived = collaborations.reduce((sum, collab) => sum + (collab.amount || 0), 0)
+    const totalReceived = collaborations.reduce((sum, collab) => sum + (collab.baseAmount ?? collab.amount ?? 0), 0)
     const completedCollaborations = collaborations.filter(c => c.status === 'completed').length
     const pendingCollaborations = collaborations.filter(c => c.status === 'pending').length
 
@@ -1277,7 +1277,7 @@ const MyProfile = () => {
                                             </p>
                                         </div>
                                         <div className='text-right'>
-                                            <p className='font-bold text-green-600'>{collab.amount?.toLocaleString('fr-FR') || '0'} €</p>
+                                            <p className='font-bold text-green-600'>{(collab.baseAmount ?? collab.amount)?.toLocaleString('fr-FR') || '0'} €</p>
                                             <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full mt-2 ${getCollabStatusBadge(collab.status).className}`}>
                                                 {getCollabStatusBadge(collab.status).label}
                                             </span>

@@ -20,6 +20,14 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.token.email == 'bechagraamine@gmail.com';
     }
 
+    // La messagerie brand <-> influenceur est verrouillée tant que la marque n'a pas payé
+    // (voir stripe_webhook_handler, qui passe paymentUnlocked à true). Les conversations
+    // créées avant l'introduction de cette règle restent débloquées (pas de régression pour
+    // les échanges déjà en cours).
+    function isMessagingUnlocked(convData) {
+      return convData.paymentUnlocked == true || convData.createdAt < timestamp.date(2026, 9, 7);
+    }
+
     // Règles pour les influenceurs
     match /influencers/{influencerId} {
       // Tout le monde peut lire les profils d'influenceurs
@@ -84,23 +92,27 @@ service cloud.firestore {
       allow create: if isAuthenticated() &&
                        request.auth.uid == request.resource.data.brandId;
       
-      // Les participants peuvent mettre à jour les conversations
+      // Les participants peuvent mettre à jour les conversations (dernier message), mais
+      // uniquement une fois qu'un paiement a été sécurisé pour cette relation brand/influenceur.
       allow update: if isAuthenticated() &&
                        (request.auth.uid == resource.data.brandId ||
-                        request.auth.uid == resource.data.influencerId);
-      
+                        request.auth.uid == resource.data.influencerId) &&
+                       isMessagingUnlocked(resource.data);
+
       // Règles pour les messages dans les conversations
       match /messages/{messageId} {
         // Les participants peuvent lire les messages
         allow read: if isAuthenticated() &&
                        (request.auth.uid == get(/databases/$(database)/documents/conversations/$(conversationId)).data.brandId ||
                         request.auth.uid == get(/databases/$(database)/documents/conversations/$(conversationId)).data.influencerId);
-        
-        // Les participants peuvent créer des messages
+
+        // Les participants peuvent créer des messages, uniquement après paiement sécurisé
+        // (la marque ne peut pas discuter avec l'influenceur tant qu'elle n'a pas payé).
         allow create: if isAuthenticated() &&
                          (request.auth.uid == get(/databases/$(database)/documents/conversations/$(conversationId)).data.brandId ||
                           request.auth.uid == get(/databases/$(database)/documents/conversations/$(conversationId)).data.influencerId) &&
-                         request.auth.uid == request.resource.data.senderId;
+                         request.auth.uid == request.resource.data.senderId &&
+                         isMessagingUnlocked(get(/databases/$(database)/documents/conversations/$(conversationId)).data);
         
         // Les participants peuvent mettre à jour leurs propres messages
         allow update: if isAuthenticated() &&

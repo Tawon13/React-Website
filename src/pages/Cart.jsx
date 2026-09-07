@@ -5,12 +5,17 @@ import { useAuth } from '../context/AuthContext'
 import { CREATE_COLLABORATION_REQUEST_URL } from '../config/firebase'
 import SEO from '../components/SEO'
 import { trackEvent } from '../utils/analytics'
+import { SERVICE_FEE_RATE } from '../constants/fees'
 
 const Cart = () => {
     const navigate = useNavigate()
     const { cartItems, removeFromCart, updateQuantity, clearCart, getTotal } = useCart()
     const { currentUser, userType } = useAuth()
     const [loading, setLoading] = useState(false)
+
+    const subtotal = getTotal()
+    const serviceFee = subtotal * SERVICE_FEE_RATE
+    const grandTotal = subtotal + serviceFee
 
     const handleSendRequest = async () => {
         if (!currentUser) {
@@ -60,7 +65,7 @@ const Cart = () => {
 
             trackEvent('generate_lead', {
                 currency: 'EUR',
-                value: getTotal(),
+                value: grandTotal,
                 items_count: cartItems.length
             })
 
@@ -173,10 +178,10 @@ const Cart = () => {
 
                                             {/* Prix */}
                                             <div className='text-right'>
-                                                <p className='text-xl font-bold text-gray-900'>{(item.price * item.quantity).toLocaleString('fr-FR')} €</p>
-                                                {item.quantity > 1 && (
-                                                    <p className='text-sm text-gray-500'>{item.price}€ × {item.quantity}</p>
-                                                )}
+                                                <p className='text-xl font-bold text-gray-900'>{(item.price * item.quantity * (1 + SERVICE_FEE_RATE)).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €</p>
+                                                <p className='text-sm text-gray-500'>
+                                                    {item.price}€{item.quantity > 1 ? ` × ${item.quantity}` : ''} + frais de service (15%)
+                                                </p>
                                             </div>
                                         </div>
                                     </div>
@@ -193,15 +198,15 @@ const Cart = () => {
                             <div className='space-y-3 mb-6'>
                                 <div className='flex justify-between text-gray-600'>
                                     <span>Sous-total</span>
-                                    <span>{getTotal().toLocaleString('fr-FR')} €</span>
+                                    <span>{subtotal.toLocaleString('fr-FR')} €</span>
                                 </div>
                                 <div className='flex justify-between text-gray-600'>
-                                    <span>Frais de service</span>
-                                    <span>0 €</span>
+                                    <span>Frais de service (15%)</span>
+                                    <span>{serviceFee.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €</span>
                                 </div>
                                 <div className='border-t pt-3 flex justify-between text-lg font-bold'>
                                     <span>Total</span>
-                                    <span>{getTotal().toLocaleString('fr-FR')} €</span>
+                                    <span>{grandTotal.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €</span>
                                 </div>
                             </div>
 

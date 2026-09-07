@@ -48,6 +48,10 @@ STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET')
 FRONTEND_BASE_URL = os.getenv('FRONTEND_BASE_URL', 'http://localhost:5173').rstrip('/')
 ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', 'bechagraamine@gmail.com')
 
+# Frais de service facturés à la marque en plus du prix de l'influenceur.
+# L'influenceur reçoit toujours 100% du prix qu'il a fixé (voir approve_collaboration_delivery_handler).
+SERVICE_FEE_RATE = 0.15
+
 if STRIPE_SECRET_KEY:
     stripe.api_key = STRIPE_SECRET_KEY
 
@@ -328,9 +332,8 @@ def create_collaboration_request_handler(req: https_fn.Request) -> https_fn.Resp
             influencer_id = item.get('influencerId')
             package_name = item.get('package', 'Collaboration')
             quantity = int(item.get('quantity', 1))
-            unit_price = float(item.get('price', 0))
 
-            if not influencer_id or quantity <= 0 or unit_price <= 0:
+            if not influencer_id or quantity <= 0:
                 continue
 
             influencer_ref = db_client.collection('influencers').document(influencer_id)
@@ -341,6 +344,15 @@ def create_collaboration_request_handler(req: https_fn.Request) -> https_fn.Resp
             influencer_data = influencer_snap.to_dict() or {}
             influencer_name = influencer_data.get('name', 'Influenceur')
             influencer_email = influencer_data.get('email', '')
+
+            # Le prix de base vient toujours du profil de l'influenceur (jamais du client)
+            # pour éviter qu'une marque ne modifie le prix envoyé au serveur.
+            base_amount = float(influencer_data.get('pricing', {}).get('tiktok_video') or influencer_data.get('fees') or 800)
+            service_fee_amount = round(base_amount * SERVICE_FEE_RATE, 2)
+            total_amount = round(base_amount + service_fee_amount, 2)
+
+            if base_amount <= 0:
+                continue
 
             # Crée une demande par quantité pour faciliter le suivi individuel.
             for _ in range(quantity):
@@ -354,7 +366,9 @@ def create_collaboration_request_handler(req: https_fn.Request) -> https_fn.Resp
                     'influencerEmail': influencer_email,
                     'description': f'Collaboration: {package_name}',
                     'package': package_name,
-                    'amount': unit_price,
+                    'amount': total_amount,
+                    'baseAmount': base_amount,
+                    'serviceFeeAmount': service_fee_amount,
                     'status': 'pending_acceptance',
                     'paymentStatus': 'not_requested',
                     'payoutStatus': 'not_released',
@@ -372,7 +386,7 @@ def create_collaboration_request_handler(req: https_fn.Request) -> https_fn.Resp
                 influencer_name=influencer_name,
                 brand_name=brand_name,
                 package=package_name,
-                amount=unit_price,
+                amount=base_amount,
                 frontend_base_url=FRONTEND_BASE_URL,
                 brand_id=uid
             )
@@ -390,7 +404,8 @@ def create_collaboration_request_handler(req: https_fn.Request) -> https_fn.Resp
                     'lastMessage': f'Nouvelle demande de collaboration: {package_name}',
                     'lastMessageAt': firestore.SERVER_TIMESTAMP,
                     'lastMessageBy': uid,
-                    'createdAt': firestore.SERVER_TIMESTAMP
+                    'createdAt': firestore.SERVER_TIMESTAMP,
+                    'paymentUnlocked': False
                 })
 
         if len(request_ids) == 0:
@@ -828,9 +843,13 @@ def stripe_webhook_handler(req: https_fn.Request) -> https_fn.Response:
             if session_snap.exists:
                 session_data = session_snap.to_dict() or {}
                 collab_ids = session_data.get('collaborationIds', [])
+                brand_id = session_data.get('brandId')
+                unlocked_influencer_ids = set()
 
                 for collab_id in collab_ids:
                     collab_ref = db_client.collection('collaborations').document(collab_id)
+                    collab_snap = collab_ref.get()
+                    collab_data = collab_snap.to_dict() or {}
                     collab_ref.update({
                         'status': 'pending',
                         'paymentStatus': 'funds_held',
@@ -839,6 +858,17 @@ def stripe_webhook_handler(req: https_fn.Request) -> https_fn.Response:
                         'paymentHeldAt': firestore.SERVER_TIMESTAMP,
                         'updatedAt': firestore.SERVER_TIMESTAMP
                     })
+
+                    # Débloque la messagerie brand <-> influenceur maintenant que le paiement est sécurisé.
+                    influencer_id = collab_data.get('influencerId')
+                    if brand_id and influencer_id and influencer_id not in unlocked_influencer_ids:
+                        unlocked_influencer_ids.add(influencer_id)
+                        conv_query = db_client.collection('conversations') \
+                            .where('brandId', '==', brand_id) \
+                            .where('influencerId', '==', influencer_id) \
+                            .limit(1).get()
+                        for conv_doc in conv_query:
+                            conv_doc.reference.update({'paymentUnlocked': True})
 
                 session_ref.update({
                     'status': 'paid',
@@ -948,7 +978,14 @@ def approve_collaboration_delivery_handler(req: https_fn.Request) -> https_fn.Re
         if gross_cents <= 0:
             return _json_response({'error': 'Montant invalide'}, status=400)
 
-        influencer_cents = int(round(gross_cents * 0.85))
+        # Le prix de base (100% pour l'influenceur) est stocké sur la collaboration depuis
+        # l'ajout des frais de service marque. Pour les collaborations créées avant ce
+        # changement (pas de baseAmount), on retombe sur l'ancien partage 85/15.
+        base_amount = latest_collab.get('baseAmount')
+        if base_amount:
+            influencer_cents = int(round(float(base_amount) * 100))
+        else:
+            influencer_cents = int(round(gross_cents * 0.85))
         platform_fee_cents = gross_cents - influencer_cents
 
         collab_ref.update({
