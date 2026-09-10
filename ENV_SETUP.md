@@ -55,6 +55,7 @@ cp .env.example .env
 - `SENDGRID_API_KEY`
 - `CONTACT_EMAIL`
 - `STATE_SIGNING_SECRET` (clé aléatoire utilisée pour signer/valider le paramètre `state`)
+- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` (SMS envoyés aux influenceurs lors d'une nouvelle demande de collaboration, depuis [console.twilio.com](https://console.twilio.com/))
 
 ### Frontend (`.env`)
 - `VITE_FIREBASE_API_KEY`

@@ -3,3 +3,4 @@ google-auth~=2.23.0
 requests~=2.31.0
 python-dotenv~=1.0.0
 stripe~=11.6.0
+twilio~=9.3.0

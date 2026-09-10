@@ -12,7 +12,7 @@ import json
 import secrets
 from datetime import datetime, timedelta, timezone
 import stripe
-from firebase_functions import https_fn, scheduler_fn
+from firebase_functions import https_fn, scheduler_fn, firestore_fn
 from firebase_functions.options import set_global_options
 from firebase_admin import initialize_app, auth as firebase_auth
 from dotenv import load_dotenv
@@ -344,6 +344,7 @@ def create_collaboration_request_handler(req: https_fn.Request) -> https_fn.Resp
             influencer_data = influencer_snap.to_dict() or {}
             influencer_name = influencer_data.get('name', 'Influenceur')
             influencer_email = influencer_data.get('email', '')
+            influencer_phone = influencer_data.get('phone', '')
 
             # Le prix de base vient toujours du profil de l'influenceur (jamais du client)
             # pour éviter qu'une marque ne modifie le prix envoyé au serveur.
@@ -354,8 +355,11 @@ def create_collaboration_request_handler(req: https_fn.Request) -> https_fn.Resp
             if base_amount <= 0:
                 continue
 
-            # Crée une demande par quantité pour faciliter le suivi individuel.
-            for _ in range(quantity):
+            # Crée une demande par quantité pour faciliter le suivi individuel. Un seul
+            # email de notification est envoyé par ligne de panier (pas par quantité) :
+            # seul le premier document de la boucle porte sendNotification=True, lu par
+            # le trigger on_collaboration_request_created.
+            for idx in range(quantity):
                 collab_ref = collaborations_ref.document()
                 collab_ref.set({
                     'brandId': uid,
@@ -364,6 +368,7 @@ def create_collaboration_request_handler(req: https_fn.Request) -> https_fn.Resp
                     'influencerId': influencer_id,
                     'influencerName': influencer_name,
                     'influencerEmail': influencer_email,
+                    'influencerPhone': influencer_phone,
                     'description': f'Collaboration: {package_name}',
                     'package': package_name,
                     'amount': total_amount,
@@ -375,21 +380,16 @@ def create_collaboration_request_handler(req: https_fn.Request) -> https_fn.Resp
                     'influencerAccepted': None,
                     'brandApproved': False,
                     'influencerApproved': False,
+                    'sendNotification': idx == 0,
                     'createdAt': firestore.SERVER_TIMESTAMP,
                     'updatedAt': firestore.SERVER_TIMESTAMP
                 })
                 request_ids.append(collab_ref.id)
 
-            from lib.notifications import send_new_collaboration_request_email
-            send_new_collaboration_request_email(
-                influencer_email=influencer_email,
-                influencer_name=influencer_name,
-                brand_name=brand_name,
-                package=package_name,
-                amount=base_amount,
-                frontend_base_url=FRONTEND_BASE_URL,
-                brand_id=uid
-            )
+            # L'email et le SMS de notification à l'influenceur partent en arrière-plan
+            # (déclenchés par la création du document ci-dessus, voir
+            # on_collaboration_request_created) : ces appels réseau (Resend, Twilio) ne
+            # doivent jamais faire attendre la marque ici.
 
             # Conversation unique brand <-> influencer
             existing_conv = conversations_ref.where('brandId', '==', uid).where('influencerId', '==', influencer_id).limit(1).get()
@@ -420,6 +420,44 @@ def create_collaboration_request_handler(req: https_fn.Request) -> https_fn.Resp
     except Exception as exc:
         print(f'Erreur create_collaboration_request_handler: {str(exc)}')
         return _json_response({'error': str(exc)}, status=500)
+
+
+@firestore_fn.on_document_created(document='collaborations/{collabId}')
+def on_collaboration_request_created(event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None]) -> None:
+    """
+    Envoie l'email et le SMS de notification à l'influenceur en arrière-plan, déclenchés
+    par la création du document plutôt qu'exécutés en ligne dans
+    create_collaboration_request_handler. Cela évite de faire attendre la marque (jusqu'à
+    20s par email/SMS) au clic sur "Envoyer la demande" : elle a sa réponse dès que
+    Firestore a écrit les demandes.
+    """
+    if event.data is None:
+        return
+
+    data = event.data.to_dict() or {}
+    if data.get('status') != 'pending_acceptance' or not data.get('sendNotification'):
+        return
+
+    from lib.notifications import send_new_collaboration_request_email
+    send_new_collaboration_request_email(
+        influencer_email=data.get('influencerEmail', ''),
+        influencer_name=data.get('influencerName', 'Influenceur'),
+        brand_name=data.get('brandName', 'Marque'),
+        package=data.get('package', 'Collaboration'),
+        amount=data.get('baseAmount', 0),
+        frontend_base_url=FRONTEND_BASE_URL,
+        brand_id=data.get('brandId', '')
+    )
+
+    influencer_phone = data.get('influencerPhone', '')
+    if influencer_phone:
+        from lib.sms import send_new_collaboration_request_sms
+        send_new_collaboration_request_sms(
+            phone=influencer_phone,
+            brand_name=data.get('brandName', 'Marque'),
+            package=data.get('package', 'Collaboration'),
+            amount=data.get('baseAmount', 0)
+        )
 
 
 @https_fn.on_request()
@@ -467,15 +505,9 @@ def respond_to_collaboration_request_handler(req: https_fn.Request) -> https_fn.
             'updatedAt': firestore.SERVER_TIMESTAMP
         })
 
-        from lib.notifications import send_collaboration_response_email
-        send_collaboration_response_email(
-            brand_email=collab.get('brandEmail', ''),
-            brand_name=collab.get('brandName', 'Marque'),
-            influencer_name=collab.get('influencerName', 'Influenceur'),
-            package=collab.get('package', 'Collaboration'),
-            accepted=bool(accept),
-            frontend_base_url=FRONTEND_BASE_URL
-        )
+        # L'email à la marque part en arrière-plan (voir on_collaboration_request_responded) :
+        # même raison que pour create_collaboration_request_handler, l'appel à Resend ne
+        # doit jamais faire attendre l'influenceur qui clique sur accepter/refuser.
 
         return _json_response({
             'success': True,
@@ -486,6 +518,39 @@ def respond_to_collaboration_request_handler(req: https_fn.Request) -> https_fn.
     except Exception as exc:
         print(f'Erreur respond_to_collaboration_request_handler: {str(exc)}')
         return _json_response({'error': str(exc)}, status=500)
+
+
+@firestore_fn.on_document_updated(document='collaborations/{collabId}')
+def on_collaboration_request_responded(event: firestore_fn.Event[firestore_fn.Change[firestore_fn.DocumentSnapshot] | None]) -> None:
+    """
+    Envoie l'email à la marque en arrière-plan quand l'influenceur accepte ou refuse une
+    demande, déclenché par la mise à jour du document plutôt qu'exécuté en ligne dans
+    respond_to_collaboration_request_handler (même logique que
+    on_collaboration_request_created : ne jamais faire attendre l'utilisateur sur Resend).
+    """
+    if event.data is None:
+        return
+
+    before = event.data.before.to_dict() or {}
+    after = event.data.after.to_dict() or {}
+
+    # Ne réagit qu'à la transition pending_acceptance -> accepted/declined ; comme cette
+    # transition ne peut se produire qu'une seule fois par collaboration, pas besoin de
+    # marqueur anti-doublon ici (contrairement à sendNotification côté création).
+    if before.get('status') != 'pending_acceptance':
+        return
+    if after.get('status') not in ('accepted_awaiting_payment', 'declined'):
+        return
+
+    from lib.notifications import send_collaboration_response_email
+    send_collaboration_response_email(
+        brand_email=after.get('brandEmail', ''),
+        brand_name=after.get('brandName', 'Marque'),
+        influencer_name=after.get('influencerName', 'Influenceur'),
+        package=after.get('package', 'Collaboration'),
+        accepted=after.get('status') == 'accepted_awaiting_payment',
+        frontend_base_url=FRONTEND_BASE_URL
+    )
 
 
 def _lookup_user_profile(db_client, uid):

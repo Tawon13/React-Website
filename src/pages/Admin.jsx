@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { auth, db, MARK_PAYOUT_PAID_URL } from '../config/firebase'
 import SEO from '../components/SEO'
 import { collection, getDocs, doc, getDoc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore'
+import { useToast } from '../context/ToastContext'
 
 const ADMIN_EMAIL = 'bechagraamine@gmail.com'
 
 const Admin = () => {
   const navigate = useNavigate()
+  const toast = useToast()
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
   const [users, setUsers] = useState([])
@@ -145,10 +147,10 @@ const Admin = () => {
           totalInfluencers: userType === 'influenceur' ? prev.totalInfluencers - 1 : prev.totalInfluencers,
           totalBrands: userType === 'marque' ? prev.totalBrands - 1 : prev.totalBrands
         }))
-        alert('Utilisateur supprimé avec succès')
+        toast.success('Utilisateur supprimé avec succès')
       } catch (error) {
         console.error('Erreur lors de la suppression:', error)
-        alert('Erreur lors de la suppression')
+        toast.error('Erreur lors de la suppression')
       }
     }
   }
@@ -164,7 +166,7 @@ const Admin = () => {
       }))
     } catch (error) {
       console.error('Erreur lors de la validation du profil:', error)
-      alert('Erreur lors de la validation du profil')
+      toast.error('Erreur lors de la validation du profil')
     } finally {
       setApprovingId('')
     }
@@ -175,17 +177,17 @@ const Admin = () => {
       try {
         await deleteDoc(doc(db, 'contacts', contactId))
         setContacts(contacts.filter(c => c.id !== contactId))
-        alert('Message supprimé avec succès')
+        toast.success('Message supprimé avec succès')
       } catch (error) {
         console.error('Erreur lors de la suppression:', error)
-        alert('Erreur lors de la suppression')
+        toast.error('Erreur lors de la suppression')
       }
     }
   }
 
   const handleMarkPaid = async (collaborationId) => {
     if (!MARK_PAYOUT_PAID_URL) {
-      alert('Configuration manquante: VITE_MARK_PAYOUT_PAID_URL')
+      toast.error('Configuration manquante: VITE_MARK_PAYOUT_PAID_URL')
       return
     }
     if (!window.confirm('Confirmez-vous avoir effectué le virement bancaire à l\'influenceur ?')) return
@@ -214,7 +216,7 @@ const Admin = () => {
       }
     } catch (error) {
       console.error('Erreur lors du marquage du virement:', error)
-      alert(error.message || 'Erreur lors du marquage du virement')
+      toast.error(error.message || 'Erreur lors du marquage du virement')
     } finally {
       setMarkingPaidId('')
     }
@@ -459,6 +461,7 @@ const Admin = () => {
                   <thead className='bg-gray-50'>
                     <tr>
                       <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Marque</th>
+                      <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>SIRET</th>
                       <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Contact</th>
                       <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Email</th>
                       <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Actions</th>
@@ -469,6 +472,9 @@ const Admin = () => {
                       <tr key={user.id}>
                         <td className='px-6 py-4 whitespace-nowrap'>
                           <div className='text-sm font-medium text-gray-900'>{user.brandName || 'N/A'}</div>
+                        </td>
+                        <td className='px-6 py-4 whitespace-nowrap'>
+                          <div className='text-sm text-gray-500 font-mono'>{user.siret || '—'}</div>
                         </td>
                         <td className='px-6 py-4 whitespace-nowrap'>
                           <div className='text-sm text-gray-500'>{user.contactPerson || user.fullName || '—'}</div>

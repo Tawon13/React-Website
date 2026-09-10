@@ -1,8 +1,10 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import socialMediaImage from '../assets/social_media_login.jpg'
 import SEO from '../components/SEO'
+import { lookupSiret } from '../utils/siret'
+import { useToast } from '../context/ToastContext'
 
 const Login = () => {
     const navigate = useNavigate()
@@ -10,6 +12,7 @@ const Login = () => {
     const location = window.location.pathname
     const [searchParams] = useSearchParams()
     const { signUpInfluencer, signUpBrand, signIn, signInWithGoogle, signInWithFacebook, sendVerificationCode, verifyEmailCode } = useAuth()
+    const toast = useToast()
 
     // Après connexion, revenir à la page d'origine (ex: /messages?brandId=...)
     // si l'utilisateur a été redirigé ici depuis une page protégée.
@@ -42,11 +45,60 @@ const Login = () => {
     const [formData, setFormData] = useState({
         firstName: '',
         lastName: '',
+        phone: '',
         fullName: '',
         brandName: '',
+        siret: '',
         email: '',
         password: ''
     })
+
+    // Recherche de l'entreprise dans le répertoire officiel (Sirene) à partir du SIRET
+    // saisi, pour proposer le nom de la marque plutôt que de le faire retaper à la main.
+    const [siretLookup, setSiretLookup] = useState({ status: 'idle', suggestion: null })
+
+    useEffect(() => {
+        if (userType !== 'brand' || formData.siret.length !== 14) {
+            setSiretLookup({ status: 'idle', suggestion: null })
+            return
+        }
+
+        let cancelled = false
+        setSiretLookup({ status: 'loading', suggestion: null })
+
+        const timeoutId = setTimeout(async () => {
+            try {
+                const result = await lookupSiret(formData.siret)
+                if (cancelled) return
+                setSiretLookup(
+                    result.found
+                        ? { status: 'found', suggestion: result }
+                        : { status: 'not_found', suggestion: null }
+                )
+            } catch (error) {
+                if (!cancelled) {
+                    console.error('Erreur lors de la vérification du SIRET:', error)
+                    setSiretLookup({ status: 'error', suggestion: null })
+                }
+            }
+        }, 400)
+
+        return () => {
+            cancelled = true
+            clearTimeout(timeoutId)
+        }
+    }, [formData.siret, userType])
+
+    const handleSiretChange = (e) => {
+        const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 14)
+        setFormData((prev) => ({ ...prev, siret: digitsOnly }))
+    }
+
+    const acceptSiretSuggestion = () => {
+        if (!siretLookup.suggestion) return
+        setFormData((prev) => ({ ...prev, brandName: siretLookup.suggestion.name }))
+        setSiretLookup((prev) => ({ ...prev, status: 'confirmed' }))
+    }
 
     const getSocialAuthErrorMessage = (error, providerLabel) => {
         switch (error?.code) {
@@ -125,12 +177,14 @@ const Login = () => {
                 if (userType === 'influencer') {
                     const fullName = `${formData.firstName} ${formData.lastName}`
                     user = await signUpInfluencer(formData.email, formData.password, {
-                        name: fullName
+                        name: fullName,
+                        phone: formData.phone
                     })
                 } else {
                     user = await signUpBrand(formData.email, formData.password, {
                         fullName: formData.fullName,
-                        brandName: formData.brandName
+                        brandName: formData.brandName,
+                        siret: formData.siret
                     })
                 }
 
@@ -174,7 +228,7 @@ const Login = () => {
         setVerifyingCode(true)
         try {
             await verifyEmailCode(pendingUser, codeInput.trim())
-            alert('Compte créé avec succès !')
+            toast.success('Compte créé avec succès !')
             if (userType === 'brand') {
                 navigate('/brand-onboarding')
             } else {
@@ -307,11 +361,14 @@ const Login = () => {
                                     setFormData({
                                         firstName: '',
                                         lastName: '',
+                                        phone: '',
                                         fullName: '',
                                         brandName: '',
+                                        siret: '',
                                         email: '',
                                         password: ''
                                     })
+                                    setSiretLookup({ status: 'idle', suggestion: null })
                                     setError('')
                                 }}
                                 className={`flex-1 py-2 px-4 rounded-full font-semibold transition-all ${
@@ -329,11 +386,14 @@ const Login = () => {
                                     setFormData({
                                         firstName: '',
                                         lastName: '',
+                                        phone: '',
                                         fullName: '',
                                         brandName: '',
+                                        siret: '',
                                         email: '',
                                         password: ''
                                     })
+                                    setSiretLookup({ status: 'idle', suggestion: null })
                                     setError('')
                                 }}
                                 className={`flex-1 py-2 px-4 rounded-full font-semibold transition-all ${
@@ -421,6 +481,28 @@ const Login = () => {
                                 </div>
                             )}
 
+                            {isSignUp && userType === 'influencer' && (
+                                <div>
+                                    <label className='block text-sm font-medium text-gray-700 mb-2'>
+                                        Numéro de téléphone
+                                    </label>
+                                    <input
+                                        type='tel'
+                                        name='phone'
+                                        value={formData.phone}
+                                        onChange={handleChange}
+                                        className='w-full px-4 py-3 border border-gray-300 rounded-full focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none transition-all'
+                                        placeholder='06 12 34 56 78'
+                                        pattern='(?:\+33|0)[1-9](?:[ .-]?\d{2}){4}'
+                                        title='Numéro français, ex : 06 12 34 56 78 ou +33 6 12 34 56 78'
+                                        required
+                                    />
+                                    <p className='text-xs text-gray-500 mt-1 px-2'>
+                                        Utilisé pour vous prévenir par SMS dès qu'une marque vous contacte.
+                                    </p>
+                                </div>
+                            )}
+
                             {isSignUp && userType === 'brand' && (
                                 <>
                                     {/* Full Name */}
@@ -437,6 +519,72 @@ const Login = () => {
                                             placeholder='John Doe'
                                             required
                                         />
+                                    </div>
+
+                                    {/* SIRET */}
+                                    <div>
+                                        <label className='block text-sm font-medium text-gray-700 mb-2'>
+                                            Numéro de SIRET
+                                        </label>
+                                        <input
+                                            type='text'
+                                            inputMode='numeric'
+                                            name='siret'
+                                            value={formData.siret}
+                                            onChange={handleSiretChange}
+                                            className='w-full px-4 py-3 border border-gray-300 rounded-full focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none transition-all'
+                                            placeholder='14 chiffres'
+                                            pattern='\d{14}'
+                                            title='Le SIRET doit contenir 14 chiffres'
+                                            required
+                                        />
+                                        <p className='text-xs text-gray-500 mt-1 px-2'>
+                                            Utilisé pour vérifier votre entreprise et simplifier vos factures.
+                                        </p>
+
+                                        {siretLookup.status === 'loading' && (
+                                            <p className='text-sm text-gray-500 mt-2 px-2'>🔍 Recherche de votre entreprise...</p>
+                                        )}
+
+                                        {siretLookup.status === 'found' && siretLookup.suggestion && (
+                                            <div className='mt-2 p-3 bg-blue-50 border border-blue-200 rounded-2xl text-sm'>
+                                                <p className='text-gray-700'>
+                                                    Nous avons trouvé :{' '}
+                                                    <span className='font-semibold'>{siretLookup.suggestion.name}</span>
+                                                    {siretLookup.suggestion.address && <> — {siretLookup.suggestion.address}</>}
+                                                </p>
+                                                {siretLookup.suggestion.closed && (
+                                                    <p className='text-orange-600 mt-1'>
+                                                        ⚠️ Cet établissement apparaît comme fermé dans le répertoire officiel.
+                                                    </p>
+                                                )}
+                                                <button
+                                                    type='button'
+                                                    onClick={acceptSiretSuggestion}
+                                                    className='mt-2 text-primary font-semibold hover:underline'
+                                                >
+                                                    ✓ Oui, c'est bien ma marque — utiliser ce nom
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {siretLookup.status === 'confirmed' && (
+                                            <p className='text-sm text-green-600 mt-2 px-2'>
+                                                ✓ Nom confirmé depuis le répertoire officiel des entreprises.
+                                            </p>
+                                        )}
+
+                                        {siretLookup.status === 'not_found' && (
+                                            <p className='text-sm text-gray-500 mt-2 px-2'>
+                                                Aucune entreprise trouvée avec ce numéro. Vérifiez-le ou renseignez le nom de votre marque ci-dessous.
+                                            </p>
+                                        )}
+
+                                        {siretLookup.status === 'error' && (
+                                            <p className='text-sm text-gray-500 mt-2 px-2'>
+                                                Impossible de vérifier ce SIRET pour le moment. Vous pouvez renseigner le nom de votre marque manuellement.
+                                            </p>
+                                        )}
                                     </div>
 
                                     {/* Brand Name */}

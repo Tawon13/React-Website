@@ -8,19 +8,22 @@ import AppContextProvider from './context/AppContext.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
 import { CartProvider } from './context/CartContext.jsx'
 import { FavoritesProvider } from './context/FavoritesContext.jsx'
+import { ToastProvider } from './context/ToastContext.jsx'
 
 createRoot(document.getElementById('root')).render(
   <HelmetProvider>
     <BrowserRouter>
-      <AuthProvider>
-        <CartProvider>
-          <FavoritesProvider>
-            <AppContextProvider>
-              <App />
-            </AppContextProvider>
-          </FavoritesProvider>
-        </CartProvider>
-      </AuthProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <CartProvider>
+            <FavoritesProvider>
+              <AppContextProvider>
+                <App />
+              </AppContextProvider>
+            </FavoritesProvider>
+          </CartProvider>
+        </AuthProvider>
+      </ToastProvider>
     </BrowserRouter>
   </HelmetProvider>,
 )

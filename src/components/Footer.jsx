@@ -26,6 +26,7 @@ const Footer = () => {
                     <li onClick={() => navigate('/contact')} className='cursor-pointer hover:text-gray-900'>Contact</li>
                     <li onClick={() => navigate('/privacy')} className='cursor-pointer hover:text-gray-900'>Confidentialité</li>
                     <li onClick={() => navigate('/terms')} className='cursor-pointer hover:text-gray-900'>Conditions</li>
+                    <li onClick={() => navigate('/mentions-legales')} className='cursor-pointer hover:text-gray-900'>Mentions légales</li>
                 </ul>
             </div>
             

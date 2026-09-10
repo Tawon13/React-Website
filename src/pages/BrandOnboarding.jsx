@@ -76,8 +76,12 @@ const BrandOnboarding = () => {
                 }
             })
 
-            navigate('/brand-recommendation', {
-                state: { budget: formData.budget, influencerTypes: formData.influencerTypes }
+            navigate('/talents', {
+                state: {
+                    budget: formData.budget,
+                    influencerTypes: formData.influencerTypes,
+                    highlightRecommended: true
+                }
             })
         } catch (error) {
             console.error('Error saving onboarding:', error)

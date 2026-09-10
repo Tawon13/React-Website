@@ -13,6 +13,7 @@ import Appointments from './pages/Appointments'
 import InfluencerProfile from './pages/InfluencerProfile'
 import Terms from './pages/Terms'
 import Privacy from './pages/Privacy'
+import MentionsLegales from './pages/MentionsLegales'
 import Admin from './pages/Admin'
 import Messages from './pages/Messages'
 import Cart from './pages/Cart'
@@ -60,6 +61,7 @@ const App = () => {
               <Route path='/appointment/:docId' element={<Appointments />} />
               <Route path='/terms' element={<Terms />} />
               <Route path='/privacy' element={<Privacy />} />
+              <Route path='/mentions-legales' element={<MentionsLegales />} />
               <Route path='/admin' element={<Admin />} />
               <Route path='/messages' element={<Messages />} />
               <Route path='/cart' element={<Cart />} />

@@ -4,28 +4,8 @@ import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { useAuth } from '../context/AuthContext'
 import { AppContext } from '../context/AppContext'
-import { getBudgetRange } from '../constants/budget'
+import { pickBestMatch } from '../utils/matching'
 import SEO from '../components/SEO'
-
-// Choisit le meilleur influenceur disponible pour une marque, en assouplissant les
-// critères par étapes s'il n'y a pas de match parfait (niche + budget) : niche seule,
-// puis budget seul, puis n'importe quel influenceur en dernier recours.
-const pickBestMatch = (doctors, { budget, influencerTypes = [] } = {}) => {
-    if (doctors.length === 0) return null
-
-    const { max: budgetMax } = getBudgetRange(budget)
-    const inBudget = (list) => list.filter((d) => Number(d.fees) <= budgetMax)
-    const inCategory = influencerTypes.length > 0
-        ? doctors.filter((d) => influencerTypes.includes(d.speciality))
-        : []
-
-    const pool = [inBudget(inCategory), inCategory, inBudget(doctors), doctors]
-        .find((list) => list.length > 0) || []
-
-    if (pool.length === 0) return null
-
-    return [...pool].sort((a, b) => (b.followers?.tiktok || 0) - (a.followers?.tiktok || 0))[0]
-}
 
 const BrandRecommendation = () => {
     const navigate = useNavigate()

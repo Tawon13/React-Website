@@ -17,6 +17,8 @@ import PhotoUpload from '../components/PhotoUpload'
 import PortfolioGallery from '../components/PortfolioGallery'
 import SEO from '../components/SEO'
 import { compressImage } from '../utils/imageCompression'
+import { useToast } from '../context/ToastContext'
+import { warmUpFunction } from '../utils/warmup'
 
 // Libellé + couleur du badge de statut d'une collaboration, communs marque/influenceur.
 const COLLAB_STATUS_BADGES = {
@@ -35,10 +37,51 @@ const getCollabStatusBadge = (status) =>
 const BrandProfile = ({ currentUser, userData }) => {
     const location = useLocation()
     const navigate = useNavigate()
+    const toast = useToast()
+    const { refreshUserData } = useAuth()
     const [purchases, setPurchases] = useState([])
     const [loading, setLoading] = useState(true)
     const [approvingId, setApprovingId] = useState('')
     const [payingId, setPayingId] = useState('')
+    const [savingInfo, setSavingInfo] = useState(false)
+    const [profileForm, setProfileForm] = useState({
+        phone: userData?.phone || '',
+        website: userData?.website || '',
+        description: userData?.description || ''
+    })
+
+    const handleSaveProfileInfo = async () => {
+        setSavingInfo(true)
+        try {
+            await updateDoc(doc(db, 'brands', currentUser.uid), {
+                phone: profileForm.phone.trim(),
+                website: profileForm.website.trim(),
+                description: profileForm.description.trim(),
+                updatedAt: new Date().toISOString()
+            })
+            await refreshUserData()
+            toast.success('Informations mises à jour avec succès')
+        } catch (error) {
+            console.error('Erreur lors de la mise à jour du profil:', error)
+            toast.error('Erreur lors de la mise à jour des informations')
+        } finally {
+            setSavingInfo(false)
+        }
+    }
+
+    const handlePhotoUploaded = async (url) => {
+        try {
+            await updateDoc(doc(db, 'brands', currentUser.uid), {
+                photoURL: url,
+                updatedAt: new Date().toISOString()
+            })
+            await refreshUserData()
+            toast.success('Photo mise à jour avec succès')
+        } catch (error) {
+            console.error('Erreur lors de la mise à jour de la photo:', error)
+            toast.error('Erreur lors de la mise à jour de la photo')
+        }
+    }
     const [disputingId, setDisputingId] = useState('')
     const [showRequestSent, setShowRequestSent] = useState(Boolean(location.state?.requestSent))
 
@@ -50,7 +93,7 @@ const BrandProfile = ({ currentUser, userData }) => {
 
     const handlePayNow = async (purchaseId) => {
         if (!STRIPE_CREATE_CHECKOUT_URL) {
-            alert('Configuration Stripe manquante pour le paiement.')
+            toast.error('Configuration Stripe manquante pour le paiement.')
             return
         }
 
@@ -77,7 +120,7 @@ const BrandProfile = ({ currentUser, userData }) => {
             window.location.href = data.url
         } catch (error) {
             console.error('Erreur paiement:', error)
-            alert(error.message || 'Erreur lors du paiement')
+            toast.error(error.message || 'Erreur lors du paiement')
         } finally {
             setPayingId('')
         }
@@ -85,7 +128,7 @@ const BrandProfile = ({ currentUser, userData }) => {
 
     const handleApprovePurchase = async (purchaseId) => {
         if (!STRIPE_APPROVE_COLLAB_URL) {
-            alert('Configuration Stripe manquante pour la validation.')
+            toast.error('Configuration Stripe manquante pour la validation.')
             return
         }
 
@@ -118,12 +161,12 @@ const BrandProfile = ({ currentUser, userData }) => {
                 )
             )
 
-            alert(data?.awaitingManualTransfer
+            toast.success(data?.awaitingManualTransfer
                 ? 'Validation confirmée. Le virement à l\'influenceur sera effectué sous peu.'
                 : 'Validation enregistrée. En attente de validation influenceur.')
         } catch (error) {
             console.error('Erreur validation marque:', error)
-            alert(error.message || 'Erreur lors de la validation')
+            toast.error(error.message || 'Erreur lors de la validation')
         } finally {
             setApprovingId('')
         }
@@ -131,7 +174,7 @@ const BrandProfile = ({ currentUser, userData }) => {
 
     const handleDisputeCollaboration = async (purchaseId) => {
         if (!DISPUTE_COLLABORATION_URL) {
-            alert('Configuration manquante pour signaler un désaccord.')
+            toast.error('Configuration manquante pour signaler un désaccord.')
             return
         }
 
@@ -164,10 +207,10 @@ const BrandProfile = ({ currentUser, userData }) => {
                 )
             )
 
-            alert('Collaboration annulée et remboursée.')
+            toast.success('Collaboration annulée et remboursée.')
         } catch (error) {
             console.error('Erreur remboursement:', error)
-            alert(error.message || 'Erreur lors du remboursement')
+            toast.error(error.message || 'Erreur lors du remboursement')
         } finally {
             setDisputingId('')
         }
@@ -229,13 +272,31 @@ const BrandProfile = ({ currentUser, userData }) => {
             {/* En-tête du profil */}
             <div className='bg-white rounded-xl shadow-md p-6 mb-6'>
                 <div className='flex items-center gap-6'>
-                    <div className='w-20 h-20 bg-green-500 rounded-full flex items-center justify-center text-white text-3xl font-bold'>
-                        {userData?.brandName?.charAt(0) || currentUser.email.charAt(0).toUpperCase()}
-                    </div>
+                    {userData?.photoURL ? (
+                        <img
+                            src={userData.photoURL}
+                            alt={userData?.brandName || 'Logo de la marque'}
+                            className='w-20 h-20 rounded-full object-cover border-4 border-green-500 shadow-lg'
+                        />
+                    ) : (
+                        <div className='w-20 h-20 bg-green-500 rounded-full flex items-center justify-center text-white text-3xl font-bold'>
+                            {userData?.brandName?.charAt(0) || currentUser.email.charAt(0).toUpperCase()}
+                        </div>
+                    )}
                     <div className='flex-1'>
                         <h1 className='text-3xl font-bold text-gray-900'>{userData?.brandName || 'Ma Marque'}</h1>
                         <p className='text-gray-600 mt-1'>{currentUser.email}</p>
                         <p className='text-sm text-gray-500 mt-2'>{userData?.description || 'Aucune description'}</p>
+                        {userData?.website && (
+                            <a
+                                href={userData.website.startsWith('http') ? userData.website : `https://${userData.website}`}
+                                target='_blank'
+                                rel='noopener noreferrer'
+                                className='text-sm text-primary hover:underline mt-1 inline-block'
+                            >
+                                {userData.website}
+                            </a>
+                        )}
                     </div>
                 </div>
             </div>
@@ -308,7 +369,15 @@ const BrandProfile = ({ currentUser, userData }) => {
                 </div>
 
                 <div className='p-6'>
-                    <div className='space-y-4'>
+                    <div className='space-y-6'>
+                        <PhotoUpload
+                            userId={currentUser.uid}
+                            currentPhotoURL={userData?.photoURL || ''}
+                            onPhotoUploaded={handlePhotoUploaded}
+                            label='Logo / photo de la marque'
+                            folder='profile_photos'
+                        />
+
                         <div>
                             <label className='block text-sm font-semibold text-gray-700 mb-2'>Nom de la marque</label>
                             <input
@@ -330,20 +399,44 @@ const BrandProfile = ({ currentUser, userData }) => {
                         <div>
                             <label className='block text-sm font-semibold text-gray-700 mb-2'>Téléphone</label>
                             <input
-                                type='text'
-                                value={userData?.phone || 'Non renseigné'}
-                                readOnly
-                                className='w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50'
+                                type='tel'
+                                value={profileForm.phone}
+                                onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                                placeholder='+33 6 12 34 56 78'
+                                className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all'
                             />
                         </div>
                         <div>
                             <label className='block text-sm font-semibold text-gray-700 mb-2'>Site web</label>
                             <input
                                 type='text'
-                                value={userData?.website || 'Non renseigné'}
-                                readOnly
-                                className='w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50'
+                                value={profileForm.website}
+                                onChange={(e) => setProfileForm({ ...profileForm, website: e.target.value })}
+                                placeholder='https://votresite.com'
+                                className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all'
                             />
+                        </div>
+                        <div>
+                            <label className='block text-sm font-semibold text-gray-700 mb-2'>Description</label>
+                            <textarea
+                                value={profileForm.description}
+                                onChange={(e) => setProfileForm({ ...profileForm, description: e.target.value.slice(0, 280) })}
+                                placeholder='Présentez votre marque en quelques mots...'
+                                rows={4}
+                                className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all resize-none'
+                            />
+                            <p className='text-xs text-gray-400 mt-1 text-right'>{profileForm.description.length}/280</p>
+                        </div>
+
+                        <div className='flex justify-end'>
+                            <button
+                                type='button'
+                                onClick={handleSaveProfileInfo}
+                                disabled={savingInfo}
+                                className='px-6 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
+                            >
+                                {savingInfo ? 'Enregistrement...' : 'Enregistrer'}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -476,6 +569,14 @@ const MyProfile = () => {
     const [respondingCollabId, setRespondingCollabId] = useState('')
     const [disputingCollabId, setDisputingCollabId] = useState('')
     const [bankDetails, setBankDetails] = useState({ accountHolderName: '', iban: '', bic: '' })
+
+    // Réveille la fonction pendant que l'influenceur consulte son profil, plutôt qu'au
+    // moment où il clique sur accepter/refuser (voir utils/warmup.js).
+    useEffect(() => {
+        if (userType === 'influencer') {
+            warmUpFunction(RESPOND_TO_COLLABORATION_REQUEST_URL)
+        }
+    }, [userType])
     const [bankDetailsSaved, setBankDetailsSaved] = useState(false)
     const [editingBankDetails, setEditingBankDetails] = useState(false)
     const [savingBankDetails, setSavingBankDetails] = useState(false)

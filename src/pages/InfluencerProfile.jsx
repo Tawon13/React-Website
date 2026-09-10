@@ -9,6 +9,7 @@ import { useCart } from '../context/CartContext'
 import { useFavorites } from '../context/FavoritesContext'
 import { db } from '../config/firebase'
 import { doc, getDoc, getDocFromServer, addDoc, collection, serverTimestamp, query, where, getDocs, updateDoc } from 'firebase/firestore'
+import { useToast } from '../context/ToastContext'
 
 const ADMIN_EMAIL = 'bechagraamine@gmail.com'
 
@@ -18,6 +19,7 @@ const InfluencerProfile = () => {
     const { doctors, doctorsLoading } = useContext(AppContext)
     const { currentUser, userType, userData } = useAuth()
     const { addToCart } = useCart()
+    const toast = useToast()
     const { isFavorite, toggleFavorite } = useFavorites()
     // Deux sources indépendantes pour éviter que l'une n'efface l'autre selon l'ordre
     // d'arrivée des deux effets asynchrones : le profil public (via `doctors`) prime
@@ -406,7 +408,7 @@ const InfluencerProfile = () => {
             setIsApprovedProfile(true)
         } catch (error) {
             console.error('Erreur lors de la validation du profil:', error)
-            alert('Erreur lors de la validation du profil')
+            toast.error('Erreur lors de la validation du profil')
         } finally {
             setApprovingProfile(false)
         }
@@ -428,7 +430,7 @@ const InfluencerProfile = () => {
         
         // Vérifier que nous avons l'ID Firebase
         if (!firebaseInfluencerId) {
-            alert('Erreur: ID de l\'influenceur non trouvé')
+            toast.error('Erreur: ID de l\'influenceur non trouvé')
             console.error('Firebase influencer ID manquant')
             return
         }
@@ -951,7 +953,7 @@ const InfluencerProfile = () => {
                                         }
                                     } catch (err) {
                                         console.error('Erreur rafraîchissement TikTok:', err)
-                                        alert('Impossible de rafraîchir les posts pour le moment.')
+                                        toast.error('Impossible de rafraîchir les posts pour le moment.')
                                     }
                                 }}
                                 className='text-sm px-3 py-1.5 border rounded-md text-primary hover:bg-primary/5'

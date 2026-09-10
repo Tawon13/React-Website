@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
@@ -6,12 +6,21 @@ import { CREATE_COLLABORATION_REQUEST_URL } from '../config/firebase'
 import SEO from '../components/SEO'
 import { trackEvent } from '../utils/analytics'
 import { SERVICE_FEE_RATE } from '../constants/fees'
+import { useToast } from '../context/ToastContext'
+import { warmUpFunction } from '../utils/warmup'
 
 const Cart = () => {
     const navigate = useNavigate()
     const { cartItems, removeFromCart, updateQuantity, clearCart, getTotal } = useCart()
     const { currentUser, userType } = useAuth()
+    const toast = useToast()
     const [loading, setLoading] = useState(false)
+
+    // Réveille la fonction pendant que la marque consulte son panier, plutôt qu'au moment
+    // où elle clique sur "Envoyer la demande" (voir utils/warmup.js).
+    useEffect(() => {
+        warmUpFunction(CREATE_COLLABORATION_REQUEST_URL)
+    }, [])
 
     const subtotal = getTotal()
     const serviceFee = subtotal * SERVICE_FEE_RATE
@@ -19,18 +28,18 @@ const Cart = () => {
 
     const handleSendRequest = async () => {
         if (!currentUser) {
-            alert('Veuillez vous connecter en tant que marque pour continuer')
+            toast.warning('Veuillez vous connecter en tant que marque pour continuer')
             navigate('/login?type=brand')
             return
         }
 
         if (userType !== 'brand') {
-            alert('Seules les marques peuvent envoyer des demandes de collaboration')
+            toast.warning('Seules les marques peuvent envoyer des demandes de collaboration')
             return
         }
 
         if (cartItems.length === 0) {
-            alert('Votre panier est vide')
+            toast.warning('Votre panier est vide')
             return
         }
 
@@ -75,7 +84,7 @@ const Cart = () => {
             console.error('Erreur complète:', error)
             console.error('Message d\'erreur:', error.message)
             console.error('Stack:', error.stack)
-            alert(`Erreur lors de l'envoi de la demande: ${error.message}`)
+            toast.error(`Erreur lors de l'envoi de la demande: ${error.message}`)
         } finally {
             setLoading(false)
         }

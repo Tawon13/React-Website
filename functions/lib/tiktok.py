@@ -23,7 +23,7 @@ TIKTOK_AUTH_URL = "https://www.tiktok.com/v2/auth/authorize/"
 TIKTOK_TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/"
 TIKTOK_USER_INFO_URL = "https://open.tiktokapis.com/v2/user/info/"
 TIKTOK_VIDEO_LIST_URL = "https://open.tiktokapis.com/v2/video/list/"
-TIKTOK_USER_BASIC_FIELDS = "open_id,union_id,display_name,avatar_url"
+TIKTOK_USER_BASIC_FIELDS = "open_id,union_id,display_name,avatar_url,avatar_large_url"
 TIKTOK_USER_STATS_FIELDS = "follower_count,following_count,likes_count,video_count"
 TIKTOK_USER_FIELDS = f"{TIKTOK_USER_BASIC_FIELDS},{TIKTOK_USER_STATS_FIELDS}"
 
@@ -196,7 +196,9 @@ def tiktok_callback(code: str, user_id: str) -> dict:
     likes = int(user.get("likes_count", 0) or 0)
     videos = int(user.get("video_count", 0) or 0)
     username = user.get("display_name") or ""
-    avatar_url = user.get("avatar_url") or ""
+    # avatar_large_url (~720x720) plutôt que avatar_url (~100x100), pour un affichage
+    # net sur les cartes et pages profil. Repli sur avatar_url si TikTok ne le renvoie pas.
+    avatar_url = user.get("avatar_large_url") or user.get("avatar_url") or ""
     total_views, avg_views, recent_likes, recent_comments, recent_shares, sampled_videos, has_video_list_access, recent_videos = _fetch_tiktok_video_insights(access_token)
 
     # ========================
@@ -303,7 +305,7 @@ def update_tiktok_stats(user_id: str, tokens: dict) -> dict:
     db.collection("influencers").document(user_id).update({
         "tiktokVideos": recent_videos,
         "socialAccounts.tiktok.username": user.get("display_name") or "",
-        "socialAccounts.tiktok.avatarUrl": user.get("avatar_url") or "",
+        "socialAccounts.tiktok.avatarUrl": user.get("avatar_large_url") or user.get("avatar_url") or "",
         "socialAccounts.tiktok.followers": int(user.get("follower_count", 0) or 0),
         "socialAccounts.tiktok.following": int(user.get("following_count", 0) or 0),
         "socialAccounts.tiktok.likes": int(user.get("likes_count", 0) or 0),

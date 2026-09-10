@@ -5,6 +5,7 @@ import { useCart } from '../context/CartContext'
 import { db, SEND_MESSAGE_NOTIFICATION_URL } from '../config/firebase'
 import SEO from '../components/SEO'
 import { trackEvent } from '../utils/analytics'
+import { useToast } from '../context/ToastContext'
 import {
     collection,
     query,
@@ -51,6 +52,7 @@ const Messages = () => {
     const location = useLocation()
     const { currentUser, userType, userData, loading: authLoading } = useAuth()
     const { clearCart } = useCart()
+    const toast = useToast()
     const [conversations, setConversations] = useState([])
     const [showPaymentSuccess, setShowPaymentSuccess] = useState(false)
     const [selectedConversation, setSelectedConversation] = useState(null)
@@ -265,7 +267,7 @@ const Messages = () => {
         if (!newMessage.trim() || !selectedConversation || sending) return
 
         if (!isMessagingUnlocked(selectedConversation)) {
-            alert('La messagerie est disponible une fois la collaboration payée.')
+            toast.warning('La messagerie est disponible une fois la collaboration payée.')
             return
         }
 
@@ -310,7 +312,7 @@ const Messages = () => {
             }
         } catch (error) {
             console.error('Erreur lors de l\'envoi:', error)
-            alert('Erreur lors de l\'envoi du message')
+            toast.error('Erreur lors de l\'envoi du message')
         } finally {
             setSending(false)
         }

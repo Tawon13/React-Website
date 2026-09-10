@@ -1,23 +1,61 @@
-import React, { useContext, useEffect, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import React, { useContext, useEffect, useMemo, useState } from 'react'
+import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom'
+import { doc, getDoc } from 'firebase/firestore'
+import { db } from '../config/firebase'
 import { AppContext } from '../context/AppContext'
+import { useAuth } from '../context/AuthContext'
 import { INFLUENCER_CATEGORIES } from '../constants/categories'
+import { pickBestMatch } from '../utils/matching'
 import SEO from '../components/SEO'
 
 const Talents = () => {
 
 	const {speciality} = useParams()
 	const [searchParams] = useSearchParams()
+	const location = useLocation()
 	const [filterDoc, setFilterDoc] = useState([])
 	const [showFilter, setShowFilter] = useState(false)
   const navigate = useNavigate()
 
 	const {doctors, doctorsLoading} = useContext(AppContext)
+	const { currentUser, userType } = useAuth()
 
 	const categoryParam = searchParams.get('category')
 	const maxPrice = searchParams.get('maxPrice')
 	const sort = searchParams.get('sort')
 	const activeCategory = speciality || categoryParam
+	const hasActiveFilters = Boolean(activeCategory || maxPrice || sort)
+
+	// Critères de recommandation pour une marque : soit reçus juste après l'onboarding
+	// (state de navigation), soit relus depuis son profil lors des visites suivantes.
+	const [brandCriteria, setBrandCriteria] = useState(
+		location.state?.highlightRecommended ? location.state : null
+	)
+
+	useEffect(() => {
+		if (brandCriteria || userType !== 'brand' || !currentUser) return
+
+		const loadCriteria = async () => {
+			try {
+				const snap = await getDoc(doc(db, 'brands', currentUser.uid))
+				const onboarding = snap.exists() ? snap.data()?.onboarding : null
+				if (onboarding?.completed) {
+					setBrandCriteria({ budget: onboarding.budget, influencerTypes: onboarding.influencerTypes || [] })
+				}
+			} catch (error) {
+				console.error('Erreur lors du chargement des critères de recommandation:', error)
+			}
+		}
+
+		loadCriteria()
+	}, [brandCriteria, userType, currentUser])
+
+	// N'affiche la recommandation que sur la vue par défaut (aucun filtre actif), pour ne
+	// pas interférer avec une recherche explicite de la marque.
+	const recommended = useMemo(() => {
+		if (!brandCriteria || hasActiveFilters) return null
+		return pickBestMatch(doctors, brandCriteria)
+	}, [doctors, brandCriteria, hasActiveFilters])
 
 	// Change de catégorie tout en conservant les autres filtres actifs (tri, prix).
 	const goToCategory = (categoryValue) => {
@@ -55,6 +93,11 @@ const Talents = () => {
     applyFilter()
   },[doctors, activeCategory, maxPrice, sort])
 
+  // Le profil recommandé est épinglé en premier, sans être dupliqué plus bas dans la grille.
+  const displayedDoc = recommended
+    ? [recommended, ...filterDoc.filter((item) => item._id !== recommended._id)]
+    : filterDoc
+
 	return (
 		<div className='py-8'>
 			<SEO
@@ -64,6 +107,14 @@ const Talents = () => {
 			/>
 			<h1 className='text-3xl font-medium text-center mb-2'>Nos Talents</h1>
 			<p className='text-gray-600 text-center mb-8'>Parcourez notre liste complète d'influenceurs de confiance.</p>
+
+			{recommended && (
+				<div className='max-w-2xl mx-auto mb-8 bg-primary/5 border border-primary/20 rounded-xl px-5 py-4 text-center'>
+					<p className='text-gray-800 font-medium'>
+						✨ En fonction de votre budget et de votre niche, voici le créateur que nous vous recommandons en priorité.
+					</p>
+				</div>
+			)}
 
 			<div className='flex flex-col sm:flex-row items-start gap-5 mt-5'>
 				{/* Filter sidebar */}
@@ -98,26 +149,38 @@ const Talents = () => {
 
 				{/* Talents Grid */}
 				<div className='w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 gap-y-6'>
-					{filterDoc.map((item, index) => (
-						<div
-							onClick={() => {navigate(`/influencer/${item._id}`); scrollTo(0,0)}}
-							className='border border-blue-200 rounded-xl overflow-hidden cursor-pointer hover:translate-y-[-10px] transition-all duration-500'
-							key={index}
-						>
-							<img className='bg-blue-50 w-full h-64 object-cover' src={item.image} alt={`Image of ${item.name}`} />
-							<div className='p-4'>
-								<div className='flex items-center gap-2 text-sm text-center text-green-500'>
-									<p className='w-2 h-2 bg-green-500 rounded-full'></p>
-									<p>Disponible</p>
+					{displayedDoc.map((item) => {
+						const isRecommended = recommended && item._id === recommended._id
+						return (
+							<div
+								onClick={() => {navigate(`/influencer/${item._id}`); scrollTo(0,0)}}
+								className={`border rounded-xl overflow-hidden cursor-pointer hover:translate-y-[-10px] transition-all duration-500 ${
+									isRecommended ? 'border-primary ring-2 ring-primary/30' : 'border-blue-200'
+								}`}
+								key={item._id}
+							>
+								<div className='relative'>
+									{isRecommended && (
+										<span className='absolute top-2 left-2 bg-primary text-white text-xs font-semibold px-3 py-1 rounded-full shadow'>
+											⭐ Recommandé pour vous
+										</span>
+									)}
+									<img className='bg-blue-50 w-full h-64 object-cover' src={item.image} alt={`Image of ${item.name}`} />
 								</div>
-								{item.tiktokUsername && (
-									<p className='text-gray-900 text-lg font-medium'>@{item.tiktokUsername}</p>
-								)}
-								<p className='text-gray-600 text-sm'>{item.speciality}</p>
-								<p className='text-primary text-lg font-semibold mt-2'>{item.fees}€</p>
+								<div className='p-4'>
+									<div className='flex items-center gap-2 text-sm text-center text-green-500'>
+										<p className='w-2 h-2 bg-green-500 rounded-full'></p>
+										<p>Disponible</p>
+									</div>
+									{item.tiktokUsername && (
+										<p className='text-gray-900 text-lg font-medium'>@{item.tiktokUsername}</p>
+									)}
+									<p className='text-gray-600 text-sm'>{item.speciality}</p>
+									<p className='text-primary text-lg font-semibold mt-2'>{item.fees}€</p>
+								</div>
 							</div>
-						</div>
-					))}
+						)
+					})}
 				</div>
 			</div>
 
