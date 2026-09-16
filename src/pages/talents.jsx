@@ -57,6 +57,18 @@ const Talents = () => {
 		return pickBestMatch(doctors, brandCriteria)
 	}, [doctors, brandCriteria, hasActiveFilters])
 
+	// N'affiche que les catégories réellement représentées par au moins un influenceur.
+	// La catégorie active est conservée même si elle est vide, pour qu'un filtre ouvert
+	// depuis une URL directe reste visible et désélectionnable.
+	const availableCategories = useMemo(() => {
+		const usedCategories = new Set(
+			doctors.map((doc) => doc.speciality?.toLowerCase()).filter(Boolean)
+		)
+		return INFLUENCER_CATEGORIES.filter(
+			(cat) => usedCategories.has(cat.toLowerCase()) || activeCategory?.toLowerCase() === cat.toLowerCase()
+		)
+	}, [doctors, activeCategory])
+
 	// Change de catégorie tout en conservant les autres filtres actifs (tri, prix).
 	const goToCategory = (categoryValue) => {
 		const params = new URLSearchParams(searchParams)
@@ -80,10 +92,11 @@ const Talents = () => {
       }
     }
 
-    if (sort === 'popular') {
-      filtered = [...filtered].sort((a, b) => (b.followers?.tiktok || 0) - (a.followers?.tiktok || 0))
-    } else if (sort === 'recent') {
+    if (sort === 'recent') {
       filtered = [...filtered].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+    } else {
+      // Ordre par défaut : les profils les plus suivis apparaissent en premier.
+      filtered = [...filtered].sort((a, b) => (b.followers?.tiktok || 0) - (a.followers?.tiktok || 0))
     }
 
     setFilterDoc(filtered)
@@ -131,7 +144,7 @@ const Talents = () => {
 						>
 							Toutes catégories
 						</button>
-						{INFLUENCER_CATEGORIES.map((cat) => (
+						{availableCategories.map((cat) => (
 							<button
 								key={cat}
 								onClick={() => goToCategory(cat)}

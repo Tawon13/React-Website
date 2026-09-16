@@ -1,4 +1,4 @@
-import React, { useContext } from 'react'
+import React, { useContext, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AppContext } from '../context/AppContext'
 
@@ -7,6 +7,14 @@ const TopDoctors = () => {
     const navigate = useNavigate()
     const {doctors} = useContext(AppContext)
 
+    // Les profils les plus suivis du site : 4 sur ordinateur, le dernier étant masqué sur mobile.
+    const topInfluencers = useMemo(
+      () => [...doctors]
+        .sort((a, b) => (b.followers?.tiktok || 0) - (a.followers?.tiktok || 0))
+        .slice(0, 4),
+      [doctors]
+    )
+
   return (
     <div className='flex flex-col items-center gap-4 my-12 sm:my-16 text-gray900 px-4 sm:px-6 md:mx-10'>
       <h1 className='text-2xl sm:text-3xl font-medium text-center'>Nos Influenceurs(se) du Moment</h1>
@@ -14,12 +22,12 @@ const TopDoctors = () => {
         Parcourez notre longue liste d'influenceurs de confiance.
       </p>
 
-      <div className='w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 pt-5 gap-y-6'>
-        {doctors.slice(0, 10).map((item, index) => (
-          <div 
+      <div className='w-full max-w-5xl grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-5 gap-y-6'>
+        {topInfluencers.map((item, index) => (
+          <div
             onClick={() => {navigate(`/influencer/${item._id}`); scrollTo(0,0)}}
-            className='border border-blue-200 rounded-xl overflow-hidden cursor-pointer hover:translate-y-[-10px] transition-all duration-500' 
-            key={index}
+            className={`border border-blue-200 rounded-xl overflow-hidden cursor-pointer hover:translate-y-[-10px] transition-all duration-500 ${index === 3 ? 'hidden sm:block' : ''}`}
+            key={item._id}
           >
             <img className='bg-blue-50 w-full aspect-square object-cover' src={item.image} alt={item.tiktokUsername ? `@${item.tiktokUsername}` : 'Influenceur'} />
             <div className='p-3 sm:p-4'>

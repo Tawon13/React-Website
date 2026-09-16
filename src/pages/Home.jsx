@@ -6,6 +6,7 @@ import Banner from '../components/Banner'
 import Search from '../components/Search'
 import Cards from '../components/Cards'
 import Features from '../components/Features'
+import FAQ from '../components/FAQ'
 import SEO from '../components/SEO'
 
 const Home = () => {
@@ -17,6 +18,7 @@ const Home = () => {
         <Search/>
         <TopDoctors/>
         <Features/>
+        <FAQ/>
         {/* <SpecialityMenu/> */}
         <Banner/>
     </div>
