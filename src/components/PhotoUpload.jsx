@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
-import { storage } from '../config/firebase'
+import { storage } from '../config/storage'
 import { compressImage } from '../utils/imageCompression'
 
 const PhotoUpload = ({ 

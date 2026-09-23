@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { motion, AnimatePresence, MotionConfig } from 'motion/react'
 import { CONTACT_EMAIL_URL } from '../config/firebase'
 import SEO from '../components/SEO'
@@ -80,7 +80,7 @@ const Contact = () => {
       } else {
         setError(data.error || 'Une erreur est survenue')
       }
-    } catch (err) {
+    } catch {
       setError('Impossible d\'envoyer le message. Veuillez réessayer.')
     } finally {
       setLoading(false)

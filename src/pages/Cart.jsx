@@ -10,6 +10,7 @@ import { trackEvent } from '../utils/analytics'
 import { SERVICE_FEE_RATE } from '../constants/fees'
 import { useToast } from '../context/ToastContext'
 import { warmUpFunction } from '../utils/warmup'
+import SmartImage from '../components/SmartImage'
 
 const Cart = () => {
     const navigate = useNavigate()
@@ -165,7 +166,7 @@ const Cart = () => {
                                             className='flex gap-4 rounded-3xl border border-gray-200 bg-white p-4 sm:p-5'
                                         >
                                             <Link to={`/influencer/${item.influencerId}`} className='flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl'>
-                                                <img src={info.image} alt='' className='w-20 h-24 sm:w-24 sm:h-28 rounded-2xl object-cover bg-gray-100' />
+                                                <SmartImage width={96} src={info.image} alt='' className='w-20 h-24 sm:w-24 sm:h-28 rounded-2xl object-cover bg-gray-100' />
                                             </Link>
                                             <div className='flex-1 min-w-0 flex flex-col'>
                                                 <div className='flex items-start justify-between gap-3'>

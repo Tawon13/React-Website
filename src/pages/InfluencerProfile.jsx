@@ -5,15 +5,15 @@ import SEO from '../components/SEO'
 import { influencerSeo } from '../constants/seo'
 import { computeTikTokStats } from '../utils/tiktokStats'
 import { trackEvent } from '../utils/analytics'
-import { assets } from '../assets/assets'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { useFavorites } from '../context/FavoritesContext'
 import { db } from '../config/firebase'
-import { doc, getDoc, getDocFromServer, addDoc, collection, serverTimestamp, query, where, getDocs, updateDoc } from 'firebase/firestore'
+import { doc, getDoc, getDocFromServer, updateDoc } from 'firebase/firestore'
 import { useToast } from '../context/ToastContext'
 import { AnimatePresence, motion, MotionConfig } from 'motion/react'
 import { Reveal } from '../components/PageKit'
+import SmartImage from '../components/SmartImage'
 
 const ADMIN_EMAIL = 'bechagraamine@gmail.com'
 
@@ -21,7 +21,7 @@ const InfluencerProfile = () => {
     const { influencerId } = useParams()
     const navigate = useNavigate()
     const { doctors, doctorsLoading } = useContext(AppContext)
-    const { currentUser, userType, userData } = useAuth()
+    const { currentUser, userType } = useAuth()
     const { addToCart } = useCart()
     const toast = useToast()
     const { isFavorite, toggleFavorite } = useFavorites()
@@ -36,7 +36,7 @@ const InfluencerProfile = () => {
     const [firebaseProfilePhoto, setFirebaseProfilePhoto] = useState(null)
     const [currentImageIndex, setCurrentImageIndex] = useState(0)
     const [selectedPackage, setSelectedPackage] = useState('🎥 1 Vidéo TikTok')
-    const [loading, setLoading] = useState(false)
+    const [loading] = useState(false)
     const [shareCopied, setShareCopied] = useState(false)
     const [isLightboxOpen, setIsLightboxOpen] = useState(false)
     const [lightboxImageIndex, setLightboxImageIndex] = useState(0)
@@ -482,8 +482,8 @@ const InfluencerProfile = () => {
         }
         return (
             <div className='text-center py-20'>
-                <p className='text-lg text-gray-700 font-medium'>Ce profil est introuvable ou n'est pas encore validé.</p>
-                <p className='text-sm text-gray-500 mt-2'>Revenez un peu plus tard, ou contactez-nous si vous pensez qu'il s'agit d'une erreur.</p>
+                <p className='text-lg text-gray-700 font-medium'>Ce profil est introuvable ou n’est pas encore validé.</p>
+                <p className='text-sm text-gray-500 mt-2'>Revenez un peu plus tard, ou contactez-nous si vous pensez qu’il s’agit d’une erreur.</p>
             </div>
         )
     }
@@ -599,7 +599,7 @@ const InfluencerProfile = () => {
                 className='flex flex-col md:flex-row md:items-end md:justify-between gap-5 mb-6'
             >
                 <div className='flex items-center gap-4 min-w-0'>
-                    <img
+                    <SmartImage width={80}
                         src={displayAvatar}
                         alt=''
                         className='w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover ring-4 ring-white shadow-lg flex-shrink-0'
@@ -636,7 +636,7 @@ const InfluencerProfile = () => {
                             }`}
                             aria-label={`Agrandir la photo ${index + 1}`}
                         >
-                            <img
+                            <SmartImage width={420}
                                 src={photo.url}
                                 alt={`${publicDisplayName} ${index + 1}`}
                                 className='w-full h-full object-cover transition-transform duration-500 group-hover:scale-105'
@@ -662,7 +662,7 @@ const InfluencerProfile = () => {
                             <div className='flex-shrink-0 w-full h-80 bg-gray-100 animate-pulse' />
                         ) : galleryPhotos.map((photo, index) => (
                             <button key={photo.id || photo.url} type='button' onClick={() => openLightbox(index)} className='flex-shrink-0 w-full snap-center cursor-pointer' aria-label={`Agrandir la photo ${index + 1}`}>
-                                <img
+                                <SmartImage width={640}
                                     src={photo.url}
                                     alt={`${publicDisplayName} ${index + 1}`}
                                     className='w-full h-80 sm:h-96 object-cover'
@@ -873,7 +873,7 @@ const InfluencerProfile = () => {
                                     >
                                         <div className='relative aspect-[9/16] rounded-2xl overflow-hidden bg-gray-900 mb-3 group-focus-visible:ring-4 group-focus-visible:ring-primary'>
                                             {video.thumbnail && !isThumbnailFailed ? (
-                                                <img
+                                                <SmartImage width={320}
                                                     src={video.thumbnail}
                                                     alt=''
                                                     className='absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105'

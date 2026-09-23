@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import { createContext, useState, useEffect, useContext } from 'react';
 import {
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
@@ -98,195 +98,171 @@ export const AuthProvider = ({ children }) => {
 
     // Inscription Influenceur
     const signUpInfluencer = async (email, password, influencerData) => {
-        try {
-            // Créer l'utilisateur dans Firebase Auth
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            const user = userCredential.user;
+        // Créer l'utilisateur dans Firebase Auth
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
 
-            // Stocker les données dans Firestore
-            await createProfile('influencers', user.uid, {
-                uid: user.uid,
-                email: email,
-                userType: 'influencer',
-                name: influencerData.name || '',
-                username: influencerData.username || '',
-                phone: influencerData.phone || '',
-                city: influencerData.city || '',
-                country: influencerData.country || '',
-                category: influencerData.category || '',
-                approved: false,
-                socialMedia: {
-                    instagram: influencerData.instagram || '',
-                    tiktok: influencerData.tiktok || '',
-                    youtube: influencerData.youtube || ''
-                },
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            });
+        // Stocker les données dans Firestore
+        await createProfile('influencers', user.uid, {
+            uid: user.uid,
+            email: email,
+            userType: 'influencer',
+            name: influencerData.name || '',
+            username: influencerData.username || '',
+            phone: influencerData.phone || '',
+            city: influencerData.city || '',
+            country: influencerData.country || '',
+            category: influencerData.category || '',
+            approved: false,
+            socialMedia: {
+                instagram: influencerData.instagram || '',
+                tiktok: influencerData.tiktok || '',
+                youtube: influencerData.youtube || ''
+            },
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        });
 
-            sendPostSignupEmails(user);
-            trackEvent('sign_up', { method: 'password', user_type: 'influencer' });
+        sendPostSignupEmails(user);
+        trackEvent('sign_up', { method: 'password', user_type: 'influencer' });
 
-            return user;
-        } catch (error) {
-            throw error;
-        }
+        return user;
     };
 
     // Inscription Marque
     const signUpBrand = async (email, password, brandData) => {
-        try {
-            // Créer l'utilisateur dans Firebase Auth
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            const user = userCredential.user;
+        // Créer l'utilisateur dans Firebase Auth
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
 
-            // Stocker les données dans Firestore (version simplifiée)
-            await createProfile('brands', user.uid, {
-                uid: user.uid,
-                email: email,
-                userType: 'brand',
-                fullName: brandData.fullName || '',
-                brandName: brandData.brandName || '',
-                // Champs optionnels pour compatibilité
-                companyName: brandData.companyName || brandData.brandName || '',
-                siret: brandData.siret || '',
-                industry: brandData.industry || '',
-                companySize: brandData.companySize || '',
-                description: brandData.description || '',
-                contactPerson: brandData.contactPerson || brandData.fullName || '',
-                phone: brandData.phone || '',
-                website: brandData.website || '',
-                address: brandData.address ? {
-                    street: brandData.address,
-                    city: brandData.city || '',
-                    country: brandData.country || ''
-                } : {},
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            });
+        // Stocker les données dans Firestore (version simplifiée)
+        await createProfile('brands', user.uid, {
+            uid: user.uid,
+            email: email,
+            userType: 'brand',
+            fullName: brandData.fullName || '',
+            brandName: brandData.brandName || '',
+            // Champs optionnels pour compatibilité
+            companyName: brandData.companyName || brandData.brandName || '',
+            siret: brandData.siret || '',
+            industry: brandData.industry || '',
+            companySize: brandData.companySize || '',
+            description: brandData.description || '',
+            contactPerson: brandData.contactPerson || brandData.fullName || '',
+            phone: brandData.phone || '',
+            website: brandData.website || '',
+            address: brandData.address ? {
+                street: brandData.address,
+                city: brandData.city || '',
+                country: brandData.country || ''
+            } : {},
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        });
 
-            sendPostSignupEmails(user);
-            trackEvent('sign_up', { method: 'password', user_type: 'brand' });
+        sendPostSignupEmails(user);
+        trackEvent('sign_up', { method: 'password', user_type: 'brand' });
 
-            return user;
-        } catch (error) {
-            throw error;
-        }
+        return user;
     };
 
     // Connexion
     const signIn = async (email, password) => {
-        try {
-            const userCredential = await signInWithEmailAndPassword(auth, email, password);
-            return userCredential.user;
-        } catch (error) {
-            throw error;
-        }
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        return userCredential.user;
     };
 
     // Connexion avec Google
     const signInWithGoogle = async (isInfluencer = true) => {
-        try {
-            const provider = new GoogleAuthProvider();
-            const userCredential = await signInWithPopup(auth, provider);
-            const user = userCredential.user;
+        const provider = new GoogleAuthProvider();
+        const userCredential = await signInWithPopup(auth, provider);
+        const user = userCredential.user;
 
-            // Vérifier si l'utilisateur existe déjà
-            const collection = isInfluencer ? 'influencers' : 'brands';
-            const docRef = doc(db, collection, user.uid);
-            const docSnap = await getDoc(docRef);
+        // Vérifier si l'utilisateur existe déjà
+        const collection = isInfluencer ? 'influencers' : 'brands';
+        const docRef = doc(db, collection, user.uid);
+        const docSnap = await getDoc(docRef);
 
-            // Si l'utilisateur n'existe pas, créer son profil
-            if (!docSnap.exists()) {
-                const userData = {
-                    uid: user.uid,
-                    email: user.email,
-                    userType: isInfluencer ? 'influencer' : 'brand',
-                    name: user.displayName || '',
-                    photoURL: user.photoURL || '',
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
+        // Si l'utilisateur n'existe pas, créer son profil
+        if (!docSnap.exists()) {
+            const userData = {
+                uid: user.uid,
+                email: user.email,
+                userType: isInfluencer ? 'influencer' : 'brand',
+                name: user.displayName || '',
+                photoURL: user.photoURL || '',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+
+            if (isInfluencer) {
+                userData.approved = false;
+                userData.socialMedia = {
+                    instagram: '',
+                    tiktok: '',
+                    youtube: ''
                 };
-
-                if (isInfluencer) {
-                    userData.approved = false;
-                    userData.socialMedia = {
-                        instagram: '',
-                        tiktok: '',
-                        youtube: ''
-                    };
-                } else {
-                    userData.brandName = '';
-                    userData.companyName = '';
-                }
-
-                await createProfile(collection, user.uid, userData);
-                sendPostSignupEmails(user, { verifyEmail: false });
-                trackEvent('sign_up', { method: 'google', user_type: isInfluencer ? 'influencer' : 'brand' });
+            } else {
+                userData.brandName = '';
+                userData.companyName = '';
             }
 
-            return user;
-        } catch (error) {
-            throw error;
+            await createProfile(collection, user.uid, userData);
+            sendPostSignupEmails(user, { verifyEmail: false });
+            trackEvent('sign_up', { method: 'google', user_type: isInfluencer ? 'influencer' : 'brand' });
         }
+
+        return user;
     };
 
     // Connexion avec Facebook
     const signInWithFacebook = async (isInfluencer = true) => {
-        try {
-            const provider = new FacebookAuthProvider();
-            const userCredential = await signInWithPopup(auth, provider);
-            const user = userCredential.user;
+        const provider = new FacebookAuthProvider();
+        const userCredential = await signInWithPopup(auth, provider);
+        const user = userCredential.user;
 
-            // Vérifier si l'utilisateur existe déjà
-            const collection = isInfluencer ? 'influencers' : 'brands';
-            const docRef = doc(db, collection, user.uid);
-            const docSnap = await getDoc(docRef);
+        // Vérifier si l'utilisateur existe déjà
+        const collection = isInfluencer ? 'influencers' : 'brands';
+        const docRef = doc(db, collection, user.uid);
+        const docSnap = await getDoc(docRef);
 
-            // Si l'utilisateur n'existe pas, créer son profil
-            if (!docSnap.exists()) {
-                const userData = {
-                    uid: user.uid,
-                    email: user.email,
-                    userType: isInfluencer ? 'influencer' : 'brand',
-                    name: user.displayName || '',
-                    photoURL: user.photoURL || '',
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
+        // Si l'utilisateur n'existe pas, créer son profil
+        if (!docSnap.exists()) {
+            const userData = {
+                uid: user.uid,
+                email: user.email,
+                userType: isInfluencer ? 'influencer' : 'brand',
+                name: user.displayName || '',
+                photoURL: user.photoURL || '',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+
+            if (isInfluencer) {
+                userData.approved = false;
+                userData.socialMedia = {
+                    instagram: '',
+                    tiktok: '',
+                    youtube: ''
                 };
-
-                if (isInfluencer) {
-                    userData.approved = false;
-                    userData.socialMedia = {
-                        instagram: '',
-                        tiktok: '',
-                        youtube: ''
-                    };
-                } else {
-                    userData.brandName = '';
-                    userData.companyName = '';
-                }
-
-                await createProfile(collection, user.uid, userData);
-                sendPostSignupEmails(user, { verifyEmail: false });
-                trackEvent('sign_up', { method: 'facebook', user_type: isInfluencer ? 'influencer' : 'brand' });
+            } else {
+                userData.brandName = '';
+                userData.companyName = '';
             }
 
-            return user;
-        } catch (error) {
-            throw error;
+            await createProfile(collection, user.uid, userData);
+            sendPostSignupEmails(user, { verifyEmail: false });
+            trackEvent('sign_up', { method: 'facebook', user_type: isInfluencer ? 'influencer' : 'brand' });
         }
+
+        return user;
     };
 
     // Déconnexion
     const logout = async () => {
-        try {
-            await signOut(auth);
-            setUserData(null);
-            setUserType(null);
-        } catch (error) {
-            throw error;
-        }
+        await signOut(auth);
+        setUserData(null);
+        setUserType(null);
     };
 
     // Récupérer les données utilisateur depuis Firestore

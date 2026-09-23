@@ -7,7 +7,7 @@ export const SITE_NAME = 'Collabzz'
 export const SITE_URL = 'https://www.collabzz.com'
 export const DEFAULT_TITLE = 'Collabzz : la plateforme pour collaborer avec des influenceurs'
 export const DEFAULT_DESCRIPTION = "Collabzz est la plateforme française de marketing d'influence : trouvez des influenceurs TikTok vérifiés, comparez leurs tarifs et lancez des collaborations rémunérées en toute sécurité."
-export const DEFAULT_IMAGE = `${SITE_URL}/favicon.png`
+export const DEFAULT_IMAGE = `${SITE_URL}/og-image.png`
 
 export const formatTitle = (title) => (title ? `${title} | ${SITE_NAME}` : DEFAULT_TITLE)
 

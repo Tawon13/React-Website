@@ -4,6 +4,7 @@ import { motion } from 'motion/react'
 import { AppContext } from '../context/AppContext'
 import { Reveal, Icon, ICONS } from './PageKit'
 import { useCanSeeStats } from '../hooks/useCanSeeStats'
+import SmartImage from './SmartImage'
 
 const compactFormat = new Intl.NumberFormat('fr-FR', { notation: 'compact', maximumFractionDigits: 1 })
 
@@ -49,7 +50,7 @@ const TopDoctors = () => {
                   onClick={() => window.scrollTo(0, 0)}
                   className='group relative block aspect-[3/4] rounded-3xl overflow-hidden bg-gray-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary'
                 >
-                  <img
+                  <SmartImage width={320}
                     src={item.image}
                     alt={item.tiktokUsername ? `@${item.tiktokUsername}` : 'Influenceur'}
                     className='w-full h-full object-cover transition-transform duration-500 group-hover:scale-105'

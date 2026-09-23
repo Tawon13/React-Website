@@ -8,6 +8,7 @@ import { assets } from '../assets/assets'
 import CreatorStrip from '../components/CreatorStrip'
 import { useCanSeeStats } from '../hooks/useCanSeeStats'
 import { Reveal, Icon, ICONS, StepsTimeline, FeeBreakdown, darkBtn, outlineBtn, goldBtn } from '../components/PageKit'
+import SmartImage from '../components/SmartImage'
 
 const compactFormat = new Intl.NumberFormat('fr-FR', { notation: 'compact', maximumFractionDigits: 1 })
 
@@ -70,7 +71,7 @@ const HeroCards = () => {
           animate={{ opacity: 1, rotate: layout[i].rotate, x: layout[i].x }}
           transition={{ duration: 0.7, delay: 0.2 + i * 0.1, ease: [0.22, 1, 0.36, 1] }}
         >
-          <img src={item.image} alt='' className='w-full h-full object-cover' />
+          <SmartImage width={220} src={item.image} alt='' className='w-full h-full object-cover' />
           <span className='absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-3 pb-3 pt-10 text-white'>
             <span className='block font-semibold text-sm truncate'>@{item.tiktokUsername}</span>
             {canSeeStats && item.followers?.tiktok > 0 && <span className='block text-xs text-white/80'>{compactFormat.format(item.followers.tiktok)} abonnés</span>}

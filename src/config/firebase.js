@@ -2,8 +2,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-import { getAnalytics, isSupported } from "firebase/analytics";
-import { getStorage } from "firebase/storage";
 
 const requiredEnvKeys = [
     'VITE_FIREBASE_API_KEY',
@@ -41,21 +39,29 @@ const app = initializeApp(firebaseConfig);
 // Initialize services
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const storage = getStorage(app);
 
 // Analytics n'est initialisé qu'après consentement cookies (RGPD) — voir components/CookieConsent.jsx
+// Le module Analytics lui-même n'est téléchargé qu'à ce moment-là (import dynamique) : un
+// visiteur qui refuse les cookies ne le charge jamais.
 export let analytics = null;
+let logEventFn = null;
 
 export const initAnalytics = async () => {
     if (analytics) return analytics;
     try {
+        const { getAnalytics, isSupported, logEvent } = await import('firebase/analytics');
         if (await isSupported()) {
             analytics = getAnalytics(app);
+            logEventFn = logEvent;
         }
     } catch (error) {
         console.error('Firebase Analytics init failed:', error);
     }
     return analytics;
+};
+
+export const logAnalyticsEvent = (eventName, params) => {
+    if (analytics && logEventFn) logEventFn(analytics, eventName, params);
 };
 
 // Cloud Run Functions URLs (Gen2)

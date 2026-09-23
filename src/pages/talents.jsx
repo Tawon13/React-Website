@@ -10,6 +10,7 @@ import SEO from '../components/SEO'
 import { PAGE_SEO, categorySeo } from '../constants/seo'
 import { INFLUENCER_CATEGORIES } from '../constants/categories'
 import { useCanSeeStats } from '../hooks/useCanSeeStats'
+import SmartImage from '../components/SmartImage'
 
 const compactFormat = new Intl.NumberFormat('fr-FR', { notation: 'compact', maximumFractionDigits: 1 })
 
@@ -334,7 +335,7 @@ const Talents = () => {
 										className={`group block rounded-3xl overflow-hidden bg-white border transition-shadow duration-300 hover:shadow-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary ${isRecommended ? 'border-primary ring-2 ring-primary/40' : 'border-gray-200'}`}
 									>
 										<div className='relative aspect-[4/5] overflow-hidden bg-gray-100'>
-											<img
+											<SmartImage width={320}
 												src={item.image}
 												alt={displayName}
 												loading='lazy'

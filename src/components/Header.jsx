@@ -5,6 +5,7 @@ import { AppContext } from '../context/AppContext'
 import { assets } from '../assets/assets'
 import { INFLUENCER_CATEGORIES } from '../constants/categories'
 import { Icon, ICONS } from './PageKit'
+import SmartImage from './SmartImage'
 
 const QUICK_FILTERS = [
   { label: 'Nouvelles stars TikTok', to: '/talents?sort=recent', icon: 'sparkles' },
@@ -32,7 +33,7 @@ const PhotoColumn = ({ items, y, offset = '' }) => (
           tabIndex={-1}
           className='group relative block aspect-[3/4] rounded-2xl overflow-hidden bg-white/10'
         >
-          <img src={item.image} alt='' className='w-full h-full object-cover transition-transform duration-500 group-hover:scale-105' />
+          <SmartImage width={220} loading='eager' src={item.image} alt='' className='w-full h-full object-cover transition-transform duration-500 group-hover:scale-105' />
           <span className='absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-3 pb-2.5 pt-8 text-white text-xs sm:text-sm font-semibold truncate'>
             @{item.tiktokUsername}
           </span>

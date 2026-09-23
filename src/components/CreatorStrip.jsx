@@ -4,6 +4,7 @@ import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react'
 import { AppContext } from '../context/AppContext'
 import { assets } from '../assets/assets'
 import { useCanSeeStats } from '../hooks/useCanSeeStats'
+import SmartImage from './SmartImage'
 
 const compactFormat = new Intl.NumberFormat('fr-FR', { notation: 'compact', maximumFractionDigits: 1 })
 
@@ -42,7 +43,7 @@ const CreatorStrip = ({ children, max = 10 }) => {
                   onClick={() => window.scrollTo(0, 0)}
                   className='group relative block w-40 sm:w-48 h-56 sm:h-64 rounded-2xl overflow-hidden bg-gray-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary'
                 >
-                  <img
+                  <SmartImage width={160}
                     src={item.image}
                     alt=''
                     loading='lazy'

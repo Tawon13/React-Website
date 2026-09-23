@@ -6,6 +6,7 @@ import {
 import { AppContext } from '../context/AppContext'
 import { assets } from '../assets/assets'
 import { useCanSeeStats, SIGNUP_FOR_STATS_PATH } from '../hooks/useCanSeeStats'
+import SmartImage from './SmartImage'
 
 const MAX_CARDS = 7
 const compactFormat = new Intl.NumberFormat('fr-FR', { notation: 'compact', maximumFractionDigits: 1 })
@@ -76,7 +77,7 @@ const FanCard = ({ item, index, count, open, split, isMobile, maxShift, hidden, 
       aria-label={`Voir les statistiques de ${displayName(item)}`}
       className={`${cardClass} cursor-pointer text-left focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary`}
     >
-      <img src={item.image} alt='' className='w-full h-full object-cover' draggable='false' />
+      <SmartImage width={260} src={item.image} alt='' className='w-full h-full object-cover' draggable='false' />
       {/* Nom en haut de la carte : c'est la partie qui reste visible quand l'éventail est ouvert. */}
       <span className='absolute inset-x-0 top-0 bg-gradient-to-b from-black/80 via-black/40 to-transparent px-3 pt-3 pb-10'>
         <span className='block text-white font-semibold text-sm sm:text-base truncate'>{displayName(item)}</span>

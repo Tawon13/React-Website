@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {assets} from '../assets/assets'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
@@ -115,7 +115,7 @@ const Navbar = () => {
                         onClick={() => navigate('/login?isSignUp=true')}
                         className='px-4 py-2 rounded-full bg-primary text-white hover:bg-primary/90 transition text-sm font-medium'
                     >
-                        S'inscrire
+                        S’inscrire
                     </button>
                 </div>
             )}

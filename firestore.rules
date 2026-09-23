@@ -198,6 +198,15 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
     }
     
+    // Favoris d'un compte (liste d'identifiants d'influenceurs) : titulaire uniquement.
+    match /favorites/{userId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) &&
+                               request.resource.data.keys().hasOnly(['ids', 'updatedAt']) &&
+                               request.resource.data.ids is list &&
+                               request.resource.data.ids.size() <= 500;
+    }
+
     // Règles pour les admins (si tu as une collection admin)
     match /admins/{adminId} {
       allow read, write: if isOwner(adminId);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { auth, db, MARK_PAYOUT_PAID_URL } from '../config/firebase'
 import SEO from '../components/SEO'
@@ -80,7 +80,6 @@ const Admin = () => {
         if (aPending !== bPending) return aPending - bPending
         return getCreatedAtMillis(b) - getCreatedAtMillis(a)
       })
-      console.log('Total users:', allUsers.length)
       setUsers(allUsers)
 
       // Charger les messages de contact
@@ -127,7 +126,6 @@ const Admin = () => {
         totalContacts: contactsData.length,
         pendingApproval: influencersData.filter(i => i.approved !== true).length
       }
-      console.log('Calculated stats:', calculatedStats)
       setStats(calculatedStats)
 
       setLoading(false)
@@ -236,8 +234,8 @@ const Admin = () => {
 
   if (loading) {
     return (
-      <div className='min-h-screen flex items-center justify-center'>
-        <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-primary'></div>
+      <div className='min-h-[70vh] flex items-center justify-center' role='status' aria-label='Chargement'>
+        <div className='animate-spin rounded-full h-10 w-10 border-2 border-gray-200 border-t-primary'></div>
       </div>
     )
   }
@@ -249,396 +247,284 @@ const Admin = () => {
   const influencers = users.filter((u) => u.userType === 'influenceur')
   const brands = users.filter((u) => u.userType === 'marque')
 
+  const statCards = [
+    { label: 'Utilisateurs', value: stats.totalUsers },
+    { label: 'Influenceurs', value: stats.totalInfluencers },
+    { label: 'Marques', value: stats.totalBrands },
+    { label: 'À valider', value: stats.pendingApproval, highlight: stats.pendingApproval > 0 },
+    { label: 'Messages', value: stats.totalContacts }
+  ]
+
+  const tabs = [
+    { id: 'influencers', label: 'Influenceurs', count: stats.totalInfluencers },
+    { id: 'brands', label: 'Marques', count: stats.totalBrands },
+    { id: 'contacts', label: 'Messages', count: stats.totalContacts },
+    { id: 'payouts', label: 'Paiements', count: pendingPayouts.length }
+  ]
+
+  const th = 'px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500'
+  const td = 'px-5 py-4 whitespace-nowrap text-sm'
+  const Empty = ({ children }) => <div className='text-center py-12 text-sm text-gray-500'>{children}</div>
+
   return (
-    <div className='min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8'>
+    <div className='min-h-screen bg-[#FAFAF8] py-10 px-4 sm:px-6 lg:px-8'>
       <SEO title='Admin' noindex />
       <div className='max-w-7xl mx-auto'>
-        {/* En-tête */}
-        <div className='bg-white rounded-lg shadow-md p-6 mb-6'>
-          <h1 className='text-3xl font-bold text-gray-900 mb-2'>Panel Admin</h1>
-          <p className='text-gray-600'>Bienvenue, {auth.currentUser?.email}</p>
+        <header className='mb-8'>
+          <p className='text-sm font-semibold uppercase tracking-wider text-primary-dark'>Administration</p>
+          <h1 className='mt-1 text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight'>Tableau de bord</h1>
+          <p className='mt-2 text-gray-600 text-sm'>Connecté en tant que {auth.currentUser?.email}</p>
+        </header>
+
+        <div className='grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-8'>
+          {statCards.map((card) => (
+            <div
+              key={card.label}
+              className={`rounded-2xl p-5 border ${card.highlight ? 'bg-gray-900 border-gray-900 text-white' : 'bg-white border-gray-100 text-gray-900'}`}
+            >
+              <p className={`text-sm ${card.highlight ? 'text-white/70' : 'text-gray-500'}`}>{card.label}</p>
+              <p className='mt-1 text-3xl font-bold tabular-nums'>{card.value}</p>
+            </div>
+          ))}
         </div>
 
-        {/* Statistiques */}
-        <div className='grid grid-cols-1 md:grid-cols-5 gap-4 mb-6'>
-          <div className='bg-white rounded-lg shadow-md p-6'>
-            <div className='flex items-center justify-between'>
-              <div>
-                <p className='text-gray-500 text-sm'>Total Utilisateurs</p>
-                <p className='text-3xl font-bold text-gray-900'>{stats.totalUsers}</p>
-              </div>
-              <div className='w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center'>
-                <svg className='w-6 h-6 text-blue-600' fill='currentColor' viewBox='0 0 20 20'>
-                  <path d='M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z'/>
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className='bg-white rounded-lg shadow-md p-6'>
-            <div className='flex items-center justify-between'>
-              <div>
-                <p className='text-gray-500 text-sm'>Influenceurs</p>
-                <p className='text-3xl font-bold text-primary'>{stats.totalInfluencers}</p>
-              </div>
-              <div className='w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center'>
-                <svg className='w-6 h-6 text-primary' fill='currentColor' viewBox='0 0 20 20'>
-                  <path fillRule='evenodd' d='M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z' clipRule='evenodd'/>
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className='bg-white rounded-lg shadow-md p-6'>
-            <div className='flex items-center justify-between'>
-              <div>
-                <p className='text-gray-500 text-sm'>Marques</p>
-                <p className='text-3xl font-bold text-green-600'>{stats.totalBrands}</p>
-              </div>
-              <div className='w-12 h-12 bg-green-100 rounded-full flex items-center justify-center'>
-                <svg className='w-6 h-6 text-green-600' fill='currentColor' viewBox='0 0 20 20'>
-                  <path d='M4 3a2 2 0 100 4h12a2 2 0 100-4H4z'/>
-                  <path fillRule='evenodd' d='M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z' clipRule='evenodd'/>
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className='bg-white rounded-lg shadow-md p-6'>
-            <div className='flex items-center justify-between'>
-              <div>
-                <p className='text-gray-500 text-sm'>En attente de validation</p>
-                <p className='text-3xl font-bold text-orange-600'>{stats.pendingApproval}</p>
-              </div>
-              <div className='w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center'>
-                <svg className='w-6 h-6 text-orange-600' fill='currentColor' viewBox='0 0 20 20'>
-                  <path fillRule='evenodd' d='M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z' clipRule='evenodd'/>
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className='bg-white rounded-lg shadow-md p-6'>
-            <div className='flex items-center justify-between'>
-              <div>
-                <p className='text-gray-500 text-sm'>Messages</p>
-                <p className='text-3xl font-bold text-purple-600'>{stats.totalContacts}</p>
-              </div>
-              <div className='w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center'>
-                <svg className='w-6 h-6 text-purple-600' fill='currentColor' viewBox='0 0 20 20'>
-                  <path d='M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z'/>
-                  <path d='M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z'/>
-                </svg>
-              </div>
-            </div>
-          </div>
+        <div role='tablist' aria-label='Sections' className='flex gap-2 overflow-x-auto pb-1 mb-6'>
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              role='tab'
+              aria-selected={activeTab === tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                activeTab === tab.id ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-700 hover:border-gray-900'
+              }`}
+            >
+              {tab.label} <span className={activeTab === tab.id ? 'text-white/60' : 'text-gray-400'}>{tab.count}</span>
+            </button>
+          ))}
         </div>
 
-        {/* Onglets */}
-        <div className='bg-white rounded-lg shadow-md mb-6'>
-          <div className='border-b border-gray-200'>
-            <nav className='flex -mb-px'>
-              <button
-                onClick={() => setActiveTab('influencers')}
-                className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                  activeTab === 'influencers'
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Influenceurs ({stats.totalInfluencers})
-              </button>
-              <button
-                onClick={() => setActiveTab('brands')}
-                className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                  activeTab === 'brands'
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Marques ({stats.totalBrands})
-              </button>
-              <button
-                onClick={() => setActiveTab('contacts')}
-                className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                  activeTab === 'contacts'
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Messages ({stats.totalContacts})
-              </button>
-              <button
-                onClick={() => setActiveTab('payouts')}
-                className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                  activeTab === 'payouts'
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Paiements ({pendingPayouts.length})
-              </button>
-            </nav>
-          </div>
-
-          {/* Contenu des onglets */}
-          <div className='p-6'>
-            {activeTab === 'influencers' && (
-              <div className='overflow-x-auto'>
-                <table className='min-w-full divide-y divide-gray-200'>
-                  <thead className='bg-gray-50'>
-                    <tr>
-                      <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Nom</th>
-                      <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Email</th>
-                      <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Réseaux</th>
-                      <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Validé</th>
-                      <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Type</th>
-                      <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className='bg-white divide-y divide-gray-200'>
-                    {influencers.map((user) => (
-                      <tr key={user.id}>
-                        <td className='px-6 py-4 whitespace-nowrap'>
-                          <div className='text-sm font-medium text-gray-900'>{user.name || 'N/A'}</div>
-                        </td>
-                        <td className='px-6 py-4 whitespace-nowrap'>
-                          <div className='text-sm text-gray-500'>{user.email}</div>
-                        </td>
-                        <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
-                          <div className='flex gap-2'>
-                            {user.socialAccounts?.youtube?.connected && (
-                              <span className='text-red-600' title='YouTube'>▶</span>
-                            )}
-                            {user.socialAccounts?.tiktok?.connected && (
-                              <span className='text-black' title='TikTok'>♪</span>
-                            )}
-                            {user.socialAccounts?.instagram?.connected && (
-                              <span className='text-pink-600' title='Instagram'>📷</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className='px-6 py-4 whitespace-nowrap'>
-                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                            user.approved === true
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-orange-100 text-orange-800'
-                          }`}>
-                            {user.approved === true ? 'Validé' : 'En attente'}
-                          </span>
-                        </td>
-                        <td className='px-6 py-4 whitespace-nowrap'>
-                          <select
-                            value={user.creatorType === 'ugc' ? 'ugc' : 'influenceur'}
-                            onChange={(e) => handleSetCreatorType(user.id, e.target.value)}
-                            className='text-sm border border-gray-200 rounded-lg px-2 py-1 text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/40'
+        <div className='bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden'>
+          {activeTab === 'influencers' && (
+            <div className='overflow-x-auto'>
+              <table className='min-w-full divide-y divide-gray-100'>
+                <thead className='bg-gray-50/80'>
+                  <tr>
+                    <th className={th}>Nom</th>
+                    <th className={th}>Email</th>
+                    <th className={th}>Réseaux</th>
+                    <th className={th}>Statut</th>
+                    <th className={th}>Type</th>
+                    <th className={th}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody className='divide-y divide-gray-100'>
+                  {influencers.map((user) => (
+                    <tr key={user.id} className='hover:bg-gray-50/60'>
+                      <td className={`${td} font-medium text-gray-900`}>{user.name || 'N/A'}</td>
+                      <td className={`${td} text-gray-500`}>{user.email}</td>
+                      <td className={`${td} text-gray-500`}>
+                        <div className='flex gap-1.5'>
+                          {user.socialAccounts?.tiktok?.connected && <span className='px-2 py-0.5 rounded-full bg-gray-100 text-xs text-gray-700'>TikTok</span>}
+                          {user.socialAccounts?.instagram?.connected && <span className='px-2 py-0.5 rounded-full bg-gray-100 text-xs text-gray-700'>Instagram</span>}
+                          {user.socialAccounts?.youtube?.connected && <span className='px-2 py-0.5 rounded-full bg-gray-100 text-xs text-gray-700'>YouTube</span>}
+                        </div>
+                      </td>
+                      <td className={td}>
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full ${
+                          user.approved === true ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${user.approved === true ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                          {user.approved === true ? 'Validé' : 'En attente'}
+                        </span>
+                      </td>
+                      <td className={td}>
+                        <select
+                          aria-label={`Type de créateur de ${user.name || 'cet influenceur'}`}
+                          value={user.creatorType === 'ugc' ? 'ugc' : 'influenceur'}
+                          onChange={(e) => handleSetCreatorType(user.id, e.target.value)}
+                          className='text-sm border border-gray-200 rounded-full px-3 py-1.5 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary/40'
+                        >
+                          <option value='influenceur'>Influenceur</option>
+                          <option value='ugc'>Créateur UGC</option>
+                        </select>
+                      </td>
+                      <td className={td}>
+                        <div className='flex items-center gap-2'>
+                          <a
+                            href={`/influencer/${user.id}`}
+                            target='_blank'
+                            rel='noopener noreferrer'
+                            className='px-3 py-1.5 rounded-full text-gray-700 hover:bg-gray-100 transition-colors'
                           >
-                            <option value='influenceur'>Influenceur</option>
-                            <option value='ugc'>Créateur UGC</option>
-                          </select>
-                        </td>
-                        <td className='px-6 py-4 whitespace-nowrap text-sm'>
-                          <div className='flex items-center gap-3'>
-                            <a
-                              href={`/influencer/${user.id}`}
-                              target='_blank'
-                              rel='noopener noreferrer'
-                              className='text-blue-600 hover:text-blue-800'
-                            >
-                              Voir le profil
-                            </a>
-                            <button
-                              onClick={() => handleApproveInfluencer(user.id, user.approved !== true)}
-                              disabled={approvingId === user.id}
-                              className={`disabled:opacity-50 ${
-                                user.approved === true
-                                  ? 'text-gray-600 hover:text-gray-900'
-                                  : 'text-primary hover:text-primary/80 font-medium'
-                              }`}
-                            >
-                              {approvingId === user.id
-                                ? '...'
-                                : user.approved === true ? 'Retirer' : 'Approuver'}
-                            </button>
-                            <button
-                              onClick={() => deleteUser(user.id, user.userType)}
-                              className='text-red-600 hover:text-red-900'
-                            >
-                              Supprimer
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {influencers.length === 0 && (
-                  <div className='text-center py-8 text-gray-500'>Aucun influenceur</div>
-                )}
-              </div>
-            )}
-
-            {activeTab === 'brands' && (
-              <div className='overflow-x-auto'>
-                <table className='min-w-full divide-y divide-gray-200'>
-                  <thead className='bg-gray-50'>
-                    <tr>
-                      <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Marque</th>
-                      <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>SIRET</th>
-                      <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Contact</th>
-                      <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Email</th>
-                      <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className='bg-white divide-y divide-gray-200'>
-                    {brands.map((user) => (
-                      <tr key={user.id}>
-                        <td className='px-6 py-4 whitespace-nowrap'>
-                          <div className='text-sm font-medium text-gray-900'>{user.brandName || 'N/A'}</div>
-                        </td>
-                        <td className='px-6 py-4 whitespace-nowrap'>
-                          <div className='text-sm text-gray-500 font-mono'>{user.siret || '—'}</div>
-                        </td>
-                        <td className='px-6 py-4 whitespace-nowrap'>
-                          <div className='text-sm text-gray-500'>{user.contactPerson || user.fullName || '—'}</div>
-                        </td>
-                        <td className='px-6 py-4 whitespace-nowrap'>
-                          <div className='text-sm text-gray-500'>{user.email}</div>
-                        </td>
-                        <td className='px-6 py-4 whitespace-nowrap text-sm'>
+                            Voir
+                          </a>
+                          <button
+                            onClick={() => handleApproveInfluencer(user.id, user.approved !== true)}
+                            disabled={approvingId === user.id}
+                            className={`px-3 py-1.5 rounded-full font-medium transition-colors disabled:opacity-50 ${
+                              user.approved === true ? 'text-gray-700 hover:bg-gray-100' : 'bg-gray-900 text-white hover:bg-gray-800'
+                            }`}
+                          >
+                            {approvingId === user.id
+                              ? '...'
+                              : user.approved === true ? 'Retirer' : 'Approuver'}
+                          </button>
                           <button
                             onClick={() => deleteUser(user.id, user.userType)}
-                            className='text-red-600 hover:text-red-900'
+                            className='px-3 py-1.5 rounded-full text-red-600 hover:bg-red-50 transition-colors'
                           >
                             Supprimer
                           </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {brands.length === 0 && (
-                  <div className='text-center py-8 text-gray-500'>Aucune marque</div>
-                )}
-              </div>
-            )}
-
-            {activeTab === 'contacts' && (
-              <div className='space-y-4'>
-                {contacts.map((contact) => (
-                  <div key={contact.id} className='border border-gray-200 rounded-lg p-4 hover:bg-gray-50'>
-                    <div className='flex justify-between items-start mb-2'>
-                      <div className='flex-1'>
-                        <div className='flex items-center gap-2 mb-2'>
-                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                            contact.userType === 'marque' 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-primary/10 text-primary'
-                          }`}>
-                            {contact.userType}
-                          </span>
-                          <span className='text-sm text-gray-500'>
-                            {contact.timestamp?.toDate?.()?.toLocaleDateString('fr-FR') || 'Date inconnue'}
-                          </span>
                         </div>
-                        <h3 className='font-semibold text-gray-900'>{contact.subject}</h3>
-                        <p className='text-sm text-gray-600 mt-1'>
-                          De: {contact.name} ({contact.email})
-                        </p>
-                        <p className='text-sm text-gray-700 mt-2'>{contact.message}</p>
-                      </div>
-                      <button
-                        onClick={() => deleteContact(contact.id)}
-                        className='text-red-600 hover:text-red-900 ml-4'
-                      >
-                        <svg className='w-5 h-5' fill='currentColor' viewBox='0 0 20 20'>
-                          <path fillRule='evenodd' d='M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z' clipRule='evenodd'/>
-                        </svg>
-                      </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {influencers.length === 0 && <Empty>Aucun influenceur</Empty>}
+            </div>
+          )}
+
+          {activeTab === 'brands' && (
+            <div className='overflow-x-auto'>
+              <table className='min-w-full divide-y divide-gray-100'>
+                <thead className='bg-gray-50/80'>
+                  <tr>
+                    <th className={th}>Marque</th>
+                    <th className={th}>SIRET</th>
+                    <th className={th}>Contact</th>
+                    <th className={th}>Email</th>
+                    <th className={th}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody className='divide-y divide-gray-100'>
+                  {brands.map((user) => (
+                    <tr key={user.id} className='hover:bg-gray-50/60'>
+                      <td className={`${td} font-medium text-gray-900`}>{user.brandName || 'N/A'}</td>
+                      <td className={`${td} text-gray-500 font-mono`}>{user.siret || '—'}</td>
+                      <td className={`${td} text-gray-500`}>{user.contactPerson || user.fullName || '—'}</td>
+                      <td className={`${td} text-gray-500`}>{user.email}</td>
+                      <td className={td}>
+                        <button
+                          onClick={() => deleteUser(user.id, user.userType)}
+                          className='px-3 py-1.5 rounded-full text-red-600 hover:bg-red-50 transition-colors'
+                        >
+                          Supprimer
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {brands.length === 0 && <Empty>Aucune marque</Empty>}
+            </div>
+          )}
+
+          {activeTab === 'contacts' && (
+            <div className='divide-y divide-gray-100'>
+              {contacts.map((contact) => (
+                <article key={contact.id} className='p-5 sm:p-6 flex justify-between items-start gap-4 hover:bg-gray-50/60'>
+                  <div className='min-w-0 flex-1'>
+                    <div className='flex flex-wrap items-center gap-2 mb-2'>
+                      <span className='px-2.5 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700 capitalize'>
+                        {contact.userType}
+                      </span>
+                      <span className='text-xs text-gray-500'>
+                        {contact.timestamp?.toDate?.()?.toLocaleDateString('fr-FR') || 'Date inconnue'}
+                      </span>
                     </div>
+                    <h3 className='font-semibold text-gray-900'>{contact.subject}</h3>
+                    <p className='text-sm text-gray-500 mt-0.5'>
+                      {contact.name} · <a href={`mailto:${contact.email}`} className='underline decoration-primary underline-offset-2'>{contact.email}</a>
+                    </p>
+                    <p className='text-sm text-gray-700 mt-3 whitespace-pre-line'>{contact.message}</p>
                   </div>
-                ))}
-                {contacts.length === 0 && (
-                  <div className='text-center py-8 text-gray-500'>Aucun message</div>
-                )}
-              </div>
-            )}
+                  <button
+                    onClick={() => deleteContact(contact.id)}
+                    aria-label='Supprimer ce message'
+                    className='p-2 rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors flex-shrink-0'
+                  >
+                    <svg className='w-5 h-5' fill='currentColor' viewBox='0 0 20 20' aria-hidden='true'>
+                      <path fillRule='evenodd' d='M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z' clipRule='evenodd'/>
+                    </svg>
+                  </button>
+                </article>
+              ))}
+              {contacts.length === 0 && <Empty>Aucun message</Empty>}
+            </div>
+          )}
 
-            {activeTab === 'payouts' && (
-              <div className='space-y-8'>
-                <div>
-                  <h3 className='text-lg font-semibold text-gray-900 mb-4'>À virer ({pendingPayouts.length})</h3>
-                  <div className='space-y-4'>
-                    {pendingPayouts.map((collab) => (
-                      <div key={collab.id} className='border border-orange-200 bg-orange-50 rounded-lg p-4'>
-                        <div className='flex justify-between items-start gap-4'>
-                          <div className='flex-1'>
-                            <h4 className='font-semibold text-gray-900'>{collab.influencerName || 'Influenceur'}</h4>
-                            <p className='text-sm text-gray-600'>Marque: {collab.brandName || 'N/A'} — {collab.description || 'Collaboration'}</p>
-                            <p className='text-sm text-gray-700 mt-2'>
-                              Payé par la marque (frais inclus): {collab.amount?.toLocaleString('fr-FR') || '0'} € — À virer à l'influenceur: <span className='font-bold text-orange-700'>{collab.influencerPayoutAmount?.toLocaleString('fr-FR') || '0'} €</span>
-                            </p>
-                            {collab.bankDetails ? (
-                              <div className='text-sm text-gray-700 mt-2 bg-white rounded-md p-3 border border-gray-200'>
-                                <p><span className='font-medium'>Titulaire:</span> {collab.bankDetails.accountHolderName}</p>
-                                <p className='font-mono'><span className='font-medium font-sans'>IBAN:</span> {collab.bankDetails.iban}</p>
-                                {collab.bankDetails.bic && (
-                                  <p className='font-mono'><span className='font-medium font-sans'>BIC:</span> {collab.bankDetails.bic}</p>
-                                )}
-                              </div>
-                            ) : (
-                              <p className='text-sm text-red-600 font-medium mt-2'>RIB manquant — l'influenceur doit le renseigner dans son profil</p>
-                            )}
-                          </div>
-                          <button
-                            onClick={() => handleMarkPaid(collab.id)}
-                            disabled={!collab.bankDetails || markingPaidId === collab.id}
-                            className='px-4 py-2 text-sm font-semibold rounded-md bg-primary text-white hover:bg-primary/90 disabled:opacity-50 whitespace-nowrap'
-                          >
-                            {markingPaidId === collab.id ? 'Validation...' : 'Marquer comme viré'}
-                          </button>
+          {activeTab === 'payouts' && (
+            <div className='p-5 sm:p-6 space-y-10'>
+              <section>
+                <h2 className='text-lg font-semibold text-gray-900 mb-4'>À virer ({pendingPayouts.length})</h2>
+                <div className='space-y-4'>
+                  {pendingPayouts.map((collab) => (
+                    <div key={collab.id} className='rounded-2xl border border-amber-200 bg-amber-50/60 p-5'>
+                      <div className='flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4'>
+                        <div className='min-w-0 flex-1'>
+                          <h3 className='font-semibold text-gray-900'>{collab.influencerName || 'Influenceur'}</h3>
+                          <p className='text-sm text-gray-600'>Marque : {collab.brandName || 'N/A'} — {collab.description || 'Collaboration'}</p>
+                          <p className='text-sm text-gray-700 mt-2'>
+                            Payé par la marque (frais inclus) : {collab.amount?.toLocaleString('fr-FR') || '0'} € — À virer à l’influenceur : <span className='font-bold text-gray-900'>{collab.influencerPayoutAmount?.toLocaleString('fr-FR') || '0'} €</span>
+                          </p>
+                          {collab.bankDetails ? (
+                            <div className='text-sm text-gray-700 mt-3 bg-white rounded-xl p-3 border border-gray-200 space-y-0.5'>
+                              <p><span className='font-medium'>Titulaire :</span> {collab.bankDetails.accountHolderName}</p>
+                              <p className='font-mono'><span className='font-medium font-sans'>IBAN :</span> {collab.bankDetails.iban}</p>
+                              {collab.bankDetails.bic && (
+                                <p className='font-mono'><span className='font-medium font-sans'>BIC :</span> {collab.bankDetails.bic}</p>
+                              )}
+                            </div>
+                          ) : (
+                            <p className='text-sm text-red-600 font-medium mt-2'>RIB manquant — l’influenceur doit le renseigner dans son profil</p>
+                          )}
                         </div>
+                        <button
+                          onClick={() => handleMarkPaid(collab.id)}
+                          disabled={!collab.bankDetails || markingPaidId === collab.id}
+                          className='px-5 py-2.5 text-sm font-semibold rounded-full bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50 whitespace-nowrap transition-colors'
+                        >
+                          {markingPaidId === collab.id ? 'Validation...' : 'Marquer comme viré'}
+                        </button>
                       </div>
-                    ))}
-                    {pendingPayouts.length === 0 && (
-                      <div className='text-center py-8 text-gray-500'>Aucun virement en attente</div>
-                    )}
-                  </div>
+                    </div>
+                  ))}
+                  {pendingPayouts.length === 0 && <Empty>Aucun virement en attente</Empty>}
                 </div>
+              </section>
 
-                <div>
-                  <h3 className='text-lg font-semibold text-gray-900 mb-4'>Historique des virements</h3>
-                  <div className='overflow-x-auto'>
-                    <table className='min-w-full divide-y divide-gray-200'>
-                      <thead className='bg-gray-50'>
-                        <tr>
-                          <th className='px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase'>Influenceur</th>
-                          <th className='px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase'>Marque</th>
-                          <th className='px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase'>Montant versé</th>
-                          <th className='px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase'>Date</th>
+              <section>
+                <h2 className='text-lg font-semibold text-gray-900 mb-4'>Historique des virements</h2>
+                <div className='overflow-x-auto rounded-2xl border border-gray-100'>
+                  <table className='min-w-full divide-y divide-gray-100'>
+                    <thead className='bg-gray-50/80'>
+                      <tr>
+                        <th className={th}>Influenceur</th>
+                        <th className={th}>Marque</th>
+                        <th className={th}>Montant versé</th>
+                        <th className={th}>Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className='divide-y divide-gray-100'>
+                      {paidPayouts.map((collab) => (
+                        <tr key={collab.id}>
+                          <td className={`${td} text-gray-900`}>{collab.influencerName || 'N/A'}</td>
+                          <td className={`${td} text-gray-500`}>{collab.brandName || 'N/A'}</td>
+                          <td className={`${td} text-gray-900 tabular-nums`}>{collab.influencerPayoutAmount?.toLocaleString('fr-FR') || '0'} €</td>
+                          <td className={`${td} text-gray-500`}>
+                            {collab.paidOutAt?.toDate?.()?.toLocaleDateString('fr-FR') || 'N/A'}
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className='bg-white divide-y divide-gray-200'>
-                        {paidPayouts.map((collab) => (
-                          <tr key={collab.id}>
-                            <td className='px-4 py-2 text-sm text-gray-900'>{collab.influencerName || 'N/A'}</td>
-                            <td className='px-4 py-2 text-sm text-gray-500'>{collab.brandName || 'N/A'}</td>
-                            <td className='px-4 py-2 text-sm text-gray-900'>{collab.influencerPayoutAmount?.toLocaleString('fr-FR') || '0'} €</td>
-                            <td className='px-4 py-2 text-sm text-gray-500'>
-                              {collab.paidOutAt?.toDate?.()?.toLocaleDateString('fr-FR') || 'N/A'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    {paidPayouts.length === 0 && (
-                      <div className='text-center py-8 text-gray-500'>Aucun virement effectué</div>
-                    )}
-                  </div>
+                      ))}
+                    </tbody>
+                  </table>
+                  {paidPayouts.length === 0 && <Empty>Aucun virement effectué</Empty>}
                 </div>
-              </div>
-            )}
-          </div>
+              </section>
+            </div>
+          )}
         </div>
       </div>
     </div>

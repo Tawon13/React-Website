@@ -1,4 +1,3 @@
-import React from 'react';
 import { FaHeart, FaComment, FaInstagram } from 'react-icons/fa';
 
 const RecentInstagramPosts = ({ recentMedia }) => {

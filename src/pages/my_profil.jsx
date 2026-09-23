@@ -1,23 +1,20 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { doc, updateDoc, setDoc, getDoc, collection, query, where, getDocs, orderBy, serverTimestamp } from 'firebase/firestore'
+import { doc, updateDoc, setDoc, getDoc, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore'
 import { privateProfileRef } from '../utils/privateProfile'
 import {
     db,
     TIKTOK_CONNECT_URL,
     TIKTOK_CALLBACK_URL,
-    storage,
     STRIPE_APPROVE_COLLAB_URL,
     STRIPE_CREATE_CHECKOUT_URL,
     RESPOND_TO_COLLABORATION_REQUEST_URL,
     DISPUTE_COLLABORATION_URL
 } from '../config/firebase'
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import PhotoUpload from '../components/PhotoUpload'
 import PortfolioGallery from '../components/PortfolioGallery'
 import SEO from '../components/SEO'
-import { compressImage } from '../utils/imageCompression'
 import { useToast } from '../context/ToastContext'
 import { warmUpFunction } from '../utils/warmup'
 import { AnimatePresence, motion, MotionConfig } from 'motion/react'
@@ -582,7 +579,6 @@ const MyProfile = () => {
     const [pricing, setPricing] = useState({
         tiktok_video: 800
     })
-    const [uploading, setUploading] = useState(false)
     const [approvingCollabId, setApprovingCollabId] = useState('')
     const [respondingCollabId, setRespondingCollabId] = useState('')
     const [disputingCollabId, setDisputingCollabId] = useState('')
@@ -1008,80 +1004,6 @@ const MyProfile = () => {
 
         if (Number.isNaN(dateValue.getTime())) return 'Jamais'
         return dateValue.toLocaleDateString('fr-FR')
-    }
-
-    // Fonction pour ajouter des photos
-    const handleAddPhoto = async (e) => {
-        const file = e.target.files[0]
-        if (!file) return
-
-        if (!file.type.startsWith('image/')) {
-            setMessage({ type: 'error', text: 'Veuillez sélectionner une image' })
-            return
-        }
-
-        setUploading(true)
-        try {
-            // Redimensionner/compresser avant l'upload pour un affichage quasi instantané.
-            const compressedFile = await compressImage(file)
-
-            // Upload vers Firebase Storage
-            const timestamp = Date.now()
-            const storageRef = ref(storage, `influencers/${currentUser.uid}/photos/${timestamp}.jpg`)
-            const snapshot = await uploadBytes(storageRef, compressedFile)
-            const downloadURL = await getDownloadURL(snapshot.ref)
-            
-            const newPhoto = {
-                id: timestamp,
-                url: downloadURL,
-                path: snapshot.ref.fullPath,
-                addedAt: new Date().toISOString()
-            }
-            
-            const updatedPhotos = [...profilePhotos, newPhoto]
-            setProfilePhotos(updatedPhotos)
-            
-            await updateDoc(doc(db, 'influencers', currentUser.uid), {
-                profilePhotos: updatedPhotos
-            })
-            
-            setMessage({ type: 'success', text: 'Photo ajoutée avec succès' })
-        } catch (error) {
-            console.error('Error adding photo:', error)
-            setMessage({ type: 'error', text: 'Erreur lors de l\'ajout de la photo' })
-        } finally {
-            setUploading(false)
-        }
-    }
-
-    // Fonction pour supprimer une photo
-    const handleDeletePhoto = async (photoId) => {
-        if (!confirm('Êtes-vous sûr de vouloir supprimer cette photo ?')) return
-
-        try {
-            const photo = profilePhotos.find(p => p.id === photoId)
-            
-            // Supprimer de Firebase Storage (un fichier déjà absent ne bloque pas le retrait de la liste)
-            if (photo?.path) {
-                try {
-                    await deleteObject(ref(storage, photo.path))
-                } catch (storageError) {
-                    if (storageError?.code !== 'storage/object-not-found') throw storageError
-                }
-            }
-            
-            const updatedPhotos = profilePhotos.filter(p => p.id !== photoId)
-            setProfilePhotos(updatedPhotos)
-            
-            await updateDoc(doc(db, 'influencers', currentUser.uid), {
-                profilePhotos: updatedPhotos
-            })
-            
-            setMessage({ type: 'success', text: 'Photo supprimée' })
-        } catch (error) {
-            console.error('Error deleting photo:', error)
-            setMessage({ type: 'error', text: 'Erreur lors de la suppression' })
-        }
     }
 
     // Fonction pour ajouter une vidéo de collaboration

@@ -1,39 +1,49 @@
-import React from 'react'
+import { lazy, Suspense } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import Home from './pages/Home'
-import Talents from './pages/talents'
-import Login from './pages/Login'
-import ForgotPassword from './pages/ForgotPassword'
-import ResetPassword from './pages/ResetPassword'
-import About from './pages/about'
-import Contact from './pages/contact'
-import MyProfile from './pages/my_profil'
-import MyAppointment from './pages/my_appointment'
-import Appointments from './pages/Appointments'
-import InfluencerProfile from './pages/InfluencerProfile'
-import Terms from './pages/Terms'
-import Privacy from './pages/Privacy'
-import MentionsLegales from './pages/MentionsLegales'
-import Admin from './pages/Admin'
-import Messages from './pages/Messages'
-import Cart from './pages/Cart'
-import Favorites from './pages/Favorites'
-import ForCreators from './pages/ForCreators'
-import ForBrands from './pages/ForBrands'
-import BrandOnboarding from './pages/BrandOnboarding'
-import BrandRecommendation from './pages/BrandRecommendation'
-import InfluencerOnboarding from './pages/InfluencerOnboarding'
-import NotFound from './pages/NotFound'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import CookieConsent from './components/CookieConsent'
 import ScrollToTop from './components/ScrollToTop'
+
+// Pages chargées à la demande : un visiteur de l'accueil ne télécharge ni l'admin, ni la
+// messagerie, ni les formulaires d'inscription. L'accueil reste dans le bundle initial.
+const Talents = lazy(() => import('./pages/talents'))
+const Login = lazy(() => import('./pages/Login'))
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
+const ResetPassword = lazy(() => import('./pages/ResetPassword'))
+const About = lazy(() => import('./pages/about'))
+const Contact = lazy(() => import('./pages/contact'))
+const MyProfile = lazy(() => import('./pages/my_profil'))
+const MyAppointment = lazy(() => import('./pages/my_appointment'))
+const Appointments = lazy(() => import('./pages/Appointments'))
+const InfluencerProfile = lazy(() => import('./pages/InfluencerProfile'))
+const Terms = lazy(() => import('./pages/Terms'))
+const Privacy = lazy(() => import('./pages/Privacy'))
+const MentionsLegales = lazy(() => import('./pages/MentionsLegales'))
+const Admin = lazy(() => import('./pages/Admin'))
+const Messages = lazy(() => import('./pages/Messages'))
+const Cart = lazy(() => import('./pages/Cart'))
+const Favorites = lazy(() => import('./pages/Favorites'))
+const ForCreators = lazy(() => import('./pages/ForCreators'))
+const ForBrands = lazy(() => import('./pages/ForBrands'))
+const BrandOnboarding = lazy(() => import('./pages/BrandOnboarding'))
+const BrandRecommendation = lazy(() => import('./pages/BrandRecommendation'))
+const InfluencerOnboarding = lazy(() => import('./pages/InfluencerOnboarding'))
+const NotFound = lazy(() => import('./pages/NotFound'))
+
+const PageLoader = () => (
+  <div className='flex justify-center py-32' role='status' aria-label='Chargement de la page'>
+    <div className='w-10 h-10 rounded-full border-2 border-gray-200 border-t-gray-900 animate-spin' />
+  </div>
+)
 
 const App = () => {
   return (
     <div>
       <ScrollToTop />
       <CookieConsent />
+      <Suspense fallback={<PageLoader />}>
       <Routes>
         {/* Routes without Header/Footer */}
         <Route path='/login' element={<Login />} />
@@ -48,6 +58,7 @@ const App = () => {
         <Route path='*' element={
           <div className='mx-4 sm:mx-[10%]'>
             <Navbar />
+            <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path='/' element={<Home />} />
               <Route path='/talents' element={<Talents />} />
@@ -70,10 +81,12 @@ const App = () => {
               <Route path='/favoris' element={<Favorites />} />
               <Route path='*' element={<NotFound />} />
             </Routes>
+            </Suspense>
             <Footer/>
           </div>
         } />
       </Routes>
+      </Suspense>
     </div>
   )
 }

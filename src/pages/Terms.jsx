@@ -1,40 +1,36 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import SEO from '../components/SEO';
+import LegalLayout from '../components/LegalLayout';
 import { PAGE_SEO } from '../constants/seo'
 
-const Terms = () => {
-  const navigate = useNavigate();
+const SECTIONS = [
+    { id: 'section-1', title: "1. Acceptation des conditions" },
+    { id: 'section-2', title: "2. Description du service" },
+    { id: 'section-3', title: "3. Compte utilisateur" },
+    { id: 'section-4', title: "4. Connexion aux réseaux sociaux" },
+    { id: 'section-5', title: "5. Propriété intellectuelle" },
+    { id: 'section-6', title: "6. Limitation de responsabilité" },
+    { id: 'section-7', title: "7. Modifications des conditions" },
+    { id: 'section-8', title: "8. Contact" },
+];
 
+const Terms = () => {
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <>
       <SEO {...PAGE_SEO.terms} />
-      <div className="max-w-4xl mx-auto bg-white shadow-md rounded-lg p-8">
-        <button
-          onClick={() => navigate(-1)}
-          className="mb-6 text-blue-600 hover:text-blue-800 flex items-center gap-2"
-        >
-          ← Retour
-        </button>
-        
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">
-          Conditions d'utilisation
-        </h1>
-        
-        <div className="prose prose-lg max-w-none text-gray-700 space-y-6">
-          <section>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-3">
+      <LegalLayout title="Conditions d'utilisation" updated="7 novembre 2025" current="/terms" sections={SECTIONS}>
+          <section id="section-1">
+            <h2>
               1. Acceptation des conditions
             </h2>
             <p>
-              En accédant et en utilisant Collabzz, vous acceptez d'être lié par ces
-              conditions d'utilisation. Si vous n'acceptez pas ces conditions, veuillez
+              En accédant et en utilisant Collabzz, vous acceptez d’être lié par ces
+              conditions d’utilisation. Si vous n’acceptez pas ces conditions, veuillez
               ne pas utiliser notre plateforme.
             </p>
           </section>
 
-          <section>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-3">
+          <section id="section-2">
+            <h2>
               2. Description du service
             </h2>
             <p>
@@ -44,8 +40,8 @@ const Terms = () => {
             </p>
           </section>
 
-          <section>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-3">
+          <section id="section-3">
+            <h2>
               3. Compte utilisateur
             </h2>
             <p>
@@ -55,8 +51,8 @@ const Terms = () => {
             </p>
           </section>
 
-          <section>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-3">
+          <section id="section-4">
+            <h2>
               4. Connexion aux réseaux sociaux
             </h2>
             <p>
@@ -67,30 +63,30 @@ const Terms = () => {
             </p>
           </section>
 
-          <section>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-3">
+          <section id="section-5">
+            <h2>
               5. Propriété intellectuelle
             </h2>
             <p>
               Tout le contenu présent sur Collabzz, incluant mais non limité au texte,
               graphiques, logos, et code, est la propriété de Collabzz et est protégé
-              par les lois sur le droit d'auteur.
+              par les lois sur le droit d’auteur.
             </p>
           </section>
 
-          <section>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-3">
+          <section id="section-6">
+            <h2>
               6. Limitation de responsabilité
             </h2>
             <p>
               Collabzz ne peut être tenu responsable des dommages directs, indirects,
-              accessoires ou consécutifs résultant de l'utilisation ou de l'impossibilité
-              d'utiliser notre service.
+              accessoires ou consécutifs résultant de l’utilisation ou de l’impossibilité
+              d’utiliser notre service.
             </p>
           </section>
 
-          <section>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-3">
+          <section id="section-7">
+            <h2>
               7. Modifications des conditions
             </h2>
             <p>
@@ -100,22 +96,17 @@ const Terms = () => {
             </p>
           </section>
 
-          <section>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-3">
+          <section id="section-8">
+            <h2>
               8. Contact
             </h2>
             <p>
-              Pour toute question concernant ces conditions d'utilisation, veuillez nous
-              contacter à : contact@collabzz.com
+              Pour toute question concernant ces conditions d’utilisation, veuillez nous
+              contacter à : <a href="mailto:contact@collabzz.com">contact@collabzz.com</a>
             </p>
           </section>
-
-          <p className="text-sm text-gray-500 mt-8">
-            Dernière mise à jour : 7 novembre 2025
-          </p>
-        </div>
-      </div>
-    </div>
+      </LegalLayout>
+    </>
   );
 };
 

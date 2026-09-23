@@ -5,7 +5,7 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 
 export default [
-  { ignores: ['dist'] },
+  { ignores: ['dist', 'functions', '.playwright-mcp', '.private-backup'] },
   {
     files: ['**/*.{js,jsx}'],
     languageOptions: {
@@ -29,10 +29,17 @@ export default [
       ...react.configs['jsx-runtime'].rules,
       ...reactHooks.configs.recommended.rules,
       'react/jsx-no-target-blank': 'off',
+      // Le projet n'utilise pas PropTypes (pas de TypeScript non plus) : la règle signalait
+      // chaque prop de chaque composant sans rien apporter.
+      'react/prop-types': 'off',
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },
       ],
     },
+  },  // Scripts de build et de maintenance exécutés par Node.
+  {
+    files: ['scripts/**/*.{js,mjs}', '*.config.js'],
+    languageOptions: { globals: globals.node },
   },
 ]

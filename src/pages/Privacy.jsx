@@ -1,29 +1,27 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import SEO from '../components/SEO';
+import LegalLayout from '../components/LegalLayout';
 import { PAGE_SEO } from '../constants/seo'
 
-const Privacy = () => {
-  const navigate = useNavigate();
+const SECTIONS = [
+    { id: 'section-1', title: "1. Introduction" },
+    { id: 'section-2', title: "2. Informations que nous collectons" },
+    { id: 'section-3', title: "3. Comment nous utilisons vos informations" },
+    { id: 'section-4', title: "4. Connexion aux réseaux sociaux" },
+    { id: 'section-5', title: "5. Partage de vos informations" },
+    { id: 'section-6', title: "6. Sécurité des données" },
+    { id: 'section-7', title: "7. Vos droits" },
+    { id: 'section-8', title: "8. Cookies" },
+    { id: 'section-9', title: "9. Modifications de cette politique" },
+    { id: 'section-10', title: "10. Contact" },
+];
 
+const Privacy = () => {
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <>
       <SEO {...PAGE_SEO.privacy} />
-      <div className="max-w-4xl mx-auto bg-white shadow-md rounded-lg p-8">
-        <button
-          onClick={() => navigate(-1)}
-          className="mb-6 text-blue-600 hover:text-blue-800 flex items-center gap-2"
-        >
-          ← Retour
-        </button>
-        
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">
-          Politique de confidentialité
-        </h1>
-        
-        <div className="prose prose-lg max-w-none text-gray-700 space-y-6">
-          <section>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-3">
+      <LegalLayout title="Politique de confidentialité" updated="7 novembre 2025" current="/privacy" sections={SECTIONS}>
+          <section id="section-1">
+            <h2>
               1. Introduction
             </h2>
             <p>
@@ -33,30 +31,30 @@ const Privacy = () => {
             </p>
           </section>
 
-          <section>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-3">
+          <section id="section-2">
+            <h2>
               2. Informations que nous collectons
             </h2>
             <p>
               Nous collectons les informations suivantes :
             </p>
-            <ul className="list-disc pl-6 space-y-2">
+            <ul>
               <li>Informations de compte (nom, email, mot de passe)</li>
               <li>Informations de profil (photo, bio, catégorie)</li>
               <li>Statistiques des réseaux sociaux (abonnés, vues, engagement)</li>
-              <li>Données d'utilisation de la plateforme</li>
+              <li>Données d’utilisation de la plateforme</li>
               <li>Informations de connexion (adresse IP, type de navigateur)</li>
             </ul>
           </section>
 
-          <section>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-3">
+          <section id="section-3">
+            <h2>
               3. Comment nous utilisons vos informations
             </h2>
             <p>
               Nous utilisons vos informations pour :
             </p>
-            <ul className="list-disc pl-6 space-y-2">
+            <ul>
               <li>Créer et gérer votre compte</li>
               <li>Faciliter les connexions entre marques et influenceurs</li>
               <li>Afficher vos statistiques publiques de réseaux sociaux</li>
@@ -66,17 +64,17 @@ const Privacy = () => {
             </ul>
           </section>
 
-          <section>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-3">
+          <section id="section-4">
+            <h2>
               4. Connexion aux réseaux sociaux
             </h2>
             <p>
               Lorsque vous connectez vos comptes de réseaux sociaux (YouTube, TikTok,
               Instagram), nous accédons uniquement aux informations suivantes :
             </p>
-            <ul className="list-disc pl-6 space-y-2">
+            <ul>
               <li>Nom du compte et photo de profil</li>
-              <li>Nombre d'abonnés/followers</li>
+              <li>Nombre d’abonnés/followers</li>
               <li>Statistiques publiques (vues, likes, commentaires)</li>
               <li>Liste de vos contenus publics récents</li>
             </ul>
@@ -86,45 +84,45 @@ const Privacy = () => {
             </p>
           </section>
 
-          <section>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-3">
+          <section id="section-5">
+            <h2>
               5. Partage de vos informations
             </h2>
             <p>
               Nous ne vendons jamais vos informations personnelles. Nous partageons vos
               informations uniquement dans les cas suivants :
             </p>
-            <ul className="list-disc pl-6 space-y-2">
-              <li>Avec les marques qui consultent votre profil public d'influenceur</li>
+            <ul>
+              <li>Avec les marques qui consultent votre profil public d’influenceur</li>
               <li>Avec nos prestataires de services (hébergement, analytics)</li>
               <li>Si requis par la loi ou pour protéger nos droits</li>
             </ul>
           </section>
 
-          <section>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-3">
+          <section id="section-6">
+            <h2>
               6. Sécurité des données
             </h2>
             <p>
               Nous utilisons des mesures de sécurité appropriées pour protéger vos
               informations personnelles, incluant :
             </p>
-            <ul className="list-disc pl-6 space-y-2">
+            <ul>
               <li>Chiffrement SSL/TLS pour toutes les communications</li>
               <li>Stockage sécurisé dans Firebase/Firestore</li>
-              <li>Tokens d'authentification OAuth pour les réseaux sociaux</li>
+              <li>Tokens d’authentification OAuth pour les réseaux sociaux</li>
               <li>Accès limité aux données sensibles</li>
             </ul>
           </section>
 
-          <section>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-3">
+          <section id="section-7">
+            <h2>
               7. Vos droits
             </h2>
             <p>
               Vous avez le droit de :
             </p>
-            <ul className="list-disc pl-6 space-y-2">
+            <ul>
               <li>Accéder à vos informations personnelles</li>
               <li>Modifier ou supprimer vos informations</li>
               <li>Déconnecter vos comptes de réseaux sociaux à tout moment</li>
@@ -133,22 +131,22 @@ const Privacy = () => {
             </ul>
           </section>
 
-          <section>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-3">
+          <section id="section-8">
+            <h2>
               8. Cookies
             </h2>
             <p>
               Nous utilisons Google Analytics (via Firebase Analytics) pour mesurer
-              l'audience de notre plateforme. Ces cookies de mesure d'audience ne sont
-              déposés qu'après votre consentement, recueilli via le bandeau affiché lors
-              de votre première visite. Vous pouvez à tout moment changer d'avis en
+              l’audience de notre plateforme. Ces cookies de mesure d’audience ne sont
+              déposés qu’après votre consentement, recueilli via le bandeau affiché lors
+              de votre première visite. Vous pouvez à tout moment changer d’avis en
               effaçant les données de navigation de votre navigateur pour ce site, ce qui
               réaffichera le bandeau de consentement.
             </p>
           </section>
 
-          <section>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-3">
+          <section id="section-9">
+            <h2>
               9. Modifications de cette politique
             </h2>
             <p>
@@ -158,22 +156,17 @@ const Privacy = () => {
             </p>
           </section>
 
-          <section>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-3">
+          <section id="section-10">
+            <h2>
               10. Contact
             </h2>
             <p>
               Pour toute question concernant cette politique de confidentialité ou pour
-              exercer vos droits, contactez-nous à : privacy@collabzz.com
+              exercer vos droits, contactez-nous à : <a href="mailto:privacy@collabzz.com">privacy@collabzz.com</a>
             </p>
           </section>
-
-          <p className="text-sm text-gray-500 mt-8">
-            Dernière mise à jour : 7 novembre 2025
-          </p>
-        </div>
-      </div>
-    </div>
+      </LegalLayout>
+    </>
   );
 };
 

@@ -1,10 +1,14 @@
-import React, { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { initAnalytics } from '../config/firebase'
 import { getConsent, setConsent } from '../utils/consent'
 
 const CookieConsent = () => {
     const [visible, setVisible] = useState(false)
+    const { pathname } = useLocation()
+    // Sur l'onboarding, la barre d'actions (Retour / Continuer) est fixée en bas : le bandeau
+    // se place au-dessus pour ne pas la masquer.
+    const aboveActionBar = pathname.endsWith('-onboarding')
 
     useEffect(() => {
         const consent = getConsent()
@@ -29,10 +33,10 @@ const CookieConsent = () => {
     if (!visible) return null
 
     return (
-        <div className='fixed bottom-0 inset-x-0 z-[100] p-4 sm:p-6'>
+        <div className={`fixed inset-x-0 z-[100] p-4 sm:p-6 ${aboveActionBar ? 'bottom-32 sm:bottom-16' : 'bottom-0'}`}>
             <div className='max-w-3xl mx-auto bg-white rounded-2xl shadow-2xl border border-gray-200 p-5 flex flex-col sm:flex-row items-center gap-4'>
                 <p className='text-sm text-gray-600 flex-1'>
-                    Nous utilisons des cookies de mesure d'audience (Google Analytics) pour améliorer Collabzz. Vous pouvez accepter ou refuser.{' '}
+                    Nous utilisons des cookies de mesure d’audience (Google Analytics) pour améliorer Collabzz. Vous pouvez accepter ou refuser.{' '}
                     <Link to='/privacy' className='underline text-gray-900 hover:text-primary'>En savoir plus</Link>
                 </p>
                 <div className='flex gap-2 flex-shrink-0'>

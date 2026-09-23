@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react'
+import { useContext, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../config/firebase'
@@ -98,10 +98,10 @@ const BrandRecommendation = () => {
                 ) : (
                     <>
                         <h1 className='text-3xl font-bold text-gray-900 mb-3'>
-                            Pas encore d'influenceur disponible pour ces critères
+                            Pas encore d’influenceur disponible pour ces critères
                         </h1>
                         <p className='text-gray-600 mb-8'>
-                            Découvrez dès maintenant l'ensemble de nos créateurs disponibles.
+                            Découvrez dès maintenant l’ensemble de nos créateurs disponibles.
                         </p>
                         <button
                             onClick={() => navigate('/talents')}
