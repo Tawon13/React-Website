@@ -59,6 +59,44 @@ def _to_int(value) -> int:
         return 0
 
 
+TIKTOK_OEMBED_URL = "https://www.tiktok.com/oembed"
+
+
+def _fetch_hd_thumbnail(share_url: str) -> str:
+    """Miniature en meilleure définition via l'oEmbed public de TikTok.
+
+    `cover_image_url` de l'API vidéo est limité à 300x400 (flou sur les grandes cases du
+    profil) ; l'oEmbed renvoie la couverture d'origine (576x1024 en général). URL signée
+    avec expiration, comme `cover_image_url` : elle est rafraîchie au même rythme.
+    """
+    if not share_url:
+        return ""
+    try:
+        response = requests.get(TIKTOK_OEMBED_URL, params={"url": share_url}, timeout=6)
+        response.raise_for_status()
+        data = response.json() or {}
+    except (requests.RequestException, ValueError):
+        return ""
+    url = (data.get("thumbnail_url") or "").strip()
+    width = _to_int(data.get("thumbnail_width"))
+    # Inutile de la garder si elle n'est pas plus grande que la miniature de l'API.
+    return url if url.startswith("https://") and width > 300 else ""
+
+
+def _add_hd_thumbnails(videos: list[dict]) -> None:
+    """Ajoute `thumbnailHd` à chaque vidéo (requêtes en parallèle, échec silencieux)."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    targets = [video for video in videos if video.get("url")]
+    if not targets:
+        return
+    with ThreadPoolExecutor(max_workers=min(6, len(targets))) as pool:
+        results = list(pool.map(lambda video: _fetch_hd_thumbnail(video["url"]), targets))
+    for video, hd_url in zip(targets, results):
+        if hd_url:
+            video["thumbnailHd"] = hd_url
+
+
 def _fetch_tiktok_video_insights(
     access_token: str,
     max_count: int = 20,
@@ -126,6 +164,8 @@ def _fetch_tiktok_video_insights(
             "likes": _to_int(video.get("like_count")),
             "createTime": _to_int(video.get("create_time"))
         })
+
+    _add_hd_thumbnails(recent_videos)
 
     if not view_values:
         return None, None, total_likes, total_comments, total_shares, 0, True, recent_videos

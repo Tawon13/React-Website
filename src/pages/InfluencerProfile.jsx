@@ -101,7 +101,8 @@ const InfluencerProfile = () => {
     const normalizeTikTokVideo = (video = {}) => ({
         id: video.id || video.videoId || null,
         title: video.title || video.description || 'Vidéo TikTok',
-        thumbnail: normalizeMediaUrl(video.thumbnail || video.coverImageUrl || video.cover_image_url),
+        // thumbnailHd : couverture d'origine (576x1024) ajoutée par le serveur ; sinon miniature 300x400.
+        thumbnail: normalizeMediaUrl(video.thumbnailHd || video.thumbnail || video.coverImageUrl || video.cover_image_url),
         url: normalizeMediaUrl(video.url || video.shareUrl || video.share_url),
         views: toNumber(video.views || video.viewCount || video.view_count),
         likes: toNumber(video.likes || video.likeCount || video.like_count),
@@ -636,7 +637,7 @@ const InfluencerProfile = () => {
                             }`}
                             aria-label={`Agrandir la photo ${index + 1}`}
                         >
-                            <SmartImage width={420}
+                            <SmartImage width={index === 0 ? 960 : 640}
                                 src={photo.url}
                                 alt={`${publicDisplayName} ${index + 1}`}
                                 className='w-full h-full object-cover transition-transform duration-500 group-hover:scale-105'
