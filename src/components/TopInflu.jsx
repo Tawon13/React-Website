@@ -70,6 +70,19 @@ const TopDoctors = () => {
             </Reveal>
           ))}
       </ul>
+
+      <div className='mt-10 flex justify-center'>
+        <Link
+          to='/talents'
+          onClick={() => window.scrollTo(0, 0)}
+          className='group inline-flex items-center gap-2 rounded-full border-2 border-primary px-8 py-3.5 font-semibold text-gray-900 hover:bg-primary transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2'
+        >
+          Voir tous nos talents
+          <svg className='w-4 h-4 transition-transform duration-200 group-hover:translate-x-1' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'>
+            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M17 8l4 4m0 0l-4 4m4-4H3' />
+          </svg>
+        </Link>
+      </div>
     </section>
   )
 }
