@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 
 // Largeurs autorisées : doivent correspondre à `images.sizes` dans vercel.json.
 const WIDTHS = [128, 256, 384, 640, 828, 1080]
@@ -16,21 +16,47 @@ const optimizedUrl = (src, w) => `/_vercel/image?url=${encodeURIComponent(src)}&
 // au lieu de l'original (souvent 2000 px pour une vignette de 150 px). Si l'optimisation
 // échoue, on retombe sur l'image d'origine.
 // `width` : largeur d'affichage approximative en pixels CSS.
-const SmartImage = ({ src, width = 384, loading = 'lazy', onError, ...rest }) => {
+const SmartImage = ({ src, width = 384, loading = 'lazy', onError, style, ...rest }) => {
     const [failed, setFailed] = useState(false)
+    const [loaded, setLoaded] = useState(false)
     const optimize = !failed && typeof src === 'string' && OPTIMIZABLE_HOST.test(src) && canOptimize()
 
+    // Apparition en fondu une fois l'image reçue (le fond de la carte sert de repère pendant
+    // le chargement). Une image déjà en cache est affichée tout de suite.
+    const imgRef = useCallback((node) => {
+        if (node?.complete && node.naturalWidth > 0) setLoaded(true)
+    }, [])
+    const fadeStyle = {
+        opacity: loaded ? 1 : 0,
+        transition: 'opacity 300ms ease, transform 500ms cubic-bezier(0.4, 0, 0.2, 1)',
+        ...style
+    }
+
     if (!optimize) {
-        return <img src={src} loading={loading} decoding='async' onError={onError} {...rest} />
+        return (
+            <img
+                ref={imgRef}
+                src={src}
+                loading={loading}
+                decoding='async'
+                onLoad={() => setLoaded(true)}
+                onError={(event) => { setLoaded(true); onError?.(event) }}
+                style={fadeStyle}
+                {...rest}
+            />
+        )
     }
 
     return (
         <img
+            ref={imgRef}
             src={optimizedUrl(src, width)}
             srcSet={`${optimizedUrl(src, width)} 1x, ${optimizedUrl(src, width * 2)} 2x`}
             loading={loading}
             decoding='async'
+            onLoad={() => setLoaded(true)}
             onError={() => setFailed(true)}
+            style={fadeStyle}
             {...rest}
         />
     )

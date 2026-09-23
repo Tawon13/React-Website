@@ -51,6 +51,7 @@ const TopDoctors = () => {
                   className='group relative block aspect-[3/4] rounded-3xl overflow-hidden bg-gray-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary'
                 >
                   <SmartImage width={320}
+                    loading='eager'
                     src={item.image}
                     alt={item.tiktokUsername ? `@${item.tiktokUsername}` : 'Influenceur'}
                     className='w-full h-full object-cover transition-transform duration-500 group-hover:scale-105'

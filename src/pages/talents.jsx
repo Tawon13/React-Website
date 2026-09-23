@@ -338,7 +338,7 @@ const Talents = () => {
 											<SmartImage width={320}
 												src={item.image}
 												alt={displayName}
-												loading='lazy'
+												loading={index < 8 ? 'eager' : 'lazy'}
 												className='w-full h-full object-cover transition-transform duration-500 group-hover:scale-105'
 											/>
 											<span className={`absolute top-3 left-3 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${isRecommended ? 'bg-primary text-gray-900' : 'bg-white/90 backdrop-blur text-gray-900'}`}>
