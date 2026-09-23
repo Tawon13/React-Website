@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react'
-import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { confirmPasswordReset, verifyPasswordResetCode } from 'firebase/auth'
 import { auth } from '../config/firebase'
-import socialMediaImage from '../assets/social_media_login.jpg'
+import { AnimatePresence, motion } from 'motion/react'
+import AuthLayout, { authInputClass, authLabelClass, authPrimaryBtn } from '../components/AuthLayout'
+import SEO from '../components/SEO'
 
 const ResetPassword = () => {
     const navigate = useNavigate()
     const [searchParams] = useSearchParams()
-    const location = useLocation()
     const [email, setEmail] = useState('')
     const [verificationCode, setVerificationCode] = useState('')
     const [newPassword, setNewPassword] = useState('')
@@ -124,219 +125,138 @@ const ResetPassword = () => {
         }
     }
 
+    const fade = { initial: { opacity: 0, x: 24 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: -24 }, transition: { duration: 0.3 } }
+    const eyeBtn = 'cursor-pointer absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+    const passwordsMatch = confirmPassword.length > 0 && newPassword === confirmPassword
+    const errorBox = error && (
+        <div role='alert' className='mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm'>{error}</div>
+    )
+
     return (
-        <div className='min-h-screen flex items-center justify-center p-4 sm:p-8 bg-gradient-to-br from-orange-400 via-orange-500 to-red-500'>
-            {/* Main Container */}
-            <div className='w-full max-w-6xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row'>
-                {/* Left Side - Image */}
-                <div className='hidden lg:flex lg:w-1/2 p-8'>
-                    <div className='w-full h-full rounded-2xl overflow-hidden'>
-                        <img 
-                            src={socialMediaImage} 
-                            alt='Social Media' 
-                            className='w-full h-full object-cover'
-                        />
-                    </div>
-                </div>
-
-                {/* Right Side - Form */}
-                <div className='w-full lg:w-1/2 flex items-center justify-center p-8 lg:p-12'>
-                    <div className='w-full max-w-md'>
-                        {verifying ? (
-                            <div className='text-center py-12'>
-                                <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto'></div>
-                                <p className='mt-4 text-gray-600'>Vérification du code...</p>
+        <AuthLayout
+            panel='recovery'
+            backLabel={codeVerified ? 'Retour à la connexion' : 'Renvoyer un email'}
+            onBack={() => navigate(codeVerified ? '/login' : '/forgot-password')}
+        >
+            <SEO title='Nouveau mot de passe' noindex />
+            <AnimatePresence mode='wait'>
+                {verifying ? (
+                    <motion.div key='verifying' {...fade} className='text-center py-12' role='status'>
+                        <div className='w-10 h-10 rounded-full border-2 border-gray-200 border-t-gray-900 animate-spin mx-auto' aria-hidden='true'></div>
+                        <p className='mt-4 text-gray-600'>Vérification du code...</p>
+                    </motion.div>
+                ) : success ? (
+                    <motion.div key='success' {...fade} role='status'>
+                        <motion.div
+                            initial={{ scale: 0.6, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{ type: 'spring', stiffness: 400, damping: 18, delay: 0.1 }}
+                            className='w-14 h-14 rounded-2xl bg-green-100 text-green-700 flex items-center justify-center mb-6'
+                        >
+                            <svg className='w-7 h-7' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M5 13l4 4L19 7' /></svg>
+                        </motion.div>
+                        <h1 className='text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight mb-3'>Mot de passe modifié !</h1>
+                        <p className='text-gray-600 leading-relaxed mb-8'>
+                            Votre mot de passe a été modifié avec succès. Vous allez être redirigé vers la page de connexion...
+                        </p>
+                        <button onClick={() => navigate('/login')} className={authPrimaryBtn}>Se connecter maintenant</button>
+                    </motion.div>
+                ) : !codeVerified ? (
+                    <motion.div key='code' {...fade}>
+                        <h1 className='text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight mb-3'>Entrez le code</h1>
+                        <p className='text-gray-600 mb-8 leading-relaxed'>
+                            Copiez le code de vérification que vous avez reçu par email et collez-le ci-dessous.
+                        </p>
+                        {errorBox}
+                        <form onSubmit={(e) => { e.preventDefault(); handleVerifyCode() }} className='space-y-6'>
+                            <div>
+                                <label htmlFor='reset-code' className={authLabelClass}>Code de vérification</label>
+                                <textarea
+                                    id='reset-code'
+                                    value={verificationCode}
+                                    onChange={(e) => setVerificationCode(e.target.value)}
+                                    className={`${authInputClass} resize-none font-mono text-sm`}
+                                    placeholder='Collez le code de vérification ici...'
+                                    rows={3}
+                                    aria-describedby='reset-code-help'
+                                    autoFocus
+                                    required
+                                />
+                                <p id='reset-code-help' className='text-xs text-gray-500 mt-1.5'>{"Le code se trouve dans le lien de l'email, après « oobCode= »."}</p>
                             </div>
-                        ) : success ? (
-                            <div className='text-center'>
-                                <div className='w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4'>
-                                    <svg className='w-8 h-8 text-green-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M5 13l4 4L19 7' />
-                                    </svg>
-                                </div>
-                                <h1 className='text-3xl font-bold text-gray-900 mb-2'>Mot de passe modifié !</h1>
-                                <p className='text-gray-600 mb-6'>
-                                    Votre mot de passe a été modifié avec succès. Vous allez être redirigé vers la page de connexion...
-                                </p>
-                            </div>
-                        ) : !codeVerified ? (
-                            <>
-                                {/* Back Button */}
-                                <button 
-                                    onClick={() => navigate('/forgot-password')}
-                                    className='mb-6 text-gray-600 hover:text-gray-900 transition-colors'
-                                >
-                                    <svg className='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 19l-7-7 7-7' />
-                                    </svg>
-                                </button>
-
-                                {/* Title */}
-                                <h1 className='text-3xl lg:text-4xl font-bold text-gray-900 mb-2'>
-                                    Entrez le code
-                                </h1>
-                                <p className='text-gray-600 mb-8'>
-                                    Copiez le code de vérification que vous avez reçu par email et collez-le ci-dessous
-                                </p>
-
-                                {/* Error Message */}
-                                {error && (
-                                    <div className='mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-xl text-sm'>
-                                        {error}
-                                    </div>
-                                )}
-
-                                {/* Code Input */}
-                                <div className='mb-6'>
-                                    <label className='block text-sm font-medium text-gray-700 mb-2'>
-                                        Code de vérification
-                                    </label>
-                                    <textarea
-                                        value={verificationCode}
-                                        onChange={(e) => setVerificationCode(e.target.value)}
-                                        className='w-full px-4 py-3 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none transition-all resize-none font-mono text-sm'
-                                        placeholder='Collez le code de vérification ici...'
-                                        rows={3}
+                            <button type='submit' disabled={loading || !verificationCode.trim()} className={authPrimaryBtn}>
+                                {loading ? 'Vérification...' : 'Vérifier le code'}
+                            </button>
+                        </form>
+                        <p className='text-sm text-gray-600 text-center mt-6'>
+                            {"Vous n'avez pas reçu le code ? "}
+                            <button onClick={() => navigate('/forgot-password')} className='cursor-pointer font-semibold text-gray-900 underline underline-offset-4'>Renvoyer</button>
+                        </p>
+                    </motion.div>
+                ) : (
+                    <motion.div key='new-password' {...fade}>
+                        <h1 className='text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight mb-3'>Nouveau mot de passe</h1>
+                        <p className='text-gray-600 mb-8 leading-relaxed'>
+                            Choisissez un nouveau mot de passe pour votre compte <strong className='text-gray-900'>{email}</strong>.
+                        </p>
+                        {errorBox}
+                        <form onSubmit={handleSubmit} className='space-y-4'>
+                            {/* Champ caché pour que le gestionnaire de mots de passe associe le bon compte */}
+                            <input type='email' value={email} autoComplete='username' readOnly hidden />
+                            <div>
+                                <label htmlFor='new-password' className={authLabelClass}>Nouveau mot de passe</label>
+                                <div className='relative'>
+                                    <input
+                                        id='new-password'
+                                        type={showPassword ? 'text' : 'password'}
+                                        autoComplete='new-password'
+                                        value={newPassword}
+                                        onChange={(e) => setNewPassword(e.target.value)}
+                                        className={`${authInputClass} pr-12`}
+                                        placeholder='6 caractères minimum'
+                                        minLength={6}
+                                        aria-describedby='new-password-help'
+                                        autoFocus
                                         required
                                     />
-                                    <p className='text-xs text-gray-500 mt-2'>
-                                        Le code commence généralement par "AIw..."
-                                    </p>
-                                </div>
-
-                                {/* Verify Button */}
-                                <button
-                                    onClick={handleVerifyCode}
-                                    disabled={loading || !verificationCode.trim()}
-                                    className='w-full bg-gray-900 text-white py-3 rounded-full font-semibold hover:bg-gray-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed mb-4'
-                                >
-                                    {loading ? 'Vérification...' : 'Vérifier le code'}
-                                </button>
-
-                                {/* Resend Link */}
-                                <div className='text-center'>
-                                    <p className='text-sm text-gray-600'>
-                                        Vous n'avez pas reçu le code ?{' '}
-                                        <button
-                                            onClick={() => navigate('/forgot-password')}
-                                            className='text-gray-900 font-semibold hover:underline'
-                                        >
-                                            Renvoyer
-                                        </button>
-                                    </p>
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                {/* Back Button */}
-                                <button 
-                                    onClick={() => navigate('/login')}
-                                    className='mb-6 text-gray-600 hover:text-gray-900 transition-colors'
-                                >
-                                    <svg className='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 19l-7-7 7-7' />
-                                    </svg>
-                                </button>
-
-                                {/* Title */}
-                                <h1 className='text-3xl lg:text-4xl font-bold text-gray-900 mb-2'>
-                                    Nouveau mot de passe
-                                </h1>
-                                <p className='text-gray-600 mb-8'>
-                                    Choisissez un nouveau mot de passe pour votre compte {email}
-                                </p>
-
-                                {/* Error Message */}
-                                {error && (
-                                    <div className='mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-xl text-sm'>
-                                        {error}
-                                    </div>
-                                )}
-
-                                {/* Form */}
-                                <form onSubmit={handleSubmit} className='space-y-4'>
-                                    {/* New Password */}
-                                    <div>
-                                        <label className='block text-sm font-medium text-gray-700 mb-2'>
-                                            Nouveau mot de passe
-                                        </label>
-                                        <div className='relative'>
-                                            <input
-                                                type={showPassword ? 'text' : 'password'}
-                                                value={newPassword}
-                                                onChange={(e) => setNewPassword(e.target.value)}
-                                                className='w-full px-4 py-3 border border-gray-300 rounded-full focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none transition-all'
-                                                placeholder='Entrez votre nouveau mot de passe'
-                                                required
-                                            />
-                                            <button
-                                                type='button'
-                                                onClick={() => setShowPassword(!showPassword)}
-                                                className='absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700'
-                                            >
-                                                {showPassword ? (
-                                                    <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 12a3 3 0 11-6 0 3 3 0 016 0z' />
-                                                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' />
-                                                    </svg>
-                                                ) : (
-                                                    <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21' />
-                                                    </svg>
-                                                )}
-                                            </button>
-                                        </div>
-                                        <p className='text-xs text-gray-500 mt-1'>Au moins 6 caractères</p>
-                                    </div>
-
-                                    {/* Confirm Password */}
-                                    <div>
-                                        <label className='block text-sm font-medium text-gray-700 mb-2'>
-                                            Confirmer le mot de passe
-                                        </label>
-                                        <div className='relative'>
-                                            <input
-                                                type={showConfirmPassword ? 'text' : 'password'}
-                                                value={confirmPassword}
-                                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                                className='w-full px-4 py-3 border border-gray-300 rounded-full focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none transition-all'
-                                                placeholder='Confirmez votre mot de passe'
-                                                required
-                                            />
-                                            <button
-                                                type='button'
-                                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                                className='absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700'
-                                            >
-                                                {showConfirmPassword ? (
-                                                    <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 12a3 3 0 11-6 0 3 3 0 016 0z' />
-                                                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' />
-                                                    </svg>
-                                                ) : (
-                                                    <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21' />
-                                                    </svg>
-                                                )}
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* Submit Button */}
-                                    <button
-                                        type='submit'
-                                        disabled={loading}
-                                        className='w-full bg-gray-900 text-white py-3 rounded-full font-semibold hover:bg-gray-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-6'
-                                    >
-                                        {loading ? 'Modification en cours...' : 'Modifier le mot de passe'}
+                                    <button type='button' onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'} className={eyeBtn}>
+                                        {showPassword ? (<svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21' /></svg>) : (<svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 12a3 3 0 11-6 0 3 3 0 016 0z' /><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' /></svg>)}
                                     </button>
-                                </form>
-                            </>
-                        )}
-                    </div>
-                </div>
-            </div>
-        </div>
+                                </div>
+                                <p id='new-password-help' className='text-xs text-gray-500 mt-1.5'>Au moins 6 caractères</p>
+                            </div>
+                            <div>
+                                <label htmlFor='confirm-password' className={authLabelClass}>Confirmer le mot de passe</label>
+                                <div className='relative'>
+                                    <input
+                                        id='confirm-password'
+                                        type={showConfirmPassword ? 'text' : 'password'}
+                                        autoComplete='new-password'
+                                        value={confirmPassword}
+                                        onChange={(e) => setConfirmPassword(e.target.value)}
+                                        className={`${authInputClass} pr-12`}
+                                        placeholder='Retapez le mot de passe'
+                                        required
+                                    />
+                                    <button type='button' onClick={() => setShowConfirmPassword(!showConfirmPassword)} aria-label={showConfirmPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'} className={eyeBtn}>
+                                        {showConfirmPassword ? (<svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21' /></svg>) : (<svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 12a3 3 0 11-6 0 3 3 0 016 0z' /><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' /></svg>)}
+                                    </button>
+                                </div>
+                                {confirmPassword.length > 0 && (
+                                    <p className={`text-xs mt-1.5 ${passwordsMatch ? 'text-green-700' : 'text-gray-500'}`} aria-live='polite'>
+                                        {passwordsMatch ? 'Les mots de passe correspondent.' : 'Les mots de passe ne correspondent pas encore.'}
+                                    </p>
+                                )}
+                            </div>
+                            <button type='submit' disabled={loading} className={`${authPrimaryBtn} mt-6`}>
+                                {loading && <span className='w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin' aria-hidden='true'></span>}
+                                {loading ? 'Modification en cours...' : 'Modifier le mot de passe'}
+                            </button>
+                        </form>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </AuthLayout>
     )
 }
 

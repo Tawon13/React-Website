@@ -1,7 +1,9 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react'
+import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { AppContext, normalizeInfluencer } from '../context/AppContext'
 import SEO from '../components/SEO'
+import { influencerSeo } from '../constants/seo'
+import { computeTikTokStats } from '../utils/tiktokStats'
 import { trackEvent } from '../utils/analytics'
 import { assets } from '../assets/assets'
 import { useAuth } from '../context/AuthContext'
@@ -10,6 +12,8 @@ import { useFavorites } from '../context/FavoritesContext'
 import { db } from '../config/firebase'
 import { doc, getDoc, getDocFromServer, addDoc, collection, serverTimestamp, query, where, getDocs, updateDoc } from 'firebase/firestore'
 import { useToast } from '../context/ToastContext'
+import { AnimatePresence, motion, MotionConfig } from 'motion/react'
+import { Reveal } from '../components/PageKit'
 
 const ADMIN_EMAIL = 'bechagraamine@gmail.com'
 
@@ -48,6 +52,11 @@ const InfluencerProfile = () => {
     const [directCheckDone, setDirectCheckDone] = useState(false)
 
     const [analyticsData, setAnalyticsData] = useState(null)
+    const carouselRef = useRef(null)
+    // Photos dont le fichier ne charge plus (ex. supprimé du Storage mais encore référencé) :
+    // on les retire de la galerie au lieu d'afficher une case vide.
+    const [brokenPhotoUrls, setBrokenPhotoUrls] = useState({})
+    const markPhotoBroken = (url) => setBrokenPhotoUrls((prev) => (prev[url] ? prev : { ...prev, [url]: true }))
 
     const toNumber = (value) => {
         const num = Number(value)
@@ -141,32 +150,7 @@ const InfluencerProfile = () => {
             const likes = toNumber(platformData.likes)
             const totalViews = toNumber(platformData.views)
             const videoCount = toNumber(platformData.videoCount)
-            const explicitAvgViews = toNumber(platformData.avgViews)
-            // Likes/commentaires/partages des mêmes vidéos que `views` (échantillon récent),
-            // pas le total du compte cumulé sur des années : sinon le ratio explosait
-            // largement au-delà de 100%.
-            const recentLikes = toNumber(platformData.recentLikes)
-            const recentComments = toNumber(platformData.recentComments)
-            const recentShares = toNumber(platformData.recentShares)
-            // TikTok n'expose pas le nombre d'enregistrements via l'API publique (réservé à
-            // l'API Research) : on l'estime à 15% des likes, une approximation à afficher
-            // comme telle plutôt que comme une donnée mesurée.
-            const estimatedSaves = recentLikes * 0.15
-
-            const avgViews = explicitAvgViews > 0
-                ? explicitAvgViews
-                : totalViews > 0 && videoCount > 0
-                ? Math.round(totalViews / videoCount)
-                : null
-
-            let engagementRate = null
-            if (totalViews > 0 && (recentLikes > 0 || recentComments > 0 || recentShares > 0)) {
-                engagementRate = ((recentLikes + recentComments + recentShares + estimatedSaves) / totalViews) * 100
-            }
-
-            const normalizedEngagement = engagementRate !== null
-                ? Number(Math.min(Math.max(engagementRate, 0), 100).toFixed(1))
-                : null
+            const { avgViews, engagementRate: normalizedEngagement } = computeTikTokStats(platformData)
 
             return {
                 followers,
@@ -228,6 +212,7 @@ const InfluencerProfile = () => {
         setBrandVideos([])
         setCustomPricing(null)
         setAdminPreviewInfluencer(null)
+        setBrokenPhotoUrls({})
 
         const loadSocialData = async () => {
             try {
@@ -292,12 +277,13 @@ const InfluencerProfile = () => {
     const openLightbox = (index) => {
         setLightboxImageIndex(index)
         setIsLightboxOpen(true)
-        document.body.style.overflow = 'hidden' // Empêcher le scroll
+        // Sur <html> et non <body> : overflow sur body casse la carte de prix sticky.
+        document.documentElement.style.overflow = 'hidden'
     }
 
     const closeLightbox = () => {
         setIsLightboxOpen(false)
-        document.body.style.overflow = 'auto' // Réactiver le scroll
+        document.documentElement.style.overflow = ''
     }
 
     const nextImage = () => {
@@ -346,12 +332,16 @@ const InfluencerProfile = () => {
     }, [profilePhotos, tiktokVideos, directCheckDone])
 
     const isGalleryLoading = !directCheckDone && profilePhotos.length === 0
+    const visiblePhotos = useMemo(
+        () => displayPhotos.filter((photo) => photo.url && !brokenPhotoUrls[photo.url]),
+        [displayPhotos, brokenPhotoUrls]
+    )
 
     // Photo de profil : celle ajoutée par l'influenceur en priorité, sinon sa photo TikTok.
     const displayAvatar = firebaseProfilePhoto || socialData?.tiktok?.avatarUrl || influencer?.image
 
-    // Obtenir le nombre total d'images (photos personnalisées ou 3 par défaut)
-    const totalImages = displayPhotos.length > 0 ? displayPhotos.length : 3
+    // Nombre de photos de la galerie (la photo de profil seule s'il n'y en a pas d'autres)
+    const totalImages = visiblePhotos.length > 0 ? visiblePhotos.length : 1
 
     // Fonctions pour naviguer dans le lightbox
     const nextImageUpdated = () => {
@@ -364,8 +354,8 @@ const InfluencerProfile = () => {
 
     // Obtenir l'URL de l'image actuelle dans le lightbox
     const getCurrentLightboxImage = () => {
-        if (displayPhotos.length > 0) {
-            return displayPhotos[lightboxImageIndex]?.url || influencer.image
+        if (visiblePhotos.length > 0) {
+            return visiblePhotos[lightboxImageIndex]?.url || influencer.image
         }
         return influencer.image
     }
@@ -438,35 +428,57 @@ const InfluencerProfile = () => {
         const cartItem = {
             influencerId: firebaseInfluencerId, // Utiliser l'ID Firebase réel
             influencerName: influencer.name,
+            // Pseudo affiché dans le panier (le vrai nom n'est jamais montré publiquement)
+            influencerUsername: influencer.tiktokUsername || '',
+            influencerCategory: influencer.speciality || '',
             influencerImage: influencer.image,
             package: selectedPackage,
             price: currentPrice
         }
         
-        console.log('Ajout au panier:', cartItem)
         addToCart(cartItem)
         
-        // Notification visuelle
-        const notification = document.createElement('div')
-        notification.className = 'fixed top-20 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-bounce'
-        notification.innerHTML = `
-            <div class="flex items-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                </svg>
-                <span>Ajouté au panier !</span>
-            </div>
-        `
-        document.body.appendChild(notification)
-        
-        setTimeout(() => {
-            notification.remove()
-        }, 3000)
+        toast.success('Ajouté au panier !')
+    }
+
+    // Force la mise à jour des vidéos TikTok (bouton visible par le créateur sur son propre profil).
+    const refreshTikTok = async () => {
+        try {
+            const idToken = await currentUser.getIdToken()
+            const resp = await fetch('/api/force_tiktok_update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`
+                },
+                body: JSON.stringify({ influencerId: firebaseInfluencerId })
+            })
+
+            if (!resp.ok) throw new Error('Erreur serveur')
+
+            // Recharger les données sociales depuis Firestore
+            const docSnap = await getDocFromServer(doc(db, 'influencers', firebaseInfluencerId))
+            if (docSnap.exists()) {
+                const data = docSnap.data()
+                const rawTikTok = Array.isArray(data.tiktokVideos) && data.tiktokVideos.length > 0
+                    ? data.tiktokVideos
+                    : data.socialAccounts?.tiktok?.recentVideos
+
+                setTiktokVideos(normalizeTikTokVideos(rawTikTok))
+            }
+        } catch (err) {
+            console.error('Erreur rafraîchissement TikTok:', err)
+            toast.error('Impossible de rafraîchir les posts pour le moment.')
+        }
     }
 
     if (!influencer) {
         if (doctorsLoading || !directCheckDone) {
-            return <div className="text-center py-20">Chargement...</div>
+            return (
+                <div className='flex justify-center py-32'>
+                    <div className='animate-spin rounded-full h-10 w-10 border-2 border-gray-200 border-t-gray-900' aria-label='Chargement' />
+                </div>
+            )
         }
         return (
             <div className='text-center py-20'>
@@ -483,7 +495,10 @@ const InfluencerProfile = () => {
         ?? socialData?.tiktok?.followers
         ?? influencer?.followers?.tiktok
 
-    const displayedFollowersCount = Number.isFinite(Number(resolvedFollowersCount))
+    // Verrouillé : valeurs factices sous le flou, les vraies ne sont pas rendues dans le DOM.
+    const displayedFollowersCount = isFollowersLocked
+        ? '00 000'
+        : Number.isFinite(Number(resolvedFollowersCount))
         ? Number(resolvedFollowersCount).toLocaleString('fr-FR')
         : (resolvedFollowersCount || '—')
 
@@ -503,720 +518,505 @@ const InfluencerProfile = () => {
         ? `@${influencer.tiktokUsername}`
         : (influencer.speciality || 'Créateur de contenu')
 
+    const locationLabel = [influencer.city, influencer.country].filter(Boolean).join(', ')
+    const isTikTokConnected = Boolean(socialData?.tiktok?.username || influencer.tiktokUsername)
+    const galleryPhotos = visiblePhotos.length > 0
+        ? visiblePhotos
+        : [{ id: 'fallback-0', url: influencer.image }]
+
+    const iconBtn = 'cursor-pointer inline-flex items-center justify-center gap-2 h-11 px-4 rounded-full border border-gray-300 text-sm font-semibold text-gray-900 hover:border-gray-900 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+    const favorite = isFavorite(influencerId)
+
+    const shareFavButtons = (
+        <div className='flex gap-2'>
+            <button onClick={handleShare} className={iconBtn}>
+                <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'>
+                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z' />
+                </svg>
+                {shareCopied ? 'Lien copié !' : 'Partager'}
+            </button>
+            <motion.button
+                whileTap={{ scale: 0.92 }}
+                onClick={() => toggleFavorite(influencerId)}
+                aria-pressed={favorite}
+                className={`${iconBtn} ${favorite ? 'border-primary text-primary-dark bg-primary/10' : ''}`}
+            >
+                <motion.svg
+                    key={favorite ? 'on' : 'off'}
+                    initial={{ scale: 0.6 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 15 }}
+                    className='w-5 h-5' fill={favorite ? 'currentColor' : 'none'} stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'
+                >
+                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z' />
+                </motion.svg>
+                {favorite ? 'Enregistré' : 'Enregistrer'}
+            </motion.button>
+        </div>
+    )
+
     return (
-        <div className='max-w-6xl mx-auto py-6 sm:py-10 px-4 sm:px-6'>
+        <MotionConfig reducedMotion='user'>
+        <div className='pt-8 md:pt-12 pb-20'>
             <SEO
-                title={publicDisplayName}
-                description={`Découvrez le profil de ${publicDisplayName} sur Collabzz${influencer.city ? `, basé(e) à ${influencer.city}` : ''} et lancez une collaboration.`}
-                path={`/influencer/${influencerId}`}
-                image={displayAvatar}
+                {...influencerSeo({ id: influencerId, tiktokUsername: influencer.tiktokUsername, category: influencer.speciality, city: influencer.city, image: displayAvatar })}
                 noindex={!isApprovedProfile}
             />
             {!isApprovedProfile && currentUser?.email === ADMIN_EMAIL && (
-                <div className='mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3'>
+                <div className='mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-orange-200 bg-orange-50 px-5 py-4'>
                     <p className='text-sm text-orange-800 font-medium'>
-                        Aperçu admin — ce profil n'est pas encore approuvé et n'est pas visible publiquement.
+                        {"Aperçu admin — ce profil n'est pas encore approuvé et n'est pas visible publiquement."}
                     </p>
                     <button
                         onClick={handleApproveProfile}
                         disabled={approvingProfile}
-                        className='px-4 py-2 text-sm font-semibold rounded-md bg-primary text-white hover:bg-primary/90 disabled:opacity-50 whitespace-nowrap'
+                        className='cursor-pointer px-4 py-2 text-sm font-semibold rounded-full bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50 whitespace-nowrap'
                     >
                         {approvingProfile ? 'Validation...' : 'Approuver ce profil'}
                     </button>
                 </div>
             )}
 
-            {addToCartError && (
-                <div className='fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-xl rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700 shadow-lg'>
-                    <p className='text-sm sm:text-base font-medium text-center'>
-                        {addToCartError}
-                    </p>
-                </div>
-            )}
-
-            {/* Header with title - Boutons visibles uniquement sur Desktop */}
-            <div className='flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4'>
-                <h1 className='text-xl sm:text-2xl font-semibold'>INFLUENCEUR LIFESTYLE!</h1>
-                <div className='hidden sm:flex gap-2 sm:gap-4'>
-                    <button
-                        onClick={handleShare}
-                        className='flex items-center justify-center gap-2 px-3 sm:px-4 py-2 border rounded-lg hover:bg-gray-50 text-sm'
+            <AnimatePresence>
+                {addToCartError && (
+                    <motion.div
+                        role='alert'
+                        initial={{ opacity: 0, y: -12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -12 }}
+                        className='fixed top-28 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-xl rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 shadow-lg'
                     >
-                        <svg className='w-4 h-4 sm:w-5 sm:h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z' />
-                        </svg>
-                        <span>{shareCopied ? 'Lien copié !' : 'Partager'}</span>
-                    </button>
-                    <button
-                        onClick={() => toggleFavorite(influencerId)}
-                        className={`flex items-center justify-center gap-2 px-3 sm:px-4 py-2 border rounded-lg hover:bg-gray-50 text-sm ${isFavorite(influencerId) ? 'border-primary text-primary' : ''}`}
-                    >
-                        <svg className='w-4 h-4 sm:w-5 sm:h-5' fill={isFavorite(influencerId) ? 'currentColor' : 'none'} stroke='currentColor' viewBox='0 0 24 24'>
-                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z' />
-                        </svg>
-                        <span>{isFavorite(influencerId) ? 'Enregistré' : 'Enregistrer'}</span>
-                    </button>
-                </div>
-            </div>
+                        <p className='text-sm sm:text-base font-medium text-center'>{addToCartError}</p>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
-            {/* Photo Gallery - Responsive avec défilement */}
-            <div className='relative mb-4'>
-                {/* Desktop: 3 photos en grille */}
-                <div className='hidden lg:grid lg:grid-cols-3 gap-4'>
+            {/* En-tête */}
+            <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.45, ease: 'easeOut' }}
+                className='flex flex-col md:flex-row md:items-end md:justify-between gap-5 mb-6'
+            >
+                <div className='flex items-center gap-4 min-w-0'>
+                    <img
+                        src={displayAvatar}
+                        alt=''
+                        className='w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover ring-4 ring-white shadow-lg flex-shrink-0'
+                        loading='eager'
+                    />
+                    <div className='min-w-0'>
+                        <p className='text-sm font-semibold uppercase tracking-wider text-primary-dark'>{influencer.speciality}</p>
+                        <h1 className='text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight truncate'>{publicDisplayName}</h1>
+                        {locationLabel && <p className='text-gray-500 mt-0.5'>{locationLabel}</p>}
+                    </div>
+                </div>
+                <div className='hidden md:block'>{shareFavButtons}</div>
+            </motion.div>
+
+            {/* Galerie : mosaïque sur desktop, carrousel sur mobile */}
+            <div className='mb-10'>
+                <div className='hidden lg:grid grid-cols-4 grid-rows-2 gap-3 h-[30rem]'>
                     {isGalleryLoading ? (
                         <>
-                            <div className='col-span-1 h-[400px] rounded-lg bg-gray-100 animate-pulse' />
-                            <div className='col-span-1 h-[400px] rounded-lg bg-gray-100 animate-pulse' />
-                            <div className='col-span-1 h-[400px] rounded-lg bg-gray-100 animate-pulse' />
+                            <div className='col-span-2 row-span-2 rounded-3xl bg-gray-100 animate-pulse' />
+                            <div className='col-span-2 rounded-3xl bg-gray-100 animate-pulse' />
+                            <div className='col-span-2 rounded-3xl bg-gray-100 animate-pulse' />
                         </>
-                    ) : displayPhotos.length > 0 ? (
-                        displayPhotos.slice(0, 3).map((photo, index) => (
-                            <div key={photo.id} className={`${index === 0 ? 'col-span-1' : 'col-span-1'} cursor-pointer${index === 2 ? ' relative' : ''}`} onClick={() => openLightbox(index)}>
+                    ) : galleryPhotos.slice(0, 3).map((photo, index) => (
+                        <motion.button
+                            key={photo.id || photo.url}
+                            type='button'
+                            onClick={() => openLightbox(index)}
+                            initial={{ opacity: 0, scale: 0.97 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 0.5, delay: index * 0.08, ease: 'easeOut' }}
+                            className={`group relative overflow-hidden rounded-3xl bg-gray-100 cursor-pointer focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary ${
+                                index === 0 ? 'col-span-2 row-span-2' : galleryPhotos.length === 2 ? 'col-span-2 row-span-2' : 'col-span-2'
+                            }`}
+                            aria-label={`Agrandir la photo ${index + 1}`}
+                        >
+                            <img
+                                src={photo.url}
+                                alt={`${publicDisplayName} ${index + 1}`}
+                                className='w-full h-full object-cover transition-transform duration-500 group-hover:scale-105'
+                                loading={index === 0 ? 'eager' : 'lazy'}
+                                onError={() => markPhotoBroken(photo.url)}
+                            />
+                            {index === 2 && galleryPhotos.length > 3 && (
+                                <span className='absolute bottom-4 right-4 rounded-full bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-lg'>
+                                    Voir les {galleryPhotos.length} photos
+                                </span>
+                            )}
+                        </motion.button>
+                    ))}
+                </div>
+
+                <div className='lg:hidden'>
+                    <div
+                        ref={carouselRef}
+                        className='flex overflow-x-auto scrollbar-hide snap-x snap-mandatory rounded-3xl'
+                        onScroll={(e) => setCurrentImageIndex(Math.round(e.currentTarget.scrollLeft / e.currentTarget.offsetWidth))}
+                    >
+                        {isGalleryLoading ? (
+                            <div className='flex-shrink-0 w-full h-80 bg-gray-100 animate-pulse' />
+                        ) : galleryPhotos.map((photo, index) => (
+                            <button key={photo.id || photo.url} type='button' onClick={() => openLightbox(index)} className='flex-shrink-0 w-full snap-center cursor-pointer' aria-label={`Agrandir la photo ${index + 1}`}>
                                 <img
                                     src={photo.url}
                                     alt={`${publicDisplayName} ${index + 1}`}
-                                    className='w-full h-[400px] object-cover rounded-lg hover:opacity-90 transition-opacity'
+                                    className='w-full h-80 sm:h-96 object-cover'
                                     loading={index === 0 ? 'eager' : 'lazy'}
-                                    fetchpriority={index === 0 ? 'high' : 'auto'}
+                                    onError={() => markPhotoBroken(photo.url)}
                                 />
-                                {index === 2 && displayPhotos.length > 3 && (
-                                    <button className='absolute bottom-4 right-4 bg-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg hover:bg-gray-50 transition-colors pointer-events-none'>
-                                        <svg className='w-5 h-5' fill='currentColor' viewBox='0 0 20 20'>
-                                            <path d='M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z' />
-                                        </svg>
-                                        Voir Plus
-                                    </button>
-                                )}
-                            </div>
-                        ))
-                    ) : (
-                        // Photos par défaut si aucune photo personnalisée
-                        <>
-                            <div className='col-span-1 cursor-pointer' onClick={() => openLightbox(0)}>
-                                <img 
-                                    src={influencer.image} 
-                                    alt={`${publicDisplayName} 1`}
-                                    className='w-full h-[400px] object-cover rounded-lg hover:opacity-90 transition-opacity'
-                                />
-                            </div>
-                            <div className='col-span-1 cursor-pointer' onClick={() => openLightbox(1)}>
-                                <img 
-                                    src={influencer.image} 
-                                    alt={`${publicDisplayName} 2`}
-                                    className='w-full h-[400px] object-cover rounded-lg hover:opacity-90 transition-opacity'
-                                />
-                            </div>
-                            <div className='col-span-1 relative cursor-pointer' onClick={() => openLightbox(2)}>
-                                <img 
-                                    src={influencer.image} 
-                                    alt={`${publicDisplayName} 3`}
-                                    className='w-full h-[400px] object-cover rounded-lg hover:opacity-90 transition-opacity'
-                                />
-                                <button className='absolute bottom-4 right-4 bg-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg hover:bg-gray-50 transition-colors pointer-events-none'>
-                                    <svg className='w-5 h-5' fill='currentColor' viewBox='0 0 20 20'>
-                                        <path d='M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z' />
-                                    </svg>
-                                    Voir Plus
-                                </button>
-                            </div>
-                        </>
-                    )}
-                </div>
-
-                {/* Tablet & Mobile: Carousel avec défilement horizontal - 1 photo à la fois */}
-                <div className='lg:hidden relative'>
-                    <div 
-                        className='flex gap-0 overflow-x-auto scrollbar-hide snap-x snap-mandatory scroll-smooth'
-                        onScroll={(e) => {
-                            const scrollLeft = e.target.scrollLeft;
-                            const imageWidth = e.target.offsetWidth;
-                            const index = Math.round(scrollLeft / imageWidth);
-                            setCurrentImageIndex(index);
-                        }}
-                    >
-                        {isGalleryLoading ? (
-                            <div className='flex-shrink-0 w-full snap-center'>
-                                <div className='w-full h-64 sm:h-80 rounded-lg bg-gray-100 animate-pulse' />
-                            </div>
-                        ) : displayPhotos.length > 0 ? (
-                            displayPhotos.map((photo, index) => (
-                                <div key={photo.id} className='flex-shrink-0 w-full snap-center cursor-pointer' onClick={() => openLightbox(index)}>
-                                    <img
-                                        src={photo.url}
-                                        alt={`${publicDisplayName} ${index + 1}`}
-                                        className='w-full h-64 sm:h-80 object-cover rounded-lg'
-                                        loading={index === 0 ? 'eager' : 'lazy'}
-                                        fetchpriority={index === 0 ? 'high' : 'auto'}
-                                    />
-                                </div>
-                            ))
-                        ) : (
-                            // Photos par défaut
-                            <>
-                                <div className='flex-shrink-0 w-full snap-center cursor-pointer' onClick={() => openLightbox(0)}>
-                                    <img 
-                                        src={influencer.image} 
-                                        alt={`${publicDisplayName} 1`}
-                                        className='w-full h-64 sm:h-80 object-cover rounded-lg'
-                                    />
-                                </div>
-                                <div className='flex-shrink-0 w-full snap-center cursor-pointer' onClick={() => openLightbox(1)}>
-                                    <img 
-                                        src={influencer.image} 
-                                        alt={`${publicDisplayName} 2`}
-                                        className='w-full h-64 sm:h-80 object-cover rounded-lg'
-                                    />
-                                </div>
-                                <div className='flex-shrink-0 w-full snap-center cursor-pointer' onClick={() => openLightbox(2)}>
-                                    <img 
-                                        src={influencer.image} 
-                                        alt={`${publicDisplayName} 3`}
-                                        className='w-full h-64 sm:h-80 object-cover rounded-lg'
-                                    />
-                                </div>
-                            </>
-                        )}
-                    </div>
-                    
-                    {/* Indicateurs de pagination cliquables */}
-                    <div className='flex justify-center gap-2 mt-4'>
-                        {(displayPhotos.length > 0 ? displayPhotos : [0, 1, 2]).map((item, index) => (
-                            <button
-                                key={displayPhotos.length > 0 ? item.id : index}
-                                onClick={() => {
-                                    const container = document.querySelector('.overflow-x-auto');
-                                    if (container) {
-                                        container.scrollTo({
-                                            left: index * container.offsetWidth,
-                                            behavior: 'smooth'
-                                        });
-                                    }
-                                }}
-                                className={`w-2 h-2 rounded-full transition-colors ${
-                                    currentImageIndex === index ? 'bg-gray-800' : 'bg-gray-300'
-                                }`}
-                            />
+                            </button>
                         ))}
                     </div>
+                    {galleryPhotos.length > 1 && (
+                        <div className='flex justify-center gap-1.5 mt-3'>
+                            {galleryPhotos.map((photo, index) => (
+                                <button
+                                    key={photo.id || photo.url}
+                                    type='button'
+                                    aria-label={`Photo ${index + 1}`}
+                                    onClick={() => carouselRef.current?.scrollTo({ left: index * carouselRef.current.offsetWidth, behavior: 'smooth' })}
+                                    className={`h-2 rounded-full transition-all duration-300 ${currentImageIndex === index ? 'w-6 bg-gray-900' : 'w-2 bg-gray-300'}`}
+                                />
+                            ))}
+                        </div>
+                    )}
+                    <div className='mt-5 md:hidden'>{shareFavButtons}</div>
                 </div>
             </div>
 
-            {/* Boutons Partager/Enregistrer sur Mobile - Sous la photo */}
-            <div className='flex sm:hidden gap-2 mb-6'>
-                <button
-                    onClick={handleShare}
-                    className='flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border rounded-lg hover:bg-gray-50 text-sm'
-                >
-                    <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z' />
-                    </svg>
-                    {shareCopied ? 'Lien copié !' : 'Partager'}
-                </button>
-                <button
-                    onClick={() => toggleFavorite(influencerId)}
-                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border rounded-lg hover:bg-gray-50 text-sm ${isFavorite(influencerId) ? 'border-primary text-primary' : ''}`}
-                >
-                    <svg className='w-5 h-5' fill={isFavorite(influencerId) ? 'currentColor' : 'none'} stroke='currentColor' viewBox='0 0 24 24'>
-                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z' />
-                    </svg>
-                    {isFavorite(influencerId) ? 'Enregistré' : 'Enregistrer'}
-                </button>
-            </div>
+            <div className='grid lg:grid-cols-12 gap-10 lg:gap-12'>
+                {/* Colonne principale */}
+                <div className='lg:col-span-8 space-y-12 order-2 lg:order-1'>
+                    {/* Badges vérifiables */}
+                    <Reveal className='flex flex-wrap gap-2'>
+                        {isApprovedProfile && (
+                            <span className='inline-flex items-center gap-2 rounded-full bg-green-50 text-green-800 border border-green-200 px-4 py-2 text-sm font-semibold'>
+                                <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' /></svg>
+                                Profil vérifié par Collabzz
+                            </span>
+                        )}
+                        {isTikTokConnected && (
+                            <span className='inline-flex items-center gap-2 rounded-full bg-gray-100 text-gray-900 px-4 py-2 text-sm font-semibold'>
+                                <svg className='w-4 h-4' fill='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path d='M12.53.02C13.84 0 15.14.01 16.44 0c.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z' /></svg>
+                                Compte TikTok connecté
+                            </span>
+                        )}
+                        <span className='inline-flex items-center gap-2 rounded-full bg-gray-100 text-gray-900 px-4 py-2 text-sm font-semibold'>
+                            <span className={isFollowersLocked ? 'blur-[5px] select-none' : ''} aria-hidden={isFollowersLocked || undefined}>{displayedFollowersCount}</span>
+                            abonnés
+                            {isFollowersLocked && <span className='sr-only'>(réservé aux membres)</span>}
+                        </span>
+                    </Reveal>
 
-            {/* Content Grid */}
-            <div className='grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8'>
-                {/* Left Column - Profile Info */}
-                <div className='lg:col-span-2 order-2 lg:order-1'>
-                    {/* Profile Header */}
-                    <div className='flex items-start gap-4 mb-6'>
-                        <img
-                            src={displayAvatar}
-                            alt={publicDisplayName}
-                            className='w-20 h-20 rounded-full object-cover'
-                            loading='eager'
-                            fetchpriority='high'
-                        />
-                        <div className='flex-1'>
-                            <div className='flex flex-wrap items-center gap-2 mb-2'>
-                                {influencer.tiktokUsername && (
-                                    <h2 className='text-xl sm:text-2xl font-semibold'>@{influencer.tiktokUsername}</h2>
-                                )}
-                                <div className='flex items-center gap-1 bg-yellow-100 px-2 py-1 rounded text-xs sm:text-sm'>
-                                    <svg className='w-4 h-4 sm:w-5 sm:h-5 text-yellow-500' fill='currentColor' viewBox='0 0 20 20'>
-                                        <path d='M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z' />
-                                    </svg>
-                                    <span className='font-semibold'>{influencer.rating}</span>
-                                    <span className='hidden sm:inline'>· {influencer.reviews} Avis</span>
-                                    <span className='sm:hidden'>({influencer.reviews})</span>
-                                </div>
-                            </div>
-                            <p className='text-sm sm:text-base text-gray-600 mb-3'>{influencer.city}, {influencer.country}</p>
-                            <div className='flex flex-wrap gap-2'>
-                                <div className='flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 rounded-full text-xs sm:text-sm select-none'>
-                                    <svg className='w-3.5 h-3.5 sm:w-4 sm:h-4' fill='currentColor' viewBox='0 0 24 24'>
-                                        <path d='M12.53.02C13.84 0 15.14.01 16.44 0c.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z'/>
-                                    </svg>
-                                    <span className={`font-medium ${isFollowersLocked ? 'blur-[5px]' : ''}`}>
-                                        {displayedFollowersCount}
-                                    </span>
-                                    <span className='hidden sm:inline text-gray-600'>Followers</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    {/* À propos */}
+                    <Reveal>
+                        <h2 className='text-2xl font-bold text-gray-900 mb-3'>À propos</h2>
+                        <p className='text-lg text-gray-700 leading-relaxed whitespace-pre-line'>{influencer.about}</p>
+                    </Reveal>
 
-                    {/* Badge */}
-                    <div className='flex items-center gap-3 bg-gray-50 p-4 rounded-lg mb-6'>
-                        <div className='w-12 h-12 bg-red-100 rounded-full flex items-center justify-center'>
-                            <svg className='w-6 h-6 text-red-600' fill='currentColor' viewBox='0 0 20 20'>
-                                <path fillRule='evenodd' d='M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z' clipRule='evenodd' />
-                            </svg>
-                        </div>
-                        <div>
-                            <h3 className='font-semibold'>{influencer.tiktokUsername ? `@${influencer.tiktokUsername}` : 'Ce créateur'} est un Top Créateur</h3>
-                            <p className='text-sm text-gray-600'>Les Top Créateurs ont complété plusieurs commandes et ont une haute évaluation de la part des marques.</p>
-                        </div>
-                    </div>
-
-                    {/* About */}
-                    <div className='mb-6'>
-                        <p className='text-gray-700 leading-relaxed'>
-                            {influencer.about}
-                        </p>
-                    </div>
-
-                    {/* Section Vidéos de Collaborations */}
-                    {brandVideos.length > 0 && (
-                        <div className='mb-6'>
-                            <h3 className='text-xl font-semibold mb-4'>Collaborations avec des Marques</h3>
-                            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                                {brandVideos.map((video) => (
-                                    <div key={video.id} className='border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow'>
-                                        <div className='flex items-start gap-3'>
-                                            <div className='w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0'>
-                                                <svg className='w-6 h-6 text-primary' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' />
-                                                </svg>
-                                            </div>
-                                            <div className='flex-1'>
-                                                <h4 className='font-semibold text-gray-900'>{video.brandName}</h4>
-                                                <a
-                                                    href={video.url}
-                                                    target='_blank'
-                                                    rel='noopener noreferrer'
-                                                    className='text-sm text-primary hover:underline inline-flex items-center gap-1 mt-1'
-                                                >
-                                                    Voir la vidéo
-                                                    <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14' />
-                                                    </svg>
-                                                </a>
-                                            </div>
-                                        </div>
+                    {/* Statistiques */}
+                    <Reveal as='section' className='relative overflow-hidden rounded-3xl bg-gray-900 text-white p-6 sm:p-8'>
+                        <h2 className='text-2xl font-bold mb-6'>Statistiques TikTok</h2>
+                        <div className={isAnalyticsLocked ? 'select-none pointer-events-none blur-[10px]' : ''} aria-hidden={isAnalyticsLocked || undefined}>
+                            <dl className='grid grid-cols-3 gap-3 sm:gap-4'>
+                                {[
+                                    { label: 'Abonnés', value: isAnalyticsLocked ? '00,0 k' : formatCompactNumber(currentAnalytics?.followers) },
+                                    { label: secondaryMetricLabel, value: isAnalyticsLocked ? '00,0 k' : formatCompactNumber(secondaryMetricValue) },
+                                    {
+                                        label: 'Engagement (estimé)',
+                                        value: isAnalyticsLocked
+                                            ? '0,0 %'
+                                            : currentAnalytics?.engagementRate != null
+                                                ? `${currentAnalytics.engagementRate.toLocaleString('fr-FR')} %`
+                                                : '—',
+                                        title: "Likes + commentaires + partages des vidéos récentes, plus une estimation des enregistrements (non fournis par l'API TikTok publique), rapportés aux vues."
+                                    }
+                                ].map((stat) => (
+                                    <div key={stat.label} className='flex flex-col-reverse rounded-2xl bg-white/5 border border-white/10 p-4 sm:p-5'>
+                                        <dt className='text-xs sm:text-sm text-gray-400 mt-1'>{stat.label}</dt>
+                                        <dd className='text-2xl sm:text-3xl font-bold tracking-tight' title={stat.title}>{stat.value}</dd>
                                     </div>
                                 ))}
-                            </div>
+                            </dl>
                         </div>
+                        {isAnalyticsLocked && (
+                            <div className='absolute inset-0 top-16 flex items-center justify-center p-4'>
+                                <button
+                                    type='button'
+                                    onClick={() => navigate('/login?type=brand&isSignUp=true')}
+                                    className='cursor-pointer flex items-center gap-3 max-w-md rounded-2xl bg-white text-gray-900 text-left px-5 py-4 shadow-2xl hover:bg-gray-50 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+                                >
+                                    <span className='w-11 h-11 rounded-full bg-primary/20 text-primary-dark flex items-center justify-center flex-shrink-0'>
+                                        <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z' /></svg>
+                                    </span>
+                                    <span className='font-semibold leading-snug'>Créez un compte gratuit pour accéder aux statistiques des créateurs</span>
+                                </button>
+                            </div>
+                        )}
+                    </Reveal>
+
+                    {/* Collaborations avec des marques */}
+                    {brandVideos.length > 0 && (
+                        <Reveal as='section'>
+                            <h2 className='text-2xl font-bold text-gray-900 mb-5'>Collaborations avec des marques</h2>
+                            <ul className='grid sm:grid-cols-2 gap-3'>
+                                {brandVideos.map((video) => (
+                                    <li key={video.id}>
+                                        <a
+                                            href={video.url}
+                                            target='_blank'
+                                            rel='noopener noreferrer'
+                                            className='group flex items-center gap-4 rounded-2xl border border-gray-200 p-4 hover:border-gray-900 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+                                        >
+                                            <span className='w-12 h-12 rounded-xl bg-primary/15 text-primary-dark flex items-center justify-center flex-shrink-0'>
+                                                <svg className='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' /></svg>
+                                            </span>
+                                            <span className='flex-1 min-w-0'>
+                                                <span className='block font-semibold text-gray-900 truncate'>{video.brandName}</span>
+                                                <span className='text-sm text-gray-500'>Voir la vidéo</span>
+                                            </span>
+                                            <svg className='w-5 h-5 text-gray-400 transition-transform duration-200 group-hover:translate-x-1' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14' /></svg>
+                                        </a>
+                                    </li>
+                                ))}
+                            </ul>
+                        </Reveal>
                     )}
                 </div>
 
-                {/* Right Column - Pricing */}
-                <div className='lg:col-span-1 order-1 lg:order-2'>
-                    <div className='border rounded-lg p-4 sm:p-6 lg:sticky lg:top-4'>
-                        <div className='text-2xl sm:text-3xl font-bold mb-4'>{currentPrice}€</div>
-                        
-                        <div className='mb-4'>
-                            <select 
-                                value={selectedPackage}
-                                onChange={(e) => setSelectedPackage(e.target.value)}
-                                className='w-full border rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 mb-2 bg-white text-sm sm:text-base'
-                            >
-                                <option value='🎥 1 Vidéo TikTok'>🎥 1 Vidéo TikTok</option>
-                            </select>
-                            <p className='text-xs text-gray-600 leading-relaxed'>
-                                  La vidéo TikTok comprend votre tag et tout texte que vous souhaitez inclure.
-                            </p>
-                        </div>
+                {/* Carte de réservation, collée au scroll */}
+                <aside className='lg:col-span-4 order-1 lg:order-2'>
+                    <div className='lg:sticky lg:top-28 rounded-3xl border border-gray-200 bg-white p-6 shadow-xl shadow-gray-900/5'>
+                        <p className='text-sm text-gray-500'>Prix de la prestation</p>
+                        <p className='text-4xl font-bold text-gray-900 tracking-tight mb-5'>{currentPrice} €</p>
+
+                        <fieldset className='mb-5'>
+                            <legend className='text-sm font-semibold text-gray-900 mb-2'>Prestation</legend>
+                            <label className='flex items-start gap-3 rounded-2xl border-2 border-gray-900 p-4 cursor-pointer'>
+                                <input
+                                    type='radio'
+                                    name='package'
+                                    value='🎥 1 Vidéo TikTok'
+                                    checked={selectedPackage === '🎥 1 Vidéo TikTok'}
+                                    onChange={(e) => setSelectedPackage(e.target.value)}
+                                    className='mt-1 accent-gray-900'
+                                />
+                                <span>
+                                    <span className='block font-semibold text-gray-900'>1 vidéo TikTok</span>
+                                    <span className='block text-sm text-gray-600 leading-relaxed'>La vidéo TikTok comprend votre tag et tout texte que vous souhaitez inclure.</span>
+                                </span>
+                            </label>
+                        </fieldset>
 
                         <button
                             onClick={handleAddToCart}
                             disabled={loading || (currentUser && userType === 'influencer')}
-                            className='w-full bg-primary text-white py-2.5 sm:py-3 rounded-lg text-sm sm:text-base font-semibold hover:bg-primary/90 transition-colors mb-3 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2'
+                            className='cursor-pointer w-full flex items-center justify-center gap-2 rounded-full bg-gray-900 text-white py-3.5 font-semibold hover:bg-gray-800 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2'
                         >
-                            <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z'/>
-                            </svg>
-                            Ajouter au Panier
+                            <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z' /></svg>
+                            Ajouter au panier
                         </button>
-
-                        <div className='text-center text-xs sm:text-sm text-gray-600 mb-4'>ou</div>
-
-                        <button 
+                        <button
                             onClick={() => navigate('/contact')}
-                            className='w-full border border-gray-300 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base font-semibold hover:bg-gray-50 transition-colors'
+                            className='cursor-pointer w-full mt-3 rounded-full border border-gray-300 py-3.5 font-semibold text-gray-900 hover:border-gray-900 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
                         >
-                            Négocier un Pack
+                            Négocier un pack
                         </button>
+
+                        <ul className='mt-6 pt-5 border-t border-gray-200 space-y-2.5 text-sm text-gray-600'>
+                            <li className='flex items-center gap-2.5'>
+                                <svg className='w-4 h-4 text-gray-900 flex-shrink-0' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z' /></svg>
+                                Paiement protégé jusqu’à validation du contenu
+                            </li>
+                            <li className='flex items-center gap-2.5'>
+                                <svg className='w-4 h-4 text-gray-900 flex-shrink-0' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' /></svg>
+                                Messagerie avec le créateur après la commande
+                            </li>
+                        </ul>
                     </div>
-                </div>
+                </aside>
             </div>
 
-            {/* Analytics Section */}
-            <div className='mt-10 bg-white rounded-2xl shadow-lg p-6 md:p-8 relative overflow-hidden'>
-
-                <h2 className='relative z-20 text-2xl font-bold mb-6'>Analytics TikTok</h2>
-
-                <div className={`relative z-0 ${isAnalyticsLocked ? 'select-none pointer-events-none blur-[10px] scale-[1.02]' : ''}`}>
-
-                    {/* Stats Cards */}
-                    <div className='grid grid-cols-3 gap-4 md:gap-6 mb-8'>
-                        <div>
-                            <div className='text-2xl md:text-3xl font-bold text-gray-900'>
-                                {formatCompactNumber(currentAnalytics?.followers)}
-                            </div>
-                            <div className='text-sm text-gray-600 mt-1'>Abonnés</div>
-                        </div>
-                        <div>
-                            <div className='text-2xl md:text-3xl font-bold text-gray-900'>
-                                {formatCompactNumber(secondaryMetricValue)}
-                            </div>
-                            <div className='text-sm text-gray-600 mt-1'>{secondaryMetricLabel}</div>
-                        </div>
-                        <div>
-                            <div
-                                className='text-2xl md:text-3xl font-bold text-gray-900'
-                                title="Likes + commentaires + partages des vidéos récentes, plus une estimation des enregistrements (non fournis par l'API TikTok publique), rapportés aux vues."
-                            >
-                                {currentAnalytics?.engagementRate !== null && currentAnalytics?.engagementRate !== undefined
-                                    ? `${currentAnalytics.engagementRate}%`
-                                    : '—'}
-                            </div>
-                            <div className='text-sm text-gray-600 mt-1'>Engagement (estimé)</div>
-                        </div>
-                    </div>
-                </div>
-
-                {isAnalyticsLocked && (
-                    <div className='absolute inset-0 z-20 flex items-center justify-center p-4'>
+            {/* Derniers posts */}
+            <Reveal as='section' className='mt-16'>
+                <div className='flex items-center justify-between gap-4 mb-6'>
+                    <h2 className='text-2xl md:text-3xl font-bold text-gray-900'>Ses derniers posts</h2>
+                    {currentUser && firebaseInfluencerId && currentUser.uid === firebaseInfluencerId && (
                         <button
-                            type='button'
-                            onClick={() => navigate('/login?isSignUp=true')}
-                            className='max-w-md rounded-lg bg-black/90 px-5 py-4 text-left text-white shadow-2xl hover:bg-black transition-colors'
+                            onClick={refreshTikTok}
+                            className='cursor-pointer text-sm font-semibold px-4 py-2 rounded-full border border-gray-300 hover:border-gray-900 transition-colors duration-200'
                         >
-                            <div className='flex items-center gap-3'>
-                                <div className='flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-white/10'>
-                                    <svg className='h-6 w-6' viewBox='0 0 24 24' fill='none' stroke='currentColor'>
-                                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M12 11V7a4 4 0 10-8 0v4m8 0H4m8 0v10H4v-10m8 0h8m-8 0a4 4 0 118 0v4m-8-4v10h8v-10m0 0h-8' />
-                                    </svg>
-                                </div>
-                                <span className='text-base sm:text-lg font-medium leading-snug'>
-                                    Créez un compte gratuit pour accéder aux statistiques des créateurs
-                                </span>
-                            </div>
+                            Rafraîchir
                         </button>
-                    </div>
-                )}
+                    )}
                 </div>
 
-            {/* Section Derniers Posts */}
-            <div className='mt-10 bg-white rounded-2xl shadow-lg p-6 md:p-8'>
-                    <div className='flex items-center justify-between mb-6'>
-                        <h2 className='text-2xl font-bold'>Ses Derniers Posts</h2>
-                        {currentUser && firebaseInfluencerId && currentUser.uid === firebaseInfluencerId && (
-                            <button
-                                onClick={async (e) => {
-                                    e.stopPropagation()
-                                    try {
-                                        const idToken = await currentUser.getIdToken()
-                                        const resp = await fetch('/api/force_tiktok_update', {
-                                            method: 'POST',
-                                            headers: {
-                                                'Content-Type': 'application/json',
-                                                'Authorization': `Bearer ${idToken}`
-                                            },
-                                            body: JSON.stringify({ influencerId: firebaseInfluencerId })
-                                        })
-
-                                        if (!resp.ok) throw new Error('Erreur serveur')
-
-                                        // Recharger les données sociales depuis Firestore
-                                        const docRef = doc(db, 'influencers', firebaseInfluencerId)
-                                        const docSnap = await getDocFromServer(docRef)
-                                        if (docSnap.exists()) {
-                                            const data = docSnap.data()
-                                            const rawTikTok = Array.isArray(data.tiktokVideos) && data.tiktokVideos.length > 0
-                                                ? data.tiktokVideos
-                                                : data.socialAccounts?.tiktok?.recentVideos
-
-                                            setTiktokVideos(normalizeTikTokVideos(rawTikTok))
-                                        }
-                                    } catch (err) {
-                                        console.error('Erreur rafraîchissement TikTok:', err)
-                                        toast.error('Impossible de rafraîchir les posts pour le moment.')
-                                    }
-                                }}
-                                className='text-sm px-3 py-1.5 border rounded-md text-primary hover:bg-primary/5'
-                            >
-                                Rafraîchir
-                            </button>
-                        )}
-                    </div>
-                
-                <div className={tiktokVideos.length > 0 ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6' : ''}>
-                    {tiktokVideos.length > 0 ? (
-                        tiktokVideos.map((video, index) => {
+                {tiktokVideos.length > 0 ? (
+                    <ul className='grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5'>
+                        {tiktokVideos.map((video, index) => {
                             const videoKey = video.id || video.url || `video-${index}`
                             const isThumbnailFailed = Boolean(failedThumbnails[videoKey])
-                            const fallbackGradient = index % 3 === 0
-                                ? 'bg-gradient-to-br from-pink-500 to-purple-600'
-                                : index % 3 === 1
-                                    ? 'bg-gradient-to-br from-blue-500 to-cyan-600'
-                                    : 'bg-gradient-to-br from-orange-500 to-red-600'
                             const canOpenVideo = Boolean(video.url)
 
                             return (
-                            <div 
-                                key={video.id || index} 
-                                className={`group ${canOpenVideo ? 'cursor-pointer' : 'cursor-default'}`}
-                                onClick={() => {
-                                      if (canOpenVideo) openTikTokModal(video)
-                                }}
-                            >
-                                <div className='relative aspect-[9/16] bg-gray-100 rounded-xl overflow-hidden mb-3 hover:opacity-90 transition-opacity'>
-                                    {/* Thumbnail */}
-                                      {video.thumbnail && !isThumbnailFailed ? (
-                                        <img
-                                            src={video.thumbnail}
-                                            alt={video.title || 'Thumbnail TikTok'}
-                                            className='absolute inset-0 w-full h-full object-cover'
-                                              loading='lazy'
-                                              referrerPolicy='no-referrer'
-                                              onError={() => {
-                                                  setFailedThumbnails((previous) => ({
-                                                      ...previous,
-                                                      [videoKey]: true
-                                                  }))
-                                              }}
-                                        />
-                                    ) : (
-                                        <div className={`absolute inset-0 flex items-center justify-center ${fallbackGradient}`}>
-                                            <svg className='w-20 h-20 text-white' fill='currentColor' viewBox='0 0 24 24'>
-                                                <path d='M8 5v14l11-7z'/>
-                                            </svg>
+                                <Reveal as='li' key={videoKey} delay={Math.min(index, 7) * 0.05}>
+                                    <button
+                                        type='button'
+                                        disabled={!canOpenVideo}
+                                        onClick={() => canOpenVideo && openTikTokModal(video)}
+                                        className='group w-full text-left cursor-pointer disabled:cursor-default focus-visible:outline-none'
+                                    >
+                                        <div className='relative aspect-[9/16] rounded-2xl overflow-hidden bg-gray-900 mb-3 group-focus-visible:ring-4 group-focus-visible:ring-primary'>
+                                            {video.thumbnail && !isThumbnailFailed ? (
+                                                <img
+                                                    src={video.thumbnail}
+                                                    alt=''
+                                                    className='absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105'
+                                                    loading='lazy'
+                                                    referrerPolicy='no-referrer'
+                                                    onError={() => setFailedThumbnails((previous) => ({ ...previous, [videoKey]: true }))}
+                                                />
+                                            ) : (
+                                                <div className='absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900' />
+                                            )}
+                                            <div className='absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent' />
+                                            {canOpenVideo ? (
+                                                <span className='absolute inset-0 flex items-center justify-center'>
+                                                    <span className='w-14 h-14 rounded-full bg-white/90 text-gray-900 flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-110'>
+                                                        <svg className='w-6 h-6 ml-0.5' fill='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path d='M8 5v14l11-7z' /></svg>
+                                                    </span>
+                                                </span>
+                                            ) : (
+                                                <span className='absolute inset-x-0 bottom-0 bg-black/50 text-white text-xs px-3 py-2'>Lien vidéo non disponible</span>
+                                            )}
+                                            {/* Vues et likes : réservés aux membres, comme les autres statistiques */}
+                                            {!isAnalyticsLocked && (video.views > 0 || video.likes > 0) && (
+                                                <span className='absolute bottom-3 left-3 right-3 flex gap-2 text-white text-xs font-semibold'>
+                                                    {video.views > 0 && <span className='rounded-full bg-black/60 backdrop-blur px-2 py-1'>{formatCompactNumber(video.views)} vues</span>}
+                                                    {video.likes > 0 && <span className='rounded-full bg-black/60 backdrop-blur px-2 py-1'>{formatCompactNumber(video.likes)} likes</span>}
+                                                </span>
+                                            )}
                                         </div>
-                                    )}
-
-                                    {canOpenVideo && (
-                                        <div className='absolute inset-0 flex items-center justify-center'>
-                                            <svg className='w-16 h-16 text-white drop-shadow-lg' fill='currentColor' viewBox='0 0 24 24'>
-                                                <path d='M8 5v14l11-7z'/>
-                                            </svg>
-                                        </div>
-                                    )}
-
-                                    {!canOpenVideo && (
-                                        <div className='absolute inset-x-0 bottom-0 bg-black/50 text-white text-xs px-3 py-2'>
-                                            Lien vidéo non disponible
-                                        </div>
-                                    )}
-
-                                    {/* Badge vues */}
-                                    {video.views && (
-                                        <div className='absolute top-3 right-3 bg-black/70 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1'>
-                                            <svg className='w-3 h-3' fill='currentColor' viewBox='0 0 20 20'>
-                                                <path d='M10 12a2 2 0 100-4 2 2 0 000 4z'/>
-                                                <path fillRule='evenodd' d='M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z' clipRule='evenodd'/>
-                                            </svg>
-                                            {formatCompactNumber(video.views)}
-                                        </div>
-                                    )}
-
-                                    {/* Badge likes */}
-                                    {video.likes && (
-                                        <div className='absolute bottom-3 left-3 bg-black/70 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1'>
-                                            <svg className='w-3 h-3' fill='currentColor' viewBox='0 0 20 20'>
-                                                <path fillRule='evenodd' d='M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z' clipRule='evenodd'/>
-                                            </svg>
-                                            {formatCompactNumber(video.likes)}
-                                        </div>
-                                    )}
-                                </div>
-                                <div className='space-y-1'>
-                                    <p className='text-sm text-gray-900 font-medium line-clamp-2 group-hover:text-primary transition-colors'>
-                                        {video.title || 'Vidéo TikTok'}
-                                    </p>
-                                    <p className='text-xs text-gray-500'>
-                                        {video.date || formatRelativeDate(video.createTime)}
-                                    </p>
-                                </div>
-                            </div>
+                                        <p className='text-sm text-gray-900 font-medium line-clamp-2'>{video.title || 'Vidéo TikTok'}</p>
+                                        <p className='text-xs text-gray-500 mt-0.5'>{video.date || formatRelativeDate(video.createTime)}</p>
+                                    </button>
+                                </Reveal>
                             )
-                        })
-                    ) : (
-                        <div className='flex flex-col items-center justify-center py-16 px-6 text-center border border-dashed border-gray-200 rounded-xl'>
-                            <div className='w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-4'>
-                                <svg className='w-7 h-7 text-gray-400' fill='currentColor' viewBox='0 0 24 24'>
-                                    <path d='M8 5v14l11-7z'/>
-                                </svg>
-                            </div>
-                            <p className='text-gray-700 font-medium'>Aucune vidéo publiée pour le moment</p>
-                            <p className='text-sm text-gray-500 mt-1'>Cet influenceur n'a pas encore publié de vidéo TikTok publique.</p>
-                        </div>
-                    )}
-                </div>
-            </div>
+                        })}
+                    </ul>
+                ) : (
+                    <div className='flex flex-col items-center justify-center py-16 px-6 text-center rounded-3xl border border-dashed border-gray-300'>
+                        <p className='text-gray-900 font-semibold'>Aucune vidéo publiée pour le moment</p>
+                        <p className='text-sm text-gray-500 mt-1'>{"Cet influenceur n'a pas encore publié de vidéo TikTok publique."}</p>
+                    </div>
+                )}
+            </Reveal>
 
-              {/* Modal Vidéo TikTok */}
-              {selectedVideo && (
-                  <div
-                      className='fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4'
-                      onClick={() => setSelectedVideo(null)}
-                  >
-                      <button
-                          onClick={() => setSelectedVideo(null)}
-                          className='absolute top-4 right-4 text-white hover:text-gray-300 transition-colors z-20'
-                          aria-label='Fermer'
-                      >
-                          <svg className='w-8 h-8' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' />
-                          </svg>
-                      </button>
-
-                      <div
-                          className='relative w-full max-w-md aspect-[9/16]'
-                          onClick={(e) => e.stopPropagation()}
-                      >
-                          <iframe
-                              src={selectedVideo.embedUrl}
-                              title={selectedVideo.title || 'Vidéo TikTok'}
-                              className='w-full h-full rounded-xl bg-black'
-                              allow='fullscreen; autoplay; encrypted-media; picture-in-picture'
-                              allowFullScreen
-                          />
-                      </div>
-                  </div>
-              )}
-
-            {/* Lightbox Modal */}
-            {isLightboxOpen && (
-                <div 
-                    className='fixed inset-0 z-50 flex items-center justify-center'
-                    onClick={closeLightbox}
-                >
-                    {/* Backdrop avec flou */}
-                    <div className='absolute inset-0 bg-black/90 backdrop-blur-md' />
-                    
-                    {/* Contenu du lightbox */}
-                    <div className='relative z-10 w-full h-full flex items-center justify-center p-4'>
-                        {/* Bouton fermer */}
+            {/* Modal vidéo TikTok */}
+            <AnimatePresence>
+                {selectedVideo && (
+                    <motion.div
+                        role='dialog'
+                        aria-modal='true'
+                        aria-label={selectedVideo.title || 'Vidéo TikTok'}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className='fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4'
+                        onClick={() => setSelectedVideo(null)}
+                    >
                         <button
-                            onClick={closeLightbox}
-                            className='absolute top-4 right-4 text-white hover:text-gray-300 transition-colors z-20'
+                            onClick={() => setSelectedVideo(null)}
+                            className='cursor-pointer absolute top-4 right-4 w-11 h-11 rounded-full bg-white/10 text-white hover:bg-white/20 flex items-center justify-center z-20'
                             aria-label='Fermer'
                         >
-                            <svg className='w-8 h-8' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' />
-                            </svg>
+                            <svg className='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' /></svg>
                         </button>
-
-                        {/* Bouton précédent */}
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation()
-                                previousImageUpdated()
-                            }}
-                            className='absolute left-4 text-white hover:text-gray-300 transition-colors z-20 bg-black/50 rounded-full p-3 hover:bg-black/70'
-                            aria-label='Photo précédente'
-                        >
-                            <svg className='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 19l-7-7 7-7' />
-                            </svg>
-                        </button>
-
-                        {/* Image */}
-                        <div 
-                            className='max-w-5xl max-h-[90vh] flex items-center justify-center'
+                        <motion.div
+                            initial={{ scale: 0.94, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.94, opacity: 0 }}
+                            transition={{ duration: 0.25 }}
+                            className='relative w-full max-w-md aspect-[9/16]'
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <img
-                                src={getCurrentLightboxImage()}
-                                alt={`${publicDisplayName} ${lightboxImageIndex + 1}`}
-                                className='max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl'
+                            <iframe
+                                src={selectedVideo.embedUrl}
+                                title={selectedVideo.title || 'Vidéo TikTok'}
+                                className='w-full h-full rounded-2xl bg-black'
+                                allow='fullscreen; autoplay; encrypted-media; picture-in-picture'
+                                allowFullScreen
                             />
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Lightbox photos */}
+            <AnimatePresence>
+                {isLightboxOpen && (
+                    <motion.div
+                        role='dialog'
+                        aria-modal='true'
+                        aria-label='Photos du créateur'
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className='fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4'
+                        onClick={closeLightbox}
+                    >
+                        <button onClick={closeLightbox} className='cursor-pointer absolute top-4 right-4 w-11 h-11 rounded-full bg-white/10 text-white hover:bg-white/20 flex items-center justify-center z-20' aria-label='Fermer'>
+                            <svg className='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' /></svg>
+                        </button>
+
+                        {totalImages > 1 && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); previousImageUpdated() }}
+                                className='cursor-pointer absolute left-4 w-12 h-12 rounded-full bg-white/10 text-white hover:bg-white/20 flex items-center justify-center z-20'
+                                aria-label='Photo précédente'
+                            >
+                                <svg className='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 19l-7-7 7-7' /></svg>
+                            </button>
+                        )}
+
+                        <div className='max-w-5xl max-h-[85vh] flex items-center justify-center' onClick={(e) => e.stopPropagation()}>
+                            <AnimatePresence mode='wait'>
+                                <motion.img
+                                    key={lightboxImageIndex}
+                                    src={getCurrentLightboxImage()}
+                                    alt={`${publicDisplayName} ${lightboxImageIndex + 1}`}
+                                    initial={{ opacity: 0, scale: 0.97 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.97 }}
+                                    transition={{ duration: 0.2 }}
+                                    className='max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl'
+                                />
+                            </AnimatePresence>
                         </div>
 
-                        {/* Bouton suivant */}
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation()
-                                nextImageUpdated()
-                            }}
-                            className='absolute right-4 text-white hover:text-gray-300 transition-colors z-20 bg-black/50 rounded-full p-3 hover:bg-black/70'
-                            aria-label='Photo suivante'
-                        >
-                            <svg className='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M9 5l7 7-7 7' />
-                            </svg>
-                        </button>
+                        {totalImages > 1 && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); nextImageUpdated() }}
+                                className='cursor-pointer absolute right-4 w-12 h-12 rounded-full bg-white/10 text-white hover:bg-white/20 flex items-center justify-center z-20'
+                                aria-label='Photo suivante'
+                            >
+                                <svg className='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M9 5l7 7-7 7' /></svg>
+                            </button>
+                        )}
 
-                        {/* Indicateur de position */}
-                        <div 
-                            className='absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white text-sm bg-black/50 px-4 py-2 rounded-full'
-                            onClick={(e) => e.stopPropagation()}
-                        >
+                        <div className='absolute bottom-4 left-1/2 -translate-x-1/2 text-white text-sm bg-white/10 px-4 py-2 rounded-full' onClick={(e) => e.stopPropagation()}>
                             {lightboxImageIndex + 1} / {totalImages}
                         </div>
-
-                        {/* Miniatures */}
-                        {totalImages <= 5 && (
-                            <div 
-                                className='absolute bottom-16 left-1/2 transform -translate-x-1/2 flex gap-2'
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                {displayPhotos.length > 0 ? (
-                                    displayPhotos.map((photo, index) => (
-                                        <button
-                                            key={photo.id}
-                                            onClick={() => setLightboxImageIndex(index)}
-                                            className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
-                                                lightboxImageIndex === index 
-                                                    ? 'border-white scale-110' 
-                                                    : 'border-transparent opacity-60 hover:opacity-100'
-                                            }`}
-                                        >
-                                            <img
-                                                src={photo.url}
-                                                alt={`Miniature ${index + 1}`}
-                                                className='w-full h-full object-cover'
-                                            />
-                                        </button>
-                                    ))
-                                ) : (
-                                    [0, 1, 2].map((index) => (
-                                        <button
-                                            key={index}
-                                            onClick={() => setLightboxImageIndex(index)}
-                                            className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
-                                                lightboxImageIndex === index 
-                                                    ? 'border-white scale-110' 
-                                                    : 'border-transparent opacity-60 hover:opacity-100'
-                                            }`}
-                                        >
-                                            <img
-                                                src={influencer.image}
-                                                alt={`Miniature ${index + 1}`}
-                                                className='w-full h-full object-cover'
-                                            />
-                                        </button>
-                                    ))
-                                )}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
+        </MotionConfig>
     )
 }
 

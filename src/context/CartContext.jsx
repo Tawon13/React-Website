@@ -11,23 +11,25 @@ export const useCart = () => {
 }
 
 export const CartProvider = ({ children }) => {
-    const [cartItems, setCartItems] = useState([])
-
-    // Charger le panier depuis le localStorage au démarrage
-    useEffect(() => {
-        const savedCart = localStorage.getItem('cart')
-        if (savedCart) {
-            try {
-                setCartItems(JSON.parse(savedCart))
-            } catch (error) {
-                console.error('Erreur lors du chargement du panier:', error)
-            }
+    // Lecture dès l'initialisation : avec un effet séparé, l'effet d'écriture ci-dessous
+    // pouvait sauvegarder [] avant la relecture et vider le panier.
+    const [cartItems, setCartItems] = useState(() => {
+        try {
+            const saved = JSON.parse(localStorage.getItem('cart') || '[]')
+            return Array.isArray(saved) ? saved : []
+        } catch (error) {
+            console.error('Erreur lors du chargement du panier:', error)
+            return []
         }
-    }, [])
+    })
 
     // Sauvegarder le panier dans le localStorage à chaque modification
     useEffect(() => {
-        localStorage.setItem('cart', JSON.stringify(cartItems))
+        try {
+            localStorage.setItem('cart', JSON.stringify(cartItems))
+        } catch {
+            // Stockage indisponible (navigation privée...) : le panier reste en mémoire.
+        }
     }, [cartItems])
 
     // Ajouter un article au panier
@@ -39,10 +41,11 @@ export const CartProvider = ({ children }) => {
             )
 
             if (existingItemIndex > -1) {
-                // Si l'item existe, augmenter la quantité
-                const newItems = [...prevItems]
-                newItems[existingItemIndex].quantity += 1
-                return newItems
+                // Si l'item existe, augmenter la quantité (sans muter l'objet existant :
+                // en StrictMode la fonction est appelée deux fois et ajoutait +2)
+                return prevItems.map((i, index) =>
+                    index === existingItemIndex ? { ...i, quantity: i.quantity + 1 } : i
+                )
             } else {
                 // Sinon, ajouter un nouvel item
                 return [...prevItems, { ...item, quantity: 1, id: Date.now() }]

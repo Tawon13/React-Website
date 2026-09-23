@@ -53,6 +53,23 @@ service firebase.storage {
       allow write: if isAuth();
     }
     
+    // Vidéos livrées dans une conversation (dépôt pour validation par la marque).
+    // Lecture réservée aux deux participants, envoi réservé à l'influenceur ; pas de
+    // modification ni de suppression pour garder l'historique des versions.
+    match /deliveries/{conversationId}/{fileName} {
+      function deliveryConversation() {
+        return firestore.get(/databases/(default)/documents/conversations/$(conversationId)).data;
+      }
+      allow read: if isAuth() &&
+                     (request.auth.uid == deliveryConversation().brandId ||
+                      request.auth.uid == deliveryConversation().influencerId);
+      allow create: if isAuth() &&
+                       request.auth.uid == deliveryConversation().influencerId &&
+                       request.resource.contentType.matches('video/.*') &&
+                       isUnderSize(500);
+      allow update, delete: if false;
+    }
+
     // Bloquer tout accès non défini
     match /{allPaths=**} {
       allow read, write: if false;

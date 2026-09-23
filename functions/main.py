@@ -314,12 +314,10 @@ def create_collaboration_request_handler(req: https_fn.Request) -> https_fn.Resp
             return _json_response({'error': 'Panier vide'}, status=400)
 
         db_client = firestore.client()
-        brand_ref = db_client.collection('brands').document(uid)
-        brand_snap = brand_ref.get()
-        if not brand_snap.exists:
+        brand_data = _read_profile(db_client, 'brands', uid)
+        if brand_data is None:
             return _json_response({'error': 'Seules les marques peuvent envoyer des demandes'}, status=403)
 
-        brand_data = brand_snap.to_dict() or {}
         brand_name = brand_data.get('brandName', 'Marque')
         brand_email = brand_data.get('email', '')
 
@@ -336,12 +334,10 @@ def create_collaboration_request_handler(req: https_fn.Request) -> https_fn.Resp
             if not influencer_id or quantity <= 0:
                 continue
 
-            influencer_ref = db_client.collection('influencers').document(influencer_id)
-            influencer_snap = influencer_ref.get()
-            if not influencer_snap.exists:
+            influencer_data = _read_profile(db_client, 'influencers', influencer_id)
+            if influencer_data is None:
                 continue
 
-            influencer_data = influencer_snap.to_dict() or {}
             influencer_name = influencer_data.get('name', 'Influenceur')
             influencer_email = influencer_data.get('email', '')
             influencer_phone = influencer_data.get('phone', '')
@@ -553,19 +549,43 @@ def on_collaboration_request_responded(event: firestore_fn.Event[firestore_fn.Ch
     )
 
 
+# Données personnelles stockées dans {collection}/{uid}/private/profile (lisible par le
+# titulaire et l'admin uniquement, voir firestore.rules) et non plus dans le profil public.
+# Garder synchronisé avec src/utils/privateProfile.js et scripts/migrate-private-profiles.mjs.
+PRIVATE_PROFILE_FIELDS = {
+    'influencers': ['name', 'email', 'phone'],
+    'brands': ['name', 'email', 'fullName', 'contactPerson', 'phone', 'address', 'siret'],
+}
+
+
+def _read_profile(db_client, collection_name, uid, public_snap=None):
+    """
+    Profil complet = document public + sous-document privé (le privé est prioritaire).
+    Fonctionne aussi pour les comptes pas encore migrés (champs encore dans le public).
+    Retourne None si le profil public n'existe pas.
+    """
+    public_ref = db_client.collection(collection_name).document(uid)
+    snap = public_snap if public_snap is not None else public_ref.get()
+    if not snap.exists:
+        return None
+    data = snap.to_dict() or {}
+    private_snap = public_ref.collection('private').document('profile').get()
+    if private_snap.exists:
+        data.update(private_snap.to_dict() or {})
+    return data
+
+
 def _lookup_user_profile(db_client, uid):
     """
     Retrouve le profil (influenceur ou marque) associé à un uid.
     Retourne (user_type, name, email) ou (None, None, None) si introuvable.
     """
-    influencer_snap = db_client.collection('influencers').document(uid).get()
-    if influencer_snap.exists:
-        data = influencer_snap.to_dict() or {}
+    data = _read_profile(db_client, 'influencers', uid)
+    if data is not None:
         return 'influencer', data.get('name', ''), data.get('email', '')
 
-    brand_snap = db_client.collection('brands').document(uid).get()
-    if brand_snap.exists:
-        data = brand_snap.to_dict() or {}
+    data = _read_profile(db_client, 'brands', uid)
+    if data is not None:
         name = data.get('brandName', '') or data.get('fullName', '')
         return 'brand', name, data.get('email', '')
 
@@ -1301,6 +1321,8 @@ def tiktok_connection_reminder(event: scheduler_fn.ScheduledEvent) -> None:
             continue
         if (data.get('socialAccounts') or {}).get('tiktok', {}).get('connected'):
             continue
+        # Email et prénom : dans le sous-document privé depuis la séparation public/privé.
+        data = _read_profile(db, 'influencers', influencer.id, public_snap=influencer) or data
         email = data.get('email')
         if not email:
             continue

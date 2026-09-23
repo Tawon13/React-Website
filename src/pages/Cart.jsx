@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useContext, useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { AnimatePresence, motion, MotionConfig } from 'motion/react'
+import { AppContext } from '../context/AppContext'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { CREATE_COLLABORATION_REQUEST_URL } from '../config/firebase'
@@ -14,7 +16,24 @@ const Cart = () => {
     const { cartItems, removeFromCart, updateQuantity, clearCart, getTotal } = useCart()
     const { currentUser, userType } = useAuth()
     const toast = useToast()
+    const { doctors } = useContext(AppContext)
     const [loading, setLoading] = useState(false)
+    const [confirmClear, setConfirmClear] = useState(false)
+
+    // Pseudo, catégorie et photo à jour depuis la liste des créateurs ; le vrai nom
+    // (influencerName, envoyé au serveur) n'est jamais affiché.
+    const describeItem = (item) => {
+        const creator = doctors.find((d) => d._id === item.influencerId)
+        const username = creator?.tiktokUsername || item.influencerUsername
+        return {
+            name: username ? `@${username}` : (creator?.speciality || item.influencerCategory || 'Créateur de contenu'),
+            category: creator?.speciality || item.influencerCategory || '',
+            image: creator?.image || item.influencerImage
+        }
+    }
+    // Libellé de prestation sans l'emoji stocké dans la valeur (ex. « 🎥 1 Vidéo TikTok »).
+    const packageLabel = (pkg) => (pkg || 'Collaboration').replace(/^[^\p{L}\p{N}]+/u, '')
+    const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0)
 
     // Réveille la fonction pendant que la marque consulte son panier, plutôt qu'au moment
     // où elle clique sur "Envoyer la demande" (voir utils/warmup.js).
@@ -90,181 +109,188 @@ const Cart = () => {
         }
     }
 
-    if (cartItems.length === 0) {
-        return (
-            <div className='min-h-screen bg-gray-50 py-10'>
-                <SEO title='Panier' noindex />
-                <div className='max-w-7xl mx-auto px-4'>
-                    <div className='text-center py-20'>
-                        <svg className='w-24 h-24 text-gray-400 mx-auto mb-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z'/>
-                        </svg>
-                        <h2 className='text-2xl font-bold text-gray-900 mb-2'>Votre panier est vide</h2>
-                        <p className='text-gray-600 mb-6'>Découvrez nos talents et ajoutez des collaborations à votre panier</p>
-                        <button
-                            onClick={() => navigate('/talents')}
-                            className='bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary/90 transition'
-                        >
-                            Découvrir nos Talents
-                        </button>
-                    </div>
-                </div>
-            </div>
-        )
-    }
+    const fmt = (value) => value.toLocaleString('fr-FR', { maximumFractionDigits: 2 })
+    const isBrandUser = currentUser && userType === 'brand'
 
     return (
-        <div className='min-h-screen bg-gray-50 py-10'>
+        <MotionConfig reducedMotion='user'>
+        <div className='pt-10 md:pt-14 pb-20'>
             <SEO title='Panier' noindex />
-            <div className='max-w-7xl mx-auto px-4'>
-                <div className='mb-6'>
-                    <button
-                        onClick={() => navigate(-1)}
-                        className='flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4'
-                    >
-                        <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M15 19l-7-7 7-7'/>
-                        </svg>
-                        Retour
-                    </button>
-                    <h1 className='text-3xl font-bold text-gray-900'>Mon Panier</h1>
-                    <p className='text-gray-600 mt-2'>{cartItems.reduce((sum, item) => sum + item.quantity, 0)} article(s)</p>
-                </div>
 
-                <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
-                    {/* Liste des articles */}
-                    <div className='lg:col-span-2 space-y-4'>
-                        {cartItems.map((item) => (
-                            <div key={item.id} className='bg-white rounded-lg shadow-md p-6'>
-                                <div className='flex gap-4'>
-                                    {/* Image de l'influenceur */}
-                                    <div className='flex-shrink-0'>
-                                        <img
-                                            src={item.influencerImage}
-                                            alt={item.influencerName}
-                                            className='w-24 h-24 rounded-lg object-cover'
-                                        />
-                                    </div>
+            <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, ease: 'easeOut' }}
+                className='mb-10'
+            >
+                <p className='text-sm font-semibold uppercase tracking-wider text-primary-dark mb-3'>Panier</p>
+                <h1 className='text-4xl sm:text-5xl font-bold text-gray-900 tracking-tight'>Vos collaborations</h1>
+                <p className='text-gray-600 text-lg mt-3' aria-live='polite'>
+                    {itemCount === 0 ? 'Votre panier est vide.' : `${itemCount} prestation${itemCount > 1 ? 's' : ''} sélectionnée${itemCount > 1 ? 's' : ''}`}
+                </p>
+            </motion.div>
 
-                                    {/* Détails */}
-                                    <div className='flex-1'>
-                                        <div className='flex justify-between items-start mb-2'>
-                                            <div>
-                                                <h3 className='font-semibold text-lg text-gray-900'>{item.influencerName}</h3>
-                                                <p className='text-sm text-gray-600'>{item.package}</p>
-                                            </div>
-                                            <button
-                                                onClick={() => removeFromCart(item.id)}
-                                                className='text-red-500 hover:text-red-700'
-                                            >
-                                                <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16'/>
-                                                </svg>
-                                            </button>
-                                        </div>
-
-                                        <div className='flex items-center justify-between mt-4'>
-                                            {/* Quantité */}
-                                            <div className='flex items-center gap-3'>
-                                                <button
-                                                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                                                    className='w-8 h-8 rounded-lg border border-gray-300 flex items-center justify-center hover:bg-gray-100'
-                                                >
-                                                    <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M20 12H4'/>
-                                                    </svg>
-                                                </button>
-                                                <span className='font-medium w-8 text-center'>{item.quantity}</span>
-                                                <button
-                                                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                                                    className='w-8 h-8 rounded-lg border border-gray-300 flex items-center justify-center hover:bg-gray-100'
-                                                >
-                                                    <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M12 4v16m8-8H4'/>
-                                                    </svg>
-                                                </button>
-                                            </div>
-
-                                            {/* Prix */}
-                                            <div className='text-right'>
-                                                <p className='text-xl font-bold text-gray-900'>{(item.price * item.quantity * (1 + SERVICE_FEE_RATE)).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €</p>
-                                                <p className='text-sm text-gray-500'>
-                                                    {item.price}€{item.quantity > 1 ? ` × ${item.quantity}` : ''} + frais de service (15%)
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
+            {cartItems.length === 0 ? (
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className='flex flex-col items-center text-center py-20 px-6 rounded-3xl border border-dashed border-gray-300'
+                >
+                    <div className='w-16 h-16 rounded-2xl bg-primary/15 text-primary-dark flex items-center justify-center mb-6'>
+                        <svg className='w-8 h-8' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z' /></svg>
                     </div>
+                    <p className='text-xl font-semibold text-gray-900 mb-2'>Votre panier est vide</p>
+                    <p className='text-gray-600 mb-8 max-w-md'>Découvrez nos talents et ajoutez des collaborations à votre panier.</p>
+                    <button onClick={() => navigate('/talents')} className='cursor-pointer rounded-full bg-gray-900 text-white px-7 py-3.5 font-semibold hover:bg-gray-800 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2'>
+                        Découvrir les talents
+                    </button>
+                </motion.div>
+            ) : (
+                <div className='grid lg:grid-cols-12 gap-8'>
+                    {/* Articles */}
+                    <div className='lg:col-span-7 xl:col-span-8'>
+                        <motion.ul layout className='space-y-3'>
+                            <AnimatePresence mode='popLayout'>
+                                {cartItems.map((item, index) => {
+                                    const info = describeItem(item)
+                                    const lineTotal = item.price * item.quantity * (1 + SERVICE_FEE_RATE)
+                                    return (
+                                        <motion.li
+                                            key={item.id}
+                                            layout
+                                            initial={{ opacity: 0, y: 12 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, x: -40, transition: { duration: 0.2 } }}
+                                            transition={{ duration: 0.3, delay: index * 0.05, layout: { type: 'spring', stiffness: 350, damping: 34 } }}
+                                            className='flex gap-4 rounded-3xl border border-gray-200 bg-white p-4 sm:p-5'
+                                        >
+                                            <Link to={`/influencer/${item.influencerId}`} className='flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl'>
+                                                <img src={info.image} alt='' className='w-20 h-24 sm:w-24 sm:h-28 rounded-2xl object-cover bg-gray-100' />
+                                            </Link>
+                                            <div className='flex-1 min-w-0 flex flex-col'>
+                                                <div className='flex items-start justify-between gap-3'>
+                                                    <div className='min-w-0'>
+                                                        <Link to={`/influencer/${item.influencerId}`} className='block font-semibold text-lg text-gray-900 truncate hover:underline underline-offset-4'>{info.name}</Link>
+                                                        <p className='text-sm text-gray-500 truncate'>{packageLabel(item.package)}{info.category ? ` · ${info.category}` : ''}</p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => removeFromCart(item.id)}
+                                                        aria-label={`Retirer ${info.name} du panier`}
+                                                        className='cursor-pointer w-9 h-9 -mr-1 rounded-full flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 flex-shrink-0 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300'
+                                                    >
+                                                        <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16' /></svg>
+                                                    </button>
+                                                </div>
 
-                    {/* Résumé de la commande */}
-                    <div className='lg:col-span-1'>
-                        <div className='bg-white rounded-lg shadow-md p-6 sticky top-4'>
-                            <h2 className='text-xl font-bold text-gray-900 mb-4'>Résumé</h2>
-                            
-                            <div className='space-y-3 mb-6'>
-                                <div className='flex justify-between text-gray-600'>
-                                    <span>Sous-total</span>
-                                    <span>{subtotal.toLocaleString('fr-FR')} €</span>
-                                </div>
-                                <div className='flex justify-between text-gray-600'>
-                                    <span>Frais de service (15%)</span>
-                                    <span>{serviceFee.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €</span>
-                                </div>
-                                <div className='border-t pt-3 flex justify-between text-lg font-bold'>
-                                    <span>Total</span>
-                                    <span>{grandTotal.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €</span>
-                                </div>
-                            </div>
+                                                <div className='flex items-end justify-between gap-3 mt-auto pt-3'>
+                                                    <div className='inline-flex items-center rounded-full border border-gray-300' role='group' aria-label='Quantité'>
+                                                        <button
+                                                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                                            aria-label='Diminuer la quantité'
+                                                            className='cursor-pointer w-9 h-9 rounded-full flex items-center justify-center text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+                                                        >
+                                                            <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M20 12H4' /></svg>
+                                                        </button>
+                                                        <motion.span key={item.quantity} initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className='w-7 text-center font-semibold tabular-nums' aria-live='polite'>{item.quantity}</motion.span>
+                                                        <button
+                                                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                                            aria-label='Augmenter la quantité'
+                                                            className='cursor-pointer w-9 h-9 rounded-full flex items-center justify-center text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+                                                        >
+                                                            <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M12 4v16m8-8H4' /></svg>
+                                                        </button>
+                                                    </div>
+                                                    <div className='text-right'>
+                                                        <p className='text-xl font-bold text-gray-900 whitespace-nowrap tabular-nums'>{fmt(lineTotal)} €</p>
+                                                        <p className='text-xs text-gray-500 whitespace-nowrap'>
+                                                            {item.price} €{item.quantity > 1 ? ` × ${item.quantity}` : ''} + frais (15 %)
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </motion.li>
+                                    )
+                                })}
+                            </AnimatePresence>
+                        </motion.ul>
 
-                            <button
-                                onClick={handleSendRequest}
-                                disabled={loading}
-                                className='w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary/90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2'
-                            >
-                                {loading ? (
-                                    <>
-                                        <svg className='animate-spin h-5 w-5' fill='none' viewBox='0 0 24 24'>
-                                            <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4'></circle>
-                                            <path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'></path>
-                                        </svg>
-                                        <span>Envoi...</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z'/>
-                                        </svg>
-                                        Envoyer la demande
-                                    </>
-                                )}
+                        <div className='flex flex-wrap items-center justify-between gap-3 mt-5'>
+                            <button onClick={() => navigate('/talents')} className='cursor-pointer inline-flex items-center gap-2 text-sm font-semibold text-gray-900 hover:underline underline-offset-4'>
+                                <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M12 4v16m8-8H4' /></svg>
+                                Ajouter d’autres créateurs
                             </button>
-
-                            <button
-                                onClick={clearCart}
-                                className='w-full mt-3 border border-gray-300 text-gray-700 py-2 rounded-lg font-medium hover:bg-gray-50 transition'
-                            >
-                                Vider le panier
-                            </button>
-
-                            <div className='mt-6 p-4 bg-blue-50 rounded-lg'>
-                                <div className='flex items-start gap-3'>
-                                    <svg className='w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0' fill='currentColor' viewBox='0 0 20 20'>
-                                        <path fillRule='evenodd' d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z' clipRule='evenodd' />
-                                    </svg>
-                                    <div className='text-sm text-blue-900'>
-                                        <p className='font-semibold mb-1'>À propos de votre commande</p>
-                                        <p>Aucun paiement n'est demandé maintenant. Chaque influenceur doit d'abord accepter votre demande ; vous serez ensuite invité(e) à payer uniquement pour les collaborations acceptées.</p>
-                                    </div>
-                                </div>
-                            </div>
+                            {confirmClear ? (
+                                <span className='inline-flex items-center gap-2 text-sm'>
+                                    <span className='text-gray-600'>Vider le panier ?</span>
+                                    <button onClick={() => { clearCart(); setConfirmClear(false) }} className='cursor-pointer rounded-full bg-red-600 text-white px-3 py-1.5 font-semibold hover:bg-red-700'>Oui, vider</button>
+                                    <button onClick={() => setConfirmClear(false)} className='cursor-pointer rounded-full border border-gray-300 px-3 py-1.5 font-semibold'>Annuler</button>
+                                </span>
+                            ) : (
+                                <button onClick={() => setConfirmClear(true)} className='cursor-pointer text-sm font-semibold text-gray-500 hover:text-red-600 transition-colors duration-200'>
+                                    Vider le panier
+                                </button>
+                            )}
                         </div>
                     </div>
+
+                    {/* Récapitulatif */}
+                    <aside className='lg:col-span-5 xl:col-span-4'>
+                        <div className='lg:sticky lg:top-28 space-y-4'>
+                            <div className='rounded-3xl bg-gray-900 text-white p-6'>
+                                <h2 className='text-xl font-bold mb-5'>Récapitulatif</h2>
+                                <dl className='space-y-3 text-sm'>
+                                    <div className='flex justify-between text-gray-300'>
+                                        <dt>Prix des créateurs</dt>
+                                        <dd className='tabular-nums'>{fmt(subtotal)} €</dd>
+                                    </div>
+                                    <div className='flex justify-between text-gray-300'>
+                                        <dt>Frais de service (15 %)</dt>
+                                        <dd className='tabular-nums'>{fmt(serviceFee)} €</dd>
+                                    </div>
+                                    <div className='flex justify-between items-baseline pt-4 mt-1 border-t border-white/10'>
+                                        <dt className='font-semibold'>Total</dt>
+                                        <dd className='text-3xl font-bold tabular-nums'>{fmt(grandTotal)} €</dd>
+                                    </div>
+                                </dl>
+
+                                <button
+                                    onClick={handleSendRequest}
+                                    disabled={loading}
+                                    className='cursor-pointer w-full mt-6 flex items-center justify-center gap-2 rounded-full bg-primary text-gray-900 py-3.5 font-semibold hover:bg-[#EDC085] transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900'
+                                >
+                                    {loading && <span className='w-4 h-4 rounded-full border-2 border-gray-900/30 border-t-gray-900 animate-spin' aria-hidden='true'></span>}
+                                    {loading ? 'Envoi...' : 'Envoyer la demande'}
+                                </button>
+                                {!isBrandUser && (
+                                    <p className='text-xs text-gray-400 text-center mt-3'>
+                                        {currentUser ? 'Seules les marques peuvent envoyer des demandes.' : 'Vous devrez vous connecter avec un compte marque.'}
+                                    </p>
+                                )}
+                            </div>
+
+                            <div className='rounded-3xl border border-gray-200 p-6'>
+                                <p className='font-semibold text-gray-900 mb-1'>Aucun paiement maintenant</p>
+                                <p className='text-sm text-gray-600 mb-4'>{"Vous ne payez que les collaborations acceptées."}</p>
+                                <ol className='space-y-3 text-sm'>
+                                    {[
+                                        'Vous envoyez votre demande',
+                                        'Chaque créateur l’accepte ou la refuse',
+                                        'Vous payez les collaborations acceptées',
+                                        'Le créateur est payé après validation du contenu'
+                                    ].map((stepText, i) => (
+                                        <li key={stepText} className='flex items-center gap-3'>
+                                            <span className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center flex-shrink-0 ${i === 0 ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700'}`}>{i + 1}</span>
+                                            <span className={i === 0 ? 'font-semibold text-gray-900' : 'text-gray-600'}>{stepText}</span>
+                                        </li>
+                                    ))}
+                                </ol>
+                            </div>
+                        </div>
+                    </aside>
                 </div>
-            </div>
+            )}
         </div>
+        </MotionConfig>
     )
 }
 

@@ -27,10 +27,12 @@ import NotFound from './pages/NotFound'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import CookieConsent from './components/CookieConsent'
+import ScrollToTop from './components/ScrollToTop'
 
 const App = () => {
   return (
     <div>
+      <ScrollToTop />
       <CookieConsent />
       <Routes>
         {/* Routes without Header/Footer */}
@@ -39,6 +41,8 @@ const App = () => {
         <Route path='/login-brand' element={<Login />} />
         <Route path='/forgot-password' element={<ForgotPassword />} />
         <Route path='/reset-password' element={<ResetPassword />} />
+        <Route path='/brand-onboarding' element={<BrandOnboarding />} />
+        <Route path='/influencer-onboarding' element={<InfluencerOnboarding />} />
         
         {/* Routes with Header/Footer */}
         <Route path='*' element={
@@ -51,9 +55,7 @@ const App = () => {
               <Route path='/influencer/:influencerId' element={<InfluencerProfile />} />
               <Route path='/for-creators' element={<ForCreators />} />
               <Route path='/for-brands' element={<ForBrands />} />
-              <Route path='/brand-onboarding' element={<BrandOnboarding />} />
               <Route path='/brand-recommendation' element={<BrandRecommendation />} />
-              <Route path='/influencer-onboarding' element={<InfluencerOnboarding />} />
               <Route path='/about' element={<About />} />
               <Route path='/contact' element={<Contact />} />
               <Route path='/my-profile' element={<MyProfile />} />

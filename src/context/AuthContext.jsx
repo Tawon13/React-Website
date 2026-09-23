@@ -8,7 +8,8 @@ import {
     FacebookAuthProvider,
     signInWithPopup
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, writeBatch } from 'firebase/firestore';
+import { privateProfileRef, splitProfile } from '../utils/privateProfile';
 import {
     auth,
     db,
@@ -69,6 +70,16 @@ const sendPostSignupEmails = async (user, { verifyEmail = true } = {}) => {
     }
 };
 
+// Crée le profil en deux documents : public (pseudo, catégorie, prix...) et privé (nom,
+// email, téléphone...), écrits ensemble pour ne jamais laisser un profil à moitié créé.
+const createProfile = async (collectionName, uid, data) => {
+    const { publicData, privateData } = splitProfile(collectionName, data);
+    const batch = writeBatch(db);
+    batch.set(doc(db, collectionName, uid), publicData);
+    batch.set(privateProfileRef(db, collectionName, uid), privateData);
+    await batch.commit();
+};
+
 const AuthContext = createContext();
 
 export const useAuth = () => {
@@ -93,7 +104,7 @@ export const AuthProvider = ({ children }) => {
             const user = userCredential.user;
 
             // Stocker les données dans Firestore
-            await setDoc(doc(db, 'influencers', user.uid), {
+            await createProfile('influencers', user.uid, {
                 uid: user.uid,
                 email: email,
                 userType: 'influencer',
@@ -130,7 +141,7 @@ export const AuthProvider = ({ children }) => {
             const user = userCredential.user;
 
             // Stocker les données dans Firestore (version simplifiée)
-            await setDoc(doc(db, 'brands', user.uid), {
+            await createProfile('brands', user.uid, {
                 uid: user.uid,
                 email: email,
                 userType: 'brand',
@@ -209,7 +220,7 @@ export const AuthProvider = ({ children }) => {
                     userData.companyName = '';
                 }
 
-                await setDoc(docRef, userData);
+                await createProfile(collection, user.uid, userData);
                 sendPostSignupEmails(user, { verifyEmail: false });
                 trackEvent('sign_up', { method: 'google', user_type: isInfluencer ? 'influencer' : 'brand' });
             }
@@ -256,7 +267,7 @@ export const AuthProvider = ({ children }) => {
                     userData.companyName = '';
                 }
 
-                await setDoc(docRef, userData);
+                await createProfile(collection, user.uid, userData);
                 sendPostSignupEmails(user, { verifyEmail: false });
                 trackEvent('sign_up', { method: 'facebook', user_type: isInfluencer ? 'influencer' : 'brand' });
             }
@@ -279,25 +290,35 @@ export const AuthProvider = ({ children }) => {
     };
 
     // Récupérer les données utilisateur depuis Firestore
+    // Profil public + données privées du titulaire (nom, email, téléphone...) fusionnées,
+    // pour que le reste du site continue d'utiliser userData.name, userData.phone, etc.
+    const withPrivateData = async (collectionName, uid, publicData) => {
+        try {
+            const privateSnap = await getDoc(privateProfileRef(db, collectionName, uid));
+            return privateSnap.exists() ? { ...publicData, ...privateSnap.data() } : publicData;
+        } catch (error) {
+            console.error('Error fetching private profile:', error);
+            return publicData;
+        }
+    };
+
     const fetchUserData = async (uid) => {
         try {
             // Vérifier d'abord dans la collection influencers
-            let docRef = doc(db, 'influencers', uid);
-            let docSnap = await getDoc(docRef);
+            let docSnap = await getDoc(doc(db, 'influencers', uid));
 
             if (docSnap.exists()) {
                 setUserType('influencer');
-                setUserData(docSnap.data());
+                setUserData(await withPrivateData('influencers', uid, docSnap.data()));
                 return;
             }
 
             // Sinon vérifier dans la collection brands
-            docRef = doc(db, 'brands', uid);
-            docSnap = await getDoc(docRef);
+            docSnap = await getDoc(doc(db, 'brands', uid));
 
             if (docSnap.exists()) {
                 setUserType('brand');
-                setUserData(docSnap.data());
+                setUserData(await withPrivateData('brands', uid, docSnap.data()));
                 return;
             }
 

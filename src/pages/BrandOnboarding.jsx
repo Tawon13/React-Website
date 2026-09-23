@@ -1,15 +1,17 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { INFLUENCER_CATEGORIES } from '../constants/categories'
 import { BUDGET_OPTIONS } from '../constants/budget'
+import OnboardingLayout, { StepTitle, OptionButton, onboardingPrimaryBtn, onboardingSecondaryBtn } from '../components/OnboardingLayout'
 
 const BrandOnboarding = () => {
     const navigate = useNavigate()
     const { currentUser } = useAuth()
     const [currentStep, setCurrentStep] = useState(1)
+    const [direction, setDirection] = useState(1)
     const [loading, setLoading] = useState(false)
     
     const [formData, setFormData] = useState({
@@ -25,11 +27,11 @@ const BrandOnboarding = () => {
     const budgetOptions = BUDGET_OPTIONS
 
     const businessTypes = [
-        { value: 'agency', label: 'Agence', icon: '🏢' },
-        { value: 'ecommerce', label: 'E-commerce', icon: '🛒' },
-        { value: 'website', label: 'Site Web/App', icon: '📱' },
-        { value: 'local', label: 'Commerce Local', icon: '🏪' },
-        { value: 'other', label: 'Autre', icon: '✨' }
+        { value: 'agency', label: 'Agence', description: 'Vous gérez des campagnes pour des clients', icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4' },
+        { value: 'ecommerce', label: 'E-commerce', description: 'Vous vendez des produits en ligne', icon: 'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z' },
+        { value: 'website', label: 'Site web / App', description: 'Vous proposez un service numérique', icon: 'M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z' },
+        { value: 'local', label: 'Commerce local', description: 'Restaurant, boutique, salon…', icon: 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z' },
+        { value: 'other', label: 'Autre', description: 'Un autre type d’activité', icon: 'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z' }
     ]
 
     const companySizes = [
@@ -44,6 +46,7 @@ const BrandOnboarding = () => {
 
     const handleNext = () => {
         if (currentStep < totalSteps) {
+            setDirection(1)
             setCurrentStep(currentStep + 1)
         } else {
             handleSubmit()
@@ -52,6 +55,7 @@ const BrandOnboarding = () => {
 
     const handleBack = () => {
         if (currentStep > 1) {
+            setDirection(-1)
             setCurrentStep(currentStep - 1)
         }
     }
@@ -117,185 +121,89 @@ const BrandOnboarding = () => {
     }
 
     return (
-        <div className='min-h-screen bg-gray-50 py-8 px-4'>
-            <div className='max-w-2xl mx-auto'>
-                {/* Progress Bar */}
-                <div className='mb-8'>
-                    <div className='flex items-center justify-between mb-2'>
-                        <button
-                            onClick={handleBack}
-                            disabled={currentStep === 1}
-                            className='text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed'
-                        >
-                            <svg className='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 19l-7-7 7-7' />
-                            </svg>
+        <OnboardingLayout
+            title='Bienvenue sur Collabzz'
+            step={currentStep}
+            totalSteps={totalSteps}
+            direction={direction}
+            onBack={handleBack}
+            actions={
+                <>
+                    {currentStep < totalSteps && (
+                        <button type='button' onClick={handleSkip} disabled={loading} className={onboardingSecondaryBtn}>
+                            Passer et voir les talents
                         </button>
-                        <span className='text-sm text-gray-600'>
-                            Étape {currentStep} sur {totalSteps}
-                        </span>
+                    )}
+                    <button type='button' onClick={handleNext} disabled={!isStepValid() || loading} className={onboardingPrimaryBtn}>
+                        {loading && <span className='w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin' aria-hidden='true'></span>}
+                        {loading ? 'Enregistrement...' : currentStep === totalSteps ? 'Voir mes recommandations' : 'Continuer'}
+                    </button>
+                </>
+            }
+        >
+            {currentStep === 1 && (
+                <>
+                    <StepTitle eyebrow='Votre campagne' title='Quel est votre budget approximatif pour cette campagne ?' text='Nous vous proposerons des créateurs dont le tarif correspond.' />
+                    <div role='radiogroup' aria-label='Budget' className='grid sm:grid-cols-2 gap-3'>
+                        {budgetOptions.map((option) => (
+                            <OptionButton key={option} label={option} selected={formData.budget === option} onClick={() => setFormData({ ...formData, budget: option })} />
+                        ))}
                     </div>
-                    <div className='w-full bg-gray-200 rounded-full h-2'>
-                        <div
-                            className='bg-primary rounded-full h-2 transition-all duration-300'
-                            style={{ width: `${(currentStep / totalSteps) * 100}%` }}
-                        />
+                </>
+            )}
+
+            {currentStep === 2 && (
+                <>
+                    <StepTitle eyebrow='Votre entreprise' title={"Quel type d'entreprise êtes-vous ?"} />
+                    <div role='radiogroup' aria-label="Type d'entreprise" className='space-y-3'>
+                        {businessTypes.map((type) => (
+                            <OptionButton
+                                key={type.value}
+                                icon={type.icon}
+                                label={type.label}
+                                description={type.description}
+                                selected={formData.businessType === type.value}
+                                onClick={() => setFormData({ ...formData, businessType: type.value })}
+                            />
+                        ))}
                     </div>
-                </div>
+                </>
+            )}
 
-                {/* Content */}
-                <div className='bg-white rounded-2xl shadow-lg p-8 md:p-12'>
-                    {/* Step 1: Budget */}
-                    {currentStep === 1 && (
-                        <div>
-                            <h2 className='text-3xl font-bold mb-3'>
-                                Quel est votre budget approximatif pour cette campagne ?
-                            </h2>
-                            <div className='space-y-3 mt-8'>
-                                {budgetOptions.map((option) => (
-                                    <button
-                                        key={option}
-                                        onClick={() => setFormData({ ...formData, budget: option })}
-                                        className={`w-full p-4 border-2 rounded-lg text-left transition-all ${
-                                            formData.budget === option
-                                                ? 'border-gray-900 bg-gray-50'
-                                                : 'border-gray-200 hover:border-gray-300'
-                                        }`}
-                                    >
-                                        <div className='flex items-center'>
-                                            <div className={`w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center ${
-                                                formData.budget === option ? 'border-gray-900' : 'border-gray-300'
-                                            }`}>
-                                                {formData.budget === option && (
-                                                    <div className='w-3 h-3 rounded-full bg-gray-900' />
-                                                )}
-                                            </div>
-                                            <span className='font-medium'>{option}</span>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Step 2: Business Type */}
-                    {currentStep === 2 && (
-                        <div>
-                            <h2 className='text-3xl font-bold mb-3'>
-                                Quel type d'entreprise êtes-vous ?
-                            </h2>
-                            <div className='space-y-3 mt-8'>
-                                {businessTypes.map((type) => (
-                                    <button
-                                        key={type.value}
-                                        onClick={() => setFormData({ ...formData, businessType: type.value })}
-                                        className={`w-full p-4 border-2 rounded-lg text-left transition-all ${
-                                            formData.businessType === type.value
-                                                ? 'border-gray-900 bg-gray-50'
-                                                : 'border-gray-200 hover:border-gray-300'
-                                        }`}
-                                    >
-                                        <div className='flex items-center'>
-                                            <div className={`w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center ${
-                                                formData.businessType === type.value ? 'border-gray-900' : 'border-gray-300'
-                                            }`}>
-                                                {formData.businessType === type.value && (
-                                                    <div className='w-3 h-3 rounded-full bg-gray-900' />
-                                                )}
-                                            </div>
-                                            <span className='text-2xl mr-3'>{type.icon}</span>
-                                            <span className='font-medium'>{type.label}</span>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Step 3: Company Size */}
-                    {currentStep === 3 && (
-                        <div>
-                            <h2 className='text-3xl font-bold mb-3'>
-                                Combien de personnes travaillent dans votre entreprise ?
-                            </h2>
-                            <div className='space-y-3 mt-8'>
-                                {companySizes.map((size) => (
-                                    <button
-                                        key={size}
-                                        onClick={() => setFormData({ ...formData, companySize: size })}
-                                        className={`w-full p-4 border-2 rounded-lg text-left transition-all ${
-                                            formData.companySize === size
-                                                ? 'border-gray-900 bg-gray-50'
-                                                : 'border-gray-200 hover:border-gray-300'
-                                        }`}
-                                    >
-                                        <div className='flex items-center'>
-                                            <div className={`w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center ${
-                                                formData.companySize === size ? 'border-gray-900' : 'border-gray-300'
-                                            }`}>
-                                                {formData.companySize === size && (
-                                                    <div className='w-3 h-3 rounded-full bg-gray-900' />
-                                                )}
-                                            </div>
-                                            <span className='font-medium'>{size}</span>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Step 4: Influencer Types */}
-                    {currentStep === 4 && (
-                        <div>
-                            <h2 className='text-3xl font-bold mb-3'>
-                                Quel type d'influenceurs recherchez-vous ?
-                            </h2>
-                            <p className='text-gray-600 mb-6'>Sélectionnez toutes les catégories qui vous intéressent</p>
-                            <div className='grid grid-cols-2 gap-3 mt-8'>
-                                {influencerCategories.map((category) => (
-                                    <button
-                                        key={category}
-                                        onClick={() => toggleSelection('influencerTypes', category)}
-                                        className={`p-4 border-2 rounded-lg text-center transition-all ${
-                                            formData.influencerTypes.includes(category)
-                                                ? 'border-gray-900 bg-gray-900 text-white'
-                                                : 'border-gray-200 hover:border-gray-300'
-                                        }`}
-                                    >
-                                        <span className='font-medium'>{category}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Buttons */}
-                    <div className='mt-8 space-y-3'>
-                        <button
-                            onClick={handleNext}
-                            disabled={!isStepValid() || loading}
-                            className='w-full bg-gray-900 text-white py-4 rounded-lg font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
-                        >
-                            {loading ? 'Enregistrement...' : currentStep === totalSteps ? 'Terminer' : 'Continuer'}
-                        </button>
-                        {currentStep < totalSteps && (
-                            <button
-                                onClick={handleSkip}
-                                className='w-full bg-white text-gray-900 py-4 rounded-lg font-semibold hover:bg-gray-50 transition-colors border border-gray-200'
-                            >
-                                Passer
-                            </button>
-                        )}
+            {currentStep === 3 && (
+                <>
+                    <StepTitle eyebrow='Votre entreprise' title='Combien de personnes travaillent dans votre entreprise ?' />
+                    <div role='radiogroup' aria-label="Taille de l'entreprise" className='grid sm:grid-cols-2 gap-3'>
+                        {companySizes.map((size) => (
+                            <OptionButton key={size} label={size === 'Juste moi' ? size : `${size} personnes`} selected={formData.companySize === size} onClick={() => setFormData({ ...formData, companySize: size })} />
+                        ))}
                     </div>
-                </div>
+                </>
+            )}
 
-                {/* Footer */}
-                <div className='text-center mt-6 text-sm text-gray-500'>
-                    Ces informations nous aident à vous recommander les meilleurs influenceurs
-                </div>
-            </div>
-        </div>
+            {currentStep === 4 && (
+                <>
+                    <StepTitle eyebrow='Vos créateurs' title={"Quel type d'influenceurs recherchez-vous ?"} text='Sélectionnez toutes les catégories qui vous intéressent.' />
+                    <div role='group' aria-label="Catégories d'influenceurs" className='grid grid-cols-1 sm:grid-cols-2 gap-2.5'>
+                        {influencerCategories.map((category) => (
+                            <OptionButton
+                                key={category}
+                                multiple
+                                compact
+                                label={category}
+                                selected={formData.influencerTypes.includes(category)}
+                                onClick={() => toggleSelection('influencerTypes', category)}
+                            />
+                        ))}
+                    </div>
+                    <p className='text-sm text-gray-500 mt-6' aria-live='polite'>
+                        {formData.influencerTypes.length > 0
+                            ? `${formData.influencerTypes.length} catégorie${formData.influencerTypes.length > 1 ? 's' : ''} sélectionnée${formData.influencerTypes.length > 1 ? 's' : ''}`
+                            : 'Ces informations nous aident à vous recommander les meilleurs influenceurs.'}
+                    </p>
+                </>
+            )}
+        </OnboardingLayout>
     )
 }
 

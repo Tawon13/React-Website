@@ -1,258 +1,192 @@
-import React from 'react'
 import { useNavigate } from 'react-router-dom'
+import { motion, MotionConfig, useReducedMotion, useScroll, useTransform } from 'motion/react'
 import SEO from '../components/SEO'
+import { PAGE_SEO } from '../constants/seo'
+import CreatorStrip from '../components/CreatorStrip'
+import { Reveal, Icon, ICONS, StepsTimeline, FeeBreakdown, darkBtn, outlineBtn } from '../components/PageKit'
+
+const STATS = [
+  { value: '100+', label: 'Créateurs actifs' },
+  { value: '50+', label: 'Marques partenaires' },
+  { value: '80+', label: 'Collaborations réussies' }
+]
+
+const STEPS = [
+  { title: 'Créez votre profil', desc: 'Inscrivez-vous gratuitement, connectez votre compte TikTok et créez un profil professionnel qui met en valeur votre contenu.' },
+  { title: 'Recevez des demandes', desc: 'Une fois votre profil validé, les marques qui correspondent à votre niche vous découvrent et vous proposent des collaborations.' },
+  { title: "Gagnez de l'argent", desc: 'Créez du contenu, validez-le avec la marque, et recevez votre paiement de manière sécurisée.' }
+]
+
+const BENEFITS = [
+  { icon: 'wallet', title: '100% Gratuit', desc: "Pas de frais d'inscription, pas d'abonnement. Vous recevez 100 % du prix que vous fixez : les frais de service sont payés par la marque." },
+  { icon: 'lock', title: 'Paiements sécurisés', desc: 'Votre argent est protégé. Les paiements sont libérés uniquement après validation de votre travail.' },
+  { icon: 'tag', title: 'Vous fixez vos prix', desc: 'Vous restez libre de vos tarifs et de choisir les collaborations que vous acceptez.' },
+  { icon: 'support', title: 'Support dédié', desc: 'Notre équipe est là pour vous aider à chaque étape de vos collaborations.' }
+]
+
+// Visuel du hero : les notifications qu'un créateur reçoit sur Collabzz, empilées avec
+// une entrée échelonnée (une seule fois) et un léger parallaxe au scroll.
+const NOTIFICATIONS = [
+  { icon: 'check', tone: 'bg-green-100 text-green-700', title: 'Profil validé', desc: 'Votre profil est visible par les marques' },
+  { icon: 'inbox', tone: 'bg-primary/20 text-primary-dark', title: 'Nouvelle demande', desc: 'Marque Beauté · 1 vidéo TikTok', amount: '500 €' },
+  { icon: 'wallet', tone: 'bg-gray-900 text-primary', title: 'Paiement reçu', desc: 'Contenu validé par la marque', amount: '+500 €' }
+]
+
+const HeroNotifications = () => {
+  const reduceMotion = useReducedMotion()
+  const { scrollY } = useScroll()
+  // Écarts faibles entre les couches : assez pour la profondeur, sans que les cartes se chevauchent.
+  const offsets = [useTransform(scrollY, [0, 800], [0, -10]), useTransform(scrollY, [0, 800], [0, -22]), useTransform(scrollY, [0, 800], [0, -34])]
+
+  return (
+    <figure className='relative'>
+      <div className='absolute inset-8 bg-primary/30 rounded-full blur-3xl' aria-hidden='true'></div>
+      <ul className='relative space-y-4 max-w-sm mx-auto lg:ml-auto'>
+        {NOTIFICATIONS.map((notif, i) => (
+          <motion.li
+            key={notif.title}
+            style={{ y: reduceMotion ? 0 : offsets[i] }}
+            initial={{ opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 + i * 0.35, ease: [0.22, 1, 0.36, 1] }}
+            className={`flex items-center gap-4 rounded-2xl bg-white border border-gray-100 shadow-xl p-4 ${i === 1 ? 'lg:-ml-10' : ''}`}
+          >
+            <span className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${notif.tone}`}>
+              <Icon path={ICONS[notif.icon]} />
+            </span>
+            <span className='flex-1 min-w-0'>
+              <span className='block font-semibold text-gray-900 truncate'>{notif.title}</span>
+              <span className='block text-sm text-gray-500 truncate'>{notif.desc}</span>
+            </span>
+            {notif.amount && <span className='font-bold text-gray-900 tabular-nums'>{notif.amount}</span>}
+          </motion.li>
+        ))}
+      </ul>
+      <figcaption className='relative text-center lg:text-right text-xs text-gray-500 mt-4'>Exemple illustratif de notifications</figcaption>
+    </figure>
+  )
+}
 
 const ForCreators = () => {
-    const navigate = useNavigate()
+  const navigate = useNavigate()
+  const signUp = () => navigate('/login?isSignUp=true')
 
-    return (
-        <div className='min-h-screen'>
-            <SEO
-                title='Pour les créateurs'
-                description="Gagnez de l'argent en tant que créateur en rejoignant Collabzz et collaborez avec les plus grandes marques."
-                path='/for-creators'
-            />
-            {/* Hero Section */}
-            <div className='bg-gradient-to-br from-primary via-primary/90 to-primary/80 text-white py-20 px-4'>
-                <div className='max-w-6xl mx-auto text-center'>
-                    <h1 className='text-4xl md:text-6xl font-bold mb-6'>
-                        Gagnez de l'argent en tant que Créateur
-                    </h1>
-                    <p className='text-xl md:text-2xl mb-8 opacity-90'>
-                        Rejoignez des centaines d'influenceurs qui collaborent avec les plus grandes marques
-                    </p>
-                    <button
-                        onClick={() => navigate('/login?isSignUp=true')}
-                        className='bg-white text-primary px-8 py-4 rounded-full font-semibold text-lg hover:shadow-2xl transition-all transform hover:scale-105'
-                    >
-                        Commencer Gratuitement
-                    </button>
-                    <p className='mt-4 text-sm opacity-80'>Gratuit pour toujours · Aucune carte requise</p>
-                </div>
+  return (
+    <MotionConfig reducedMotion='user'>
+      <div className='min-h-screen bg-white'>
+        <SEO {...PAGE_SEO.forCreators} />
+
+        {/* Hero */}
+        <section className='grid lg:grid-cols-2 gap-12 items-center pt-12 md:pt-20 pb-16'>
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+          >
+            <span className='inline-block px-4 py-1.5 rounded-full bg-primary/15 text-primary-dark text-sm font-semibold mb-8'>
+              Pour les créateurs
+            </span>
+            <h1 className='text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 tracking-tight leading-[1.1] mb-6'>
+              {"Gagnez de l'argent en tant que "}
+              <span className='relative whitespace-nowrap'>
+                <span className='absolute inset-x-0 bottom-1 h-4 md:h-5 bg-primary/50' aria-hidden='true'></span>
+                <span className='relative'>créateur</span>
+              </span>
+            </h1>
+            <p className='text-lg md:text-xl text-gray-600 max-w-xl leading-relaxed mb-10'>
+              Rejoignez les influenceurs qui collaborent avec des marques via Collabzz, et gardez 100 % de vos tarifs.
+            </p>
+            <div className='flex flex-col sm:flex-row gap-3'>
+              <button onClick={signUp} className={darkBtn}>Commencer gratuitement</button>
+              <button onClick={() => { navigate('/about'); window.scrollTo(0, 0) }} className={outlineBtn}>En savoir plus</button>
             </div>
+            <p className='mt-4 text-sm text-gray-500'>Gratuit pour toujours · Aucune carte requise</p>
+          </motion.div>
+          <HeroNotifications />
+        </section>
 
-            {/* Stats Section */}
-            <div className='bg-gray-50 py-12 px-4'>
-                <div className='max-w-3xl mx-auto grid grid-cols-3 gap-8 text-center'>
-                    <div>
-                        <div className='text-4xl font-bold text-primary mb-2'>100+</div>
-                        <div className='text-gray-600'>Créateurs actifs</div>
+        {/* Chiffres */}
+        <dl className='grid grid-cols-3 border-y border-gray-200 divide-x divide-gray-200'>
+          {STATS.map((stat, i) => (
+            <Reveal key={stat.label} delay={i * 0.06} className='flex flex-col-reverse py-8 px-3 text-center'>
+              <dt className='text-sm text-gray-500 mt-1'>{stat.label}</dt>
+              <dd className='text-3xl md:text-5xl font-bold text-gray-900 tracking-tight'>{stat.value}</dd>
+            </Reveal>
+          ))}
+        </dl>
+
+        <div className='py-20 md:py-28 space-y-24 md:space-y-32'>
+          {/* Comment ça marche */}
+          <section aria-labelledby='how-title'>
+            <Reveal className='max-w-2xl mb-14'>
+              <p className='text-sm font-semibold uppercase tracking-wider text-primary-dark mb-3'>En 3 étapes</p>
+              <h2 id='how-title' className='text-3xl md:text-4xl font-bold text-gray-900'>Comment ça marche ?</h2>
+            </Reveal>
+            <StepsTimeline steps={STEPS} accent='bg-gray-900 text-white' />
+          </section>
+
+          {/* Ce que vous gagnez vraiment */}
+          <section aria-labelledby='earn-title' className='grid lg:grid-cols-2 gap-10 lg:gap-16 items-center'>
+            <Reveal>
+              <p className='text-sm font-semibold uppercase tracking-wider text-primary-dark mb-3'>Transparence</p>
+              <h2 id='earn-title' className='text-3xl md:text-4xl font-bold text-gray-900 mb-4'>Votre prix, sans commission</h2>
+              <p className='text-lg text-gray-600 leading-relaxed'>
+                {"Vous fixez votre tarif et vous le recevez en entier. Les frais de service de Collabzz s'ajoutent au prix payé par la marque, jamais à votre détriment."}
+              </p>
+            </Reveal>
+            <Reveal delay={0.1}>
+              <FeeBreakdown audience='creator' />
+            </Reveal>
+          </section>
+
+          {/* Avantages */}
+          <section aria-labelledby='benefits-title'>
+            <Reveal className='max-w-2xl mb-12'>
+              <h2 id='benefits-title' className='text-3xl md:text-4xl font-bold text-gray-900'>Pourquoi rejoindre Collabzz ?</h2>
+            </Reveal>
+            <div className='grid sm:grid-cols-2 lg:grid-cols-4 gap-4'>
+              {BENEFITS.map((benefit, i) => (
+                <Reveal key={benefit.title} delay={i * 0.06} className='h-full'>
+                  <motion.div
+                    whileHover={{ y: -4 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                    className='h-full rounded-3xl bg-gray-50 border border-gray-200 p-7'
+                  >
+                    <div className='w-11 h-11 rounded-xl bg-gray-900 text-primary flex items-center justify-center mb-5'>
+                      <Icon path={ICONS[benefit.icon]} />
                     </div>
-                    <div>
-                        <div className='text-4xl font-bold text-primary mb-2'>50+</div>
-                        <div className='text-gray-600'>Marques partenaires</div>
-                    </div>
-                    <div>
-                        <div className='text-4xl font-bold text-primary mb-2'>80+</div>
-                        <div className='text-gray-600'>Collaborations réussies</div>
-                    </div>
-                </div>
+                    <h3 className='text-xl font-semibold text-gray-900 mb-2'>{benefit.title}</h3>
+                    <p className='text-gray-600 leading-relaxed'>{benefit.desc}</p>
+                  </motion.div>
+                </Reveal>
+              ))}
             </div>
+          </section>
 
-            {/* How It Works */}
-            <div className='py-20 px-4'>
-                <div className='max-w-6xl mx-auto'>
-                    <h2 className='text-4xl font-bold text-center mb-16'>Comment ça marche ?</h2>
-                    <div className='grid md:grid-cols-3 gap-12'>
-                        <div className='text-center'>
-                            <div className='w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6'>
-                                <svg className='w-10 h-10 text-primary' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' />
-                                </svg>
-                            </div>
-                            <h3 className='text-2xl font-semibold mb-4'>1. Créez votre profil</h3>
-                            <p className='text-gray-600'>
-                                Inscrivez-vous gratuitement, connectez vos réseaux sociaux et créez un profil professionnel qui met en valeur votre contenu.
-                            </p>
-                        </div>
+          {/* Vrais créateurs (remplace les faux avis) */}
+          <CreatorStrip>
+            <Reveal className='max-w-2xl'>
+              <h2 className='text-3xl md:text-4xl font-bold text-gray-900 mb-3'>Ils créent déjà sur Collabzz</h2>
+              <p className='text-gray-600 leading-relaxed'>Des créateurs de la plateforme, visibles par les marques. Le prochain profil pourrait être le vôtre.</p>
+            </Reveal>
+          </CreatorStrip>
 
-                        <div className='text-center'>
-                            <div className='w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6'>
-                                <svg className='w-10 h-10 text-primary' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z' />
-                                </svg>
-                            </div>
-                            <h3 className='text-2xl font-semibold mb-4'>2. Trouvez des marques</h3>
-                            <p className='text-gray-600'>
-                                Explorez les opportunités de collaboration avec des marques qui correspondent à votre niche et vos valeurs.
-                            </p>
-                        </div>
-
-                        <div className='text-center'>
-                            <div className='w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6'>
-                                <svg className='w-10 h-10 text-primary' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' />
-                                </svg>
-                            </div>
-                            <h3 className='text-2xl font-semibold mb-4'>3. Gagnez de l'argent</h3>
-                            <p className='text-gray-600'>
-                                Créez du contenu, validez-le avec la marque, et recevez votre paiement de manière sécurisée.
-                            </p>
-                        </div>
-                    </div>
-                </div>
+          {/* CTA */}
+          <Reveal className='relative overflow-hidden rounded-3xl bg-primary px-6 py-16 md:py-20 text-center'>
+            <div className='absolute -bottom-24 -left-16 w-80 h-80 bg-white/30 rounded-full blur-3xl' aria-hidden='true'></div>
+            <div className='relative'>
+              <h2 className='text-3xl md:text-5xl font-bold text-gray-900 mb-5'>Prêt à commencer votre aventure ?</h2>
+              <p className='text-lg text-gray-800 mb-8 max-w-2xl mx-auto'>
+                Créez votre profil gratuitement et commencez à recevoir des demandes de marques.
+              </p>
+              <button onClick={signUp} className={`${darkBtn} focus-visible:ring-gray-900 focus-visible:ring-offset-primary`}>Créer mon compte gratuitement</button>
+              <p className='mt-4 text-sm text-gray-800'>Inscription en 2 minutes · Sans engagement</p>
             </div>
-
-            {/* Benefits Section */}
-            <div className='bg-gray-50 py-20 px-4'>
-                <div className='max-w-6xl mx-auto'>
-                    <h2 className='text-4xl font-bold text-center mb-16'>Pourquoi rejoindre Collabzz ?</h2>
-                    <div className='grid md:grid-cols-2 gap-8'>
-                        <div className='bg-white p-8 rounded-xl shadow-sm hover:shadow-md transition-shadow'>
-                            <div className='flex items-start gap-4'>
-                                <div className='w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0'>
-                                    <svg className='w-6 h-6 text-green-600' fill='currentColor' viewBox='0 0 20 20'>
-                                        <path fillRule='evenodd' d='M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z' clipRule='evenodd' />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h3 className='text-xl font-semibold mb-2'>100% Gratuit</h3>
-                                    <p className='text-gray-600'>Pas de frais d'inscription, pas d'abonnement. Nous ne prenons une commission que lorsque vous gagnez de l'argent.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className='bg-white p-8 rounded-xl shadow-sm hover:shadow-md transition-shadow'>
-                            <div className='flex items-start gap-4'>
-                                <div className='w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0'>
-                                    <svg className='w-6 h-6 text-blue-600' fill='currentColor' viewBox='0 0 20 20'>
-                                        <path fillRule='evenodd' d='M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z' clipRule='evenodd' />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h3 className='text-xl font-semibold mb-2'>Paiements sécurisés</h3>
-                                    <p className='text-gray-600'>Votre argent est protégé. Les paiements sont libérés uniquement après validation de votre travail.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className='bg-white p-8 rounded-xl shadow-sm hover:shadow-md transition-shadow'>
-                            <div className='flex items-start gap-4'>
-                                <div className='w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0'>
-                                    <svg className='w-6 h-6 text-purple-600' fill='currentColor' viewBox='0 0 20 20'>
-                                        <path d='M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z' />
-                                        <path d='M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z' />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h3 className='text-xl font-semibold mb-2'>Support dédié</h3>
-                                    <p className='text-gray-600'>Notre équipe est là pour vous aider à chaque étape de vos collaborations.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className='bg-white p-8 rounded-xl shadow-sm hover:shadow-md transition-shadow'>
-                            <div className='flex items-start gap-4'>
-                                <div className='w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0'>
-                                    <svg className='w-6 h-6 text-orange-600' fill='currentColor' viewBox='0 0 20 20'>
-                                        <path d='M9 2a1 1 0 000 2h2a1 1 0 100-2H9z' />
-                                        <path fillRule='evenodd' d='M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z' clipRule='evenodd' />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h3 className='text-xl font-semibold mb-2'>Opportunités illimitées</h3>
-                                    <p className='text-gray-600'>Accédez à des centaines de marques cherchant à collaborer avec des créateurs comme vous.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Testimonials */}
-            <div className='py-20 px-4'>
-                <div className='max-w-6xl mx-auto'>
-                    <h2 className='text-4xl font-bold text-center mb-16'>Ce que disent nos créateurs</h2>
-                    <div className='grid md:grid-cols-3 gap-8'>
-                        <div className='bg-white p-8 rounded-xl shadow-md'>
-                            <div className='flex items-center gap-1 mb-4'>
-                                {[...Array(5)].map((_, i) => (
-                                    <svg key={i} className='w-5 h-5 text-yellow-400' fill='currentColor' viewBox='0 0 20 20'>
-                                        <path d='M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z' />
-                                    </svg>
-                                ))}
-                            </div>
-                            <p className='text-gray-700 mb-4'>
-                                "Collabzz m'a permis de transformer ma passion en revenu. J'ai collaboré avec plus de 20 marques en 6 mois !"
-                            </p>
-                            <div className='flex items-center gap-3'>
-                                <div className='w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center'>
-                                    <span className='font-semibold text-primary'>S</span>
-                                </div>
-                                <div>
-                                    <div className='font-semibold'>Sophie Martin</div>
-                                    <div className='text-sm text-gray-500'>@sophiestyle · 45K followers</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className='bg-white p-8 rounded-xl shadow-md'>
-                            <div className='flex items-center gap-1 mb-4'>
-                                {[...Array(5)].map((_, i) => (
-                                    <svg key={i} className='w-5 h-5 text-yellow-400' fill='currentColor' viewBox='0 0 20 20'>
-                                        <path d='M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z' />
-                                    </svg>
-                                ))}
-                            </div>
-                            <p className='text-gray-700 mb-4'>
-                                "La plateforme est intuitive et les paiements sont toujours à temps. Je recommande à 100% !"
-                            </p>
-                            <div className='flex items-center gap-3'>
-                                <div className='w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center'>
-                                    <span className='font-semibold text-primary'>M</span>
-                                </div>
-                                <div>
-                                    <div className='font-semibold'>Marc Dubois</div>
-                                    <div className='text-sm text-gray-500'>@marctravels · 120K followers</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className='bg-white p-8 rounded-xl shadow-md'>
-                            <div className='flex items-center gap-1 mb-4'>
-                                {[...Array(5)].map((_, i) => (
-                                    <svg key={i} className='w-5 h-5 text-yellow-400' fill='currentColor' viewBox='0 0 20 20'>
-                                        <path d='M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z' />
-                                    </svg>
-                                ))}
-                            </div>
-                            <p className='text-gray-700 mb-4'>
-                                "Excellent moyen de monétiser mon contenu. Les marques sont sérieuses et professionnelles."
-                            </p>
-                            <div className='flex items-center gap-3'>
-                                <div className='w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center'>
-                                    <span className='font-semibold text-primary'>L</span>
-                                </div>
-                                <div>
-                                    <div className='font-semibold'>Laura Chen</div>
-                                    <div className='text-sm text-gray-500'>@laurafitness · 80K followers</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* CTA Section */}
-            <div className='bg-gradient-to-br from-primary via-primary/90 to-primary/80 text-white py-20 px-4'>
-                <div className='max-w-4xl mx-auto text-center'>
-                    <h2 className='text-4xl md:text-5xl font-bold mb-6'>
-                        Prêt à commencer votre aventure ?
-                    </h2>
-                    <p className='text-xl mb-8 opacity-90'>
-                        Rejoignez des centaines de créateurs qui gagnent déjà de l'argent avec leur contenu
-                    </p>
-                    <button
-                        onClick={() => navigate('/login?isSignUp=true')}
-                        className='bg-white text-primary px-8 py-4 rounded-full font-semibold text-lg hover:shadow-2xl transition-all transform hover:scale-105'
-                    >
-                        Créer mon compte gratuitement
-                    </button>
-                    <p className='mt-4 text-sm opacity-80'>Inscription en 2 minutes · Sans engagement</p>
-                </div>
-            </div>
+          </Reveal>
         </div>
-    )
+      </div>
+    </MotionConfig>
+  )
 }
 
 export default ForCreators

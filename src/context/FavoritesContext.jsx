@@ -11,21 +11,24 @@ export const useFavorites = () => {
 }
 
 export const FavoritesProvider = ({ children }) => {
-    const [favorites, setFavorites] = useState([])
-
-    useEffect(() => {
-        const savedFavorites = localStorage.getItem('favorites')
-        if (savedFavorites) {
-            try {
-                setFavorites(JSON.parse(savedFavorites))
-            } catch (error) {
-                console.error('Erreur lors du chargement des favoris:', error)
-            }
+    // Lecture dès l'initialisation : avec un effet séparé, l'effet d'écriture ci-dessous
+    // pouvait sauvegarder [] avant la relecture et effacer les favoris.
+    const [favorites, setFavorites] = useState(() => {
+        try {
+            const saved = JSON.parse(localStorage.getItem('favorites') || '[]')
+            return Array.isArray(saved) ? saved : []
+        } catch (error) {
+            console.error('Erreur lors du chargement des favoris:', error)
+            return []
         }
-    }, [])
+    })
 
     useEffect(() => {
-        localStorage.setItem('favorites', JSON.stringify(favorites))
+        try {
+            localStorage.setItem('favorites', JSON.stringify(favorites))
+        } catch {
+            // Stockage indisponible (navigation privée...) : les favoris restent en mémoire.
+        }
     }, [favorites])
 
     const isFavorite = (influencerId) => favorites.includes(influencerId)

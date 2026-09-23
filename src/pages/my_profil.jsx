@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { doc, updateDoc, setDoc, getDoc, collection, query, where, getDocs, orderBy, serverTimestamp } from 'firebase/firestore'
+import { privateProfileRef } from '../utils/privateProfile'
 import {
     db,
     TIKTOK_CONNECT_URL,
@@ -19,6 +20,7 @@ import SEO from '../components/SEO'
 import { compressImage } from '../utils/imageCompression'
 import { useToast } from '../context/ToastContext'
 import { warmUpFunction } from '../utils/warmup'
+import { AnimatePresence, motion, MotionConfig } from 'motion/react'
 
 // Libellé + couleur du badge de statut d'une collaboration, communs marque/influenceur.
 const COLLAB_STATUS_BADGES = {
@@ -32,6 +34,157 @@ const COLLAB_STATUS_BADGES = {
 
 const getCollabStatusBadge = (status) =>
     COLLAB_STATUS_BADGES[status] || { label: status || 'N/A', className: 'bg-gray-100 text-gray-800' }
+
+// ---------- Éléments d'interface communs aux espaces marque et créateur ----------
+
+const fieldLabel = 'block text-sm font-semibold text-gray-800 mb-1.5'
+const fieldInput = 'w-full px-4 py-3 text-base bg-white border border-gray-300 rounded-xl hover:border-gray-400 focus:border-gray-900 focus:ring-2 focus:ring-primary/40 outline-none transition-colors duration-200'
+const primaryBtn = 'cursor-pointer inline-flex items-center justify-center rounded-full bg-gray-900 text-white px-6 py-3 font-semibold hover:bg-gray-800 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2'
+const pillBtn = 'cursor-pointer inline-flex items-center justify-center rounded-full border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-900 hover:border-gray-900 transition-colors duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+const pillBtnDark = 'cursor-pointer inline-flex items-center justify-center rounded-full bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800 transition-colors duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2'
+const pillBtnDanger = 'cursor-pointer inline-flex items-center justify-center rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 transition-colors duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300'
+
+const ProfileHeader = ({ photoURL, initial, eyebrow, title, subtitle, description, website, stats, action }) => (
+    <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+        className='relative overflow-hidden rounded-3xl bg-gray-900 text-white p-6 sm:p-8 mb-8'
+    >
+        <div className='absolute -top-32 -right-24 w-96 h-96 bg-primary/20 rounded-full blur-3xl' aria-hidden='true'></div>
+        <div className='relative flex flex-col md:flex-row md:items-center gap-6'>
+            {photoURL ? (
+                <img src={photoURL} alt='' className='w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover ring-4 ring-white/10 flex-shrink-0' />
+            ) : (
+                <div className='w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-primary text-gray-900 flex items-center justify-center text-3xl font-bold flex-shrink-0'>{initial}</div>
+            )}
+            <div className='flex-1 min-w-0'>
+                <p className='text-sm font-semibold uppercase tracking-wider text-primary mb-1'>{eyebrow}</p>
+                <h1 className='text-3xl sm:text-4xl font-bold tracking-tight truncate'>{title}</h1>
+                <p className='text-gray-400 mt-1 truncate'>{subtitle}</p>
+                {description && <p className='text-sm text-gray-300 mt-2 max-w-xl'>{description}</p>}
+                {website && (
+                    <a href={website.startsWith('http') ? website : `https://${website}`} target='_blank' rel='noopener noreferrer' className='text-sm text-primary underline underline-offset-4 mt-1 inline-block'>
+                        {website}
+                    </a>
+                )}
+            </div>
+            {action && (
+                <button onClick={action.onClick} className='cursor-pointer self-start md:self-center rounded-full bg-white text-gray-900 px-5 py-2.5 text-sm font-semibold hover:bg-gray-100 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'>
+                    {action.label}
+                </button>
+            )}
+        </div>
+        {stats && (
+            <dl className={`relative grid grid-cols-2 ${stats.length === 4 ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-3 mt-8`}>
+                {stats.map((stat, i) => (
+                    <motion.div
+                        key={stat.label}
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, delay: 0.15 + i * 0.06 }}
+                        className='flex flex-col-reverse rounded-2xl bg-white/5 border border-white/10 p-4'
+                    >
+                        <dt className='text-xs sm:text-sm text-gray-400 mt-1'>{stat.label}</dt>
+                        <dd className='text-2xl sm:text-3xl font-bold tracking-tight'>{stat.value}</dd>
+                    </motion.div>
+                ))}
+            </dl>
+        )}
+    </motion.div>
+)
+
+// Section dépliable : les titres restent toujours visibles (pas de débordement comme
+// avec des onglets sur mobile), un clic ouvre ou ferme le contenu.
+const AccordionSection = ({ id, title, description, badge, open, onToggle, children }) => (
+    <section className={`rounded-3xl border bg-white overflow-hidden transition-colors duration-200 ${open ? 'border-gray-900' : 'border-gray-200 hover:border-gray-400'}`}>
+        <h2>
+            <button
+                type='button'
+                id={`section-${id}-button`}
+                aria-expanded={open}
+                aria-controls={`section-${id}`}
+                onClick={onToggle}
+                className='cursor-pointer w-full flex items-center justify-between gap-4 px-5 sm:px-6 py-5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary rounded-3xl'
+            >
+                <span className='min-w-0'>
+                    <span className='flex items-center gap-2 text-lg sm:text-xl font-bold text-gray-900'>
+                        {title}
+                        {badge > 0 && <span className='rounded-full bg-primary text-gray-900 text-xs font-bold px-2 py-0.5'>{badge}</span>}
+                    </span>
+                    {description && <span className='block text-sm text-gray-500 mt-0.5'>{description}</span>}
+                </span>
+                <span className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-colors duration-200 ${open ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
+                    <motion.svg animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.25 }} className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'>
+                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M19 9l-7 7-7-7' />
+                    </motion.svg>
+                </span>
+            </button>
+        </h2>
+        <AnimatePresence initial={false}>
+            {open && (
+                <motion.div
+                    id={`section-${id}`}
+                    role='region'
+                    aria-labelledby={`section-${id}-button`}
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                    className='overflow-hidden'
+                >
+                    <div className='px-5 sm:px-6 pb-6'>{children}</div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+    </section>
+)
+
+const Card = ({ title, text, action, className = '', children }) => (
+    <div className={`rounded-2xl bg-gray-50 p-5 ${className}`}>
+        <div className='flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-5'>
+            <div className='min-w-0'>
+                <h3 className='text-lg font-bold text-gray-900'>{title}</h3>
+                {text && <p className='text-sm text-gray-500 mt-1'>{text}</p>}
+            </div>
+            {action && <div className='flex-shrink-0 whitespace-nowrap'>{action}</div>}
+        </div>
+        {children}
+    </div>
+)
+
+const EmptyState = ({ title, text, action }) => (
+    <div className='flex flex-col items-center text-center py-16 px-6 rounded-3xl border border-dashed border-gray-300'>
+        <div className='w-14 h-14 rounded-2xl bg-primary/15 text-primary-dark flex items-center justify-center mb-5'>
+            <svg className='w-7 h-7' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' /></svg>
+        </div>
+        <p className='text-lg font-semibold text-gray-900 mb-1'>{title}</p>
+        <p className='text-gray-500 max-w-md mb-6'>{text}</p>
+        {action && <button onClick={action.onClick} className={primaryBtn}>{action.label}</button>}
+    </div>
+)
+
+// Détail du paiement d'une collaboration (séquestre, validations, versement).
+const PaymentDetails = ({ collab }) => {
+    if (collab.status === 'pending_acceptance' || collab.status === 'declined') return null
+    const items = [
+        collab.paymentStatus && ['Paiement', collab.paymentStatus === 'funds_held' ? 'Fonds sécurisés' : collab.paymentStatus],
+        collab.paymentStatus === 'funds_held' && ['Validation marque', collab.brandApproved ? 'Oui' : 'Non'],
+        collab.paymentStatus === 'funds_held' && ['Validation influenceur', collab.influencerApproved ? 'Oui' : 'Non'],
+        collab.payoutStatus === 'ready_for_transfer' && ['Versement', 'En attente de virement'],
+        collab.payoutStatus === 'paid' && ['Versement', 'Effectué']
+    ].filter(Boolean)
+    if (items.length === 0) return null
+    return (
+        <ul className='flex flex-wrap gap-1.5 mt-3'>
+            {items.map(([label, value]) => (
+                <li key={label} className='rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-700'>
+                    <span className='text-gray-500'>{label} :</span> <span className='font-semibold'>{value}</span>
+                </li>
+            ))}
+        </ul>
+    )
+}
 
 // Composant pour le profil des marques
 const BrandProfile = ({ currentUser, userData }) => {
@@ -53,8 +206,11 @@ const BrandProfile = ({ currentUser, userData }) => {
     const handleSaveProfileInfo = async () => {
         setSavingInfo(true)
         try {
+            // Le téléphone est une donnée privée (sous-document private/profile).
+            await setDoc(privateProfileRef(db, 'brands', currentUser.uid), {
+                phone: profileForm.phone.trim()
+            }, { merge: true })
             await updateDoc(doc(db, 'brands', currentUser.uid), {
-                phone: profileForm.phone.trim(),
                 website: profileForm.website.trim(),
                 description: profileForm.description.trim(),
                 updatedAt: new Date().toISOString()
@@ -83,6 +239,8 @@ const BrandProfile = ({ currentUser, userData }) => {
         }
     }
     const [disputingId, setDisputingId] = useState('')
+    const [openSections, setOpenSections] = useState({ collabs: true, infos: false })
+    const toggleSection = (key) => setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }))
     const [showRequestSent, setShowRequestSent] = useState(Boolean(location.state?.requestSent))
 
     useEffect(() => {
@@ -256,298 +414,156 @@ const BrandProfile = ({ currentUser, userData }) => {
     const pendingPurchases = purchases.filter(p => p.status === 'pending').length
     const completedPurchases = purchases.filter(p => p.status === 'completed').length
 
+    const brandStats = [
+        { label: 'Total dépensé', value: `${totalSpent.toLocaleString('fr-FR')} €` },
+        { label: 'Collaborations', value: purchases.length },
+        { label: 'En cours', value: pendingPurchases },
+        { label: 'Terminées', value: completedPurchases }
+    ]
+
     return (
-        <div className='max-w-6xl mx-auto py-10 px-4'>
+        <MotionConfig reducedMotion='user'>
+        <div className='pt-8 md:pt-12 pb-20'>
             <SEO title='Mon profil' noindex />
-            {showRequestSent && (
-                <div className='fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-xl rounded-lg border border-green-200 bg-green-50 px-4 py-3 shadow-lg flex items-center gap-3'>
-                    <svg className='w-5 h-5 text-green-600 flex-shrink-0' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'/>
-                    </svg>
-                    <p className='text-sm sm:text-base font-medium text-green-800'>
-                        Demande envoyée ! Vous serez invité(e) à payer dès qu'un influenceur accepte.
-                    </p>
-                </div>
-            )}
-            {/* En-tête du profil */}
-            <div className='bg-white rounded-xl shadow-md p-6 mb-6'>
-                <div className='flex items-center gap-6'>
-                    {userData?.photoURL ? (
-                        <img
-                            src={userData.photoURL}
-                            alt={userData?.brandName || 'Logo de la marque'}
-                            className='w-20 h-20 rounded-full object-cover border-4 border-green-500 shadow-lg'
-                        />
-                    ) : (
-                        <div className='w-20 h-20 bg-green-500 rounded-full flex items-center justify-center text-white text-3xl font-bold'>
-                            {userData?.brandName?.charAt(0) || currentUser.email.charAt(0).toUpperCase()}
-                        </div>
-                    )}
-                    <div className='flex-1'>
-                        <h1 className='text-3xl font-bold text-gray-900'>{userData?.brandName || 'Ma Marque'}</h1>
-                        <p className='text-gray-600 mt-1'>{currentUser.email}</p>
-                        <p className='text-sm text-gray-500 mt-2'>{userData?.description || 'Aucune description'}</p>
-                        {userData?.website && (
-                            <a
-                                href={userData.website.startsWith('http') ? userData.website : `https://${userData.website}`}
-                                target='_blank'
-                                rel='noopener noreferrer'
-                                className='text-sm text-primary hover:underline mt-1 inline-block'
-                            >
-                                {userData.website}
-                            </a>
+            <AnimatePresence>
+                {showRequestSent && (
+                    <motion.div
+                        role='status'
+                        initial={{ opacity: 0, y: -12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -12 }}
+                        className='fixed top-28 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-xl rounded-2xl border border-green-200 bg-green-50 px-4 py-3 shadow-lg flex items-center gap-3'
+                    >
+                        <svg className='w-5 h-5 text-green-700 flex-shrink-0' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' /></svg>
+                        <p className='text-sm sm:text-base font-medium text-green-800'>
+                            {"Demande envoyée ! Vous serez invité(e) à payer dès qu'un influenceur accepte."}
+                        </p>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            <ProfileHeader
+                photoURL={userData?.photoURL}
+                initial={userData?.brandName?.charAt(0) || currentUser.email.charAt(0).toUpperCase()}
+                eyebrow='Espace marque'
+                title={userData?.brandName || 'Ma marque'}
+                subtitle={currentUser.email}
+                description={userData?.description}
+                website={userData?.website}
+                stats={brandStats}
+            />
+
+            <div className='space-y-3'>
+                <AccordionSection
+                    id='brand-collabs'
+                    title={`Mes collaborations (${purchases.length})`}
+                    description='Suivi, paiements et validations'
+                    open={openSections.collabs}
+                    onToggle={() => toggleSection('collabs')}
+                >
+                        {loading ? (
+                            <div className='flex justify-center py-16'><div className='w-10 h-10 rounded-full border-2 border-gray-200 border-t-gray-900 animate-spin' aria-label='Chargement' /></div>
+                        ) : purchases.length > 0 ? (
+                            <ul className='space-y-3'>
+                                {purchases.map((purchase) => {
+                                    const badge = getCollabStatusBadge(purchase.status)
+                                    return (
+                                        <li key={purchase.id} className='rounded-3xl border border-gray-200 bg-white p-5 sm:p-6 hover:border-gray-400 transition-colors duration-200'>
+                                            <div className='flex flex-col sm:flex-row sm:items-start justify-between gap-4'>
+                                                <div className='min-w-0'>
+                                                    <div className='flex flex-wrap items-center gap-2 mb-1'>
+                                                        <h3 className='text-lg font-semibold text-gray-900 truncate'>{purchase.influencerName || 'Influenceur'}</h3>
+                                                        <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${badge.className}`}>{badge.label}</span>
+                                                    </div>
+                                                    <p className='text-sm text-gray-600'>{purchase.description || purchase.package || 'Collaboration'}</p>
+                                                    <p className='text-xs text-gray-400 mt-1'>{purchase.createdAt?.toDate?.()?.toLocaleDateString('fr-FR') || 'Date inconnue'}</p>
+                                                    <PaymentDetails collab={purchase} />
+                                                </div>
+                                                <p className='text-2xl font-bold text-gray-900 whitespace-nowrap'>{purchase.amount?.toLocaleString('fr-FR') || '0'} €</p>
+                                            </div>
+                                            <div className='flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-100'>
+                                                <button onClick={() => navigate('/messages', { state: { influencerId: purchase.influencerId } })} className={pillBtn}>
+                                                    Ouvrir la conversation
+                                                </button>
+                                                {purchase.status === 'accepted_awaiting_payment' && (
+                                                    <button onClick={() => handlePayNow(purchase.id)} disabled={payingId === purchase.id} className={pillBtnDark}>
+                                                        {payingId === purchase.id ? 'Redirection...' : 'Payer maintenant'}
+                                                    </button>
+                                                )}
+                                                {purchase.paymentStatus === 'funds_held' && !purchase.brandApproved && (
+                                                    <button onClick={() => handleApprovePurchase(purchase.id)} disabled={approvingId === purchase.id} className={pillBtnDark}>
+                                                        {approvingId === purchase.id ? 'Validation...' : 'Valider et autoriser le déblocage'}
+                                                    </button>
+                                                )}
+                                                {purchase.paymentStatus === 'funds_held' && purchase.payoutStatus !== 'ready_for_transfer' && purchase.payoutStatus !== 'paid' && (
+                                                    <button onClick={() => handleDisputeCollaboration(purchase.id)} disabled={disputingId === purchase.id} className={pillBtnDanger}>
+                                                        {disputingId === purchase.id ? 'Traitement...' : 'Signaler un désaccord et rembourser'}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </li>
+                                    )
+                                })}
+                            </ul>
+                        ) : (
+                            <EmptyState
+                                title='Aucune collaboration pour le moment'
+                                text='Vos collaborations apparaîtront ici.'
+                                action={{ label: 'Découvrir les talents', onClick: () => navigate('/talents') }}
+                            />
                         )}
-                    </div>
-                </div>
-            </div>
+                </AccordionSection>
 
-            {/* Statistiques */}
-            <div className='grid grid-cols-1 md:grid-cols-4 gap-6 mb-6'>
-                <div className='bg-white rounded-xl shadow-md p-6'>
-                    <div className='flex items-center justify-between'>
-                        <div>
-                            <p className='text-gray-500 text-sm'>Total dépensé</p>
-                            <p className='text-3xl font-bold text-gray-900'>{totalSpent.toLocaleString('fr-FR')} €</p>
-                        </div>
-                        <div className='w-12 h-12 bg-green-100 rounded-full flex items-center justify-center'>
-                            <svg className='w-6 h-6 text-green-600' fill='currentColor' viewBox='0 0 20 20'>
-                                <path d='M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z'/>
-                                <path fillRule='evenodd' d='M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z' clipRule='evenodd'/>
-                            </svg>
-                        </div>
-                    </div>
-                </div>
-
-                <div className='bg-white rounded-xl shadow-md p-6'>
-                    <div className='flex items-center justify-between'>
-                        <div>
-                            <p className='text-gray-500 text-sm'>Total collaborations</p>
-                            <p className='text-3xl font-bold text-gray-900'>{purchases.length}</p>
-                        </div>
-                        <div className='w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center'>
-                            <svg className='w-6 h-6 text-primary' fill='currentColor' viewBox='0 0 20 20'>
-                                <path d='M9 2a1 1 0 000 2h2a1 1 0 100-2H9z'/>
-                                <path fillRule='evenodd' d='M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z' clipRule='evenodd'/>
-                            </svg>
-                        </div>
-                    </div>
-                </div>
-
-                <div className='bg-white rounded-xl shadow-md p-6'>
-                    <div className='flex items-center justify-between'>
-                        <div>
-                            <p className='text-gray-500 text-sm'>En cours</p>
-                            <p className='text-3xl font-bold text-orange-600'>{pendingPurchases}</p>
-                        </div>
-                        <div className='w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center'>
-                            <svg className='w-6 h-6 text-orange-600' fill='currentColor' viewBox='0 0 20 20'>
-                                <path fillRule='evenodd' d='M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z' clipRule='evenodd'/>
-                            </svg>
-                        </div>
-                    </div>
-                </div>
-
-                <div className='bg-white rounded-xl shadow-md p-6'>
-                    <div className='flex items-center justify-between'>
-                        <div>
-                            <p className='text-gray-500 text-sm'>Terminées</p>
-                            <p className='text-3xl font-bold text-green-600'>{completedPurchases}</p>
-                        </div>
-                        <div className='w-12 h-12 bg-green-100 rounded-full flex items-center justify-center'>
-                            <svg className='w-6 h-6 text-green-600' fill='currentColor' viewBox='0 0 20 20'>
-                                <path fillRule='evenodd' d='M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z' clipRule='evenodd'/>
-                            </svg>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Informations */}
-            <div className='bg-white rounded-xl shadow-md mb-6'>
-                <div className='border-b border-gray-200 py-4 px-6'>
-                    <h2 className='font-medium text-sm text-gray-900'>Informations</h2>
-                </div>
-
-                <div className='p-6'>
-                    <div className='space-y-6'>
-                        <PhotoUpload
-                            userId={currentUser.uid}
-                            currentPhotoURL={userData?.photoURL || ''}
-                            onPhotoUploaded={handlePhotoUploaded}
-                            label='Logo / photo de la marque'
-                            folder='profile_photos'
-                        />
-
-                        <div>
-                            <label className='block text-sm font-semibold text-gray-700 mb-2'>Nom de la marque</label>
-                            <input
-                                type='text'
-                                value={userData?.brandName || ''}
-                                readOnly
-                                className='w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50'
-                            />
-                        </div>
-                        <div>
-                            <label className='block text-sm font-semibold text-gray-700 mb-2'>Email</label>
-                            <input
-                                type='email'
-                                value={currentUser.email}
-                                readOnly
-                                className='w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50'
-                            />
-                        </div>
-                        <div>
-                            <label className='block text-sm font-semibold text-gray-700 mb-2'>Téléphone</label>
-                            <input
-                                type='tel'
-                                value={profileForm.phone}
-                                onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
-                                placeholder='+33 6 12 34 56 78'
-                                className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all'
-                            />
-                        </div>
-                        <div>
-                            <label className='block text-sm font-semibold text-gray-700 mb-2'>Site web</label>
-                            <input
-                                type='text'
-                                value={profileForm.website}
-                                onChange={(e) => setProfileForm({ ...profileForm, website: e.target.value })}
-                                placeholder='https://votresite.com'
-                                className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all'
-                            />
-                        </div>
-                        <div>
-                            <label className='block text-sm font-semibold text-gray-700 mb-2'>Description</label>
-                            <textarea
-                                value={profileForm.description}
-                                onChange={(e) => setProfileForm({ ...profileForm, description: e.target.value.slice(0, 280) })}
-                                placeholder='Présentez votre marque en quelques mots...'
-                                rows={4}
-                                className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all resize-none'
-                            />
-                            <p className='text-xs text-gray-400 mt-1 text-right'>{profileForm.description.length}/280</p>
-                        </div>
-
-                        <div className='flex justify-end'>
-                            <button
-                                type='button'
-                                onClick={handleSaveProfileInfo}
-                                disabled={savingInfo}
-                                className='px-6 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
-                            >
-                                {savingInfo ? 'Enregistrement...' : 'Enregistrer'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Achats */}
-            <div className='bg-white rounded-xl shadow-md mb-6'>
-                <div className='border-b border-gray-200 py-4 px-6'>
-                    <h2 className='font-medium text-sm text-gray-900'>Mes Achats ({purchases.length})</h2>
-                </div>
-
-                <div className='p-6'>
-                    {loading ? (
-                        <div className='text-center py-8'>
-                            <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto'></div>
-                        </div>
-                    ) : purchases.length > 0 ? (
-                        <div className='space-y-4'>
-                            {purchases.map((purchase) => (
-                                <div
-                                    key={purchase.id}
-                                    onClick={() => navigate('/messages', { state: { influencerId: purchase.influencerId } })}
-                                    className='border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition'
-                                >
-                                    <div className='flex justify-between items-start'>
-                                        <div className='flex-1'>
-                                            <h3 className='font-semibold text-gray-900'>{purchase.influencerName || 'Influenceur'}</h3>
-                                            <p className='text-sm text-gray-600 mt-1'>{purchase.description || 'Collaboration'}</p>
-                                            <p className='text-xs text-gray-500 mt-2'>
-                                                {purchase.createdAt?.toDate?.()?.toLocaleDateString('fr-FR') || 'Date inconnue'}
-                                            </p>
-                                        </div>
-                                        <div className='text-right'>
-                                            <p className='font-bold text-gray-900'>{purchase.amount?.toLocaleString('fr-FR') || '0'} €</p>
-                                            <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full mt-2 ${getCollabStatusBadge(purchase.status).className}`}>
-                                                {getCollabStatusBadge(purchase.status).label}
-                                            </span>
-                                            {purchase.status !== 'pending_acceptance' && purchase.status !== 'declined' && (
-                                                <p className='text-xs text-gray-500 mt-2'>
-                                                    Paiement: {purchase.paymentStatus === 'funds_held'
-                                                        ? 'Fonds en attente'
-                                                        : purchase.paymentStatus || 'N/A'}
-                                                </p>
-                                            )}
-                                            {purchase.paymentStatus === 'funds_held' && (
-                                                <>
-                                                    <p className='text-xs text-gray-500 mt-1'>
-                                                        Validation marque: {purchase.brandApproved ? 'Oui' : 'Non'}
-                                                    </p>
-                                                    <p className='text-xs text-gray-500 mt-1'>
-                                                        Validation influenceur: {purchase.influencerApproved ? 'Oui' : 'Non'}
-                                                    </p>
-                                                </>
-                                            )}
-                                            {purchase.payoutStatus === 'ready_for_transfer' && (
-                                                <p className='text-xs text-orange-600 font-medium mt-1'>
-                                                    Versement: en attente de virement
-                                                </p>
-                                            )}
-                                            {purchase.payoutStatus === 'paid' && (
-                                                <p className='text-xs text-green-600 font-medium mt-1'>
-                                                    Versement: effectué
-                                                </p>
-                                            )}
-
-                                            {purchase.status === 'accepted_awaiting_payment' && (
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); handlePayNow(purchase.id) }}
-                                                    disabled={payingId === purchase.id}
-                                                    className='mt-3 px-3 py-2 text-xs font-semibold rounded-md bg-primary text-white hover:bg-primary/90 disabled:opacity-50'
-                                                >
-                                                    {payingId === purchase.id ? 'Redirection...' : 'Payer maintenant'}
-                                                </button>
-                                            )}
-
-                                            {purchase.paymentStatus === 'funds_held' && !purchase.brandApproved && (
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); handleApprovePurchase(purchase.id) }}
-                                                    disabled={approvingId === purchase.id}
-                                                    className='mt-3 px-3 py-2 text-xs font-semibold rounded-md bg-primary text-white hover:bg-primary/90 disabled:opacity-50'
-                                                >
-                                                    {approvingId === purchase.id ? 'Validation...' : 'Valider et autoriser le déblocage'}
-                                                </button>
-                                            )}
-
-                                            {purchase.paymentStatus === 'funds_held' && purchase.payoutStatus !== 'ready_for_transfer' && purchase.payoutStatus !== 'paid' && (
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); handleDisputeCollaboration(purchase.id) }}
-                                                    disabled={disputingId === purchase.id}
-                                                    className='mt-3 ml-2 px-3 py-2 text-xs font-semibold rounded-md border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50'
-                                                >
-                                                    {disputingId === purchase.id ? 'Traitement...' : 'Signaler un désaccord et rembourser'}
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
+                <AccordionSection
+                    id='brand-infos'
+                    title='Informations'
+                    description='Logo, coordonnées et description de la marque'
+                    open={openSections.infos}
+                    onToggle={() => toggleSection('infos')}
+                >
+                        <div className='grid lg:grid-cols-2 gap-8'>
+                            <div>
+                                <PhotoUpload
+                                    userId={currentUser.uid}
+                                    currentPhotoURL={userData?.photoURL || ''}
+                                    onPhotoUploaded={handlePhotoUploaded}
+                                    label='Logo / photo de la marque'
+                                    folder='profile_photos'
+                                />
+                            </div>
+                            <div className='space-y-5'>
+                                <div>
+                                    <label htmlFor='brand-name' className={fieldLabel}>Nom de la marque</label>
+                                    <input id='brand-name' type='text' value={userData?.brandName || ''} readOnly className={`${fieldInput} bg-gray-50 text-gray-600`} />
                                 </div>
-                            ))}
+                                <div>
+                                    <label htmlFor='brand-email' className={fieldLabel}>Email</label>
+                                    <input id='brand-email' type='email' value={currentUser.email} readOnly className={`${fieldInput} bg-gray-50 text-gray-600`} />
+                                </div>
+                                <div>
+                                    <label htmlFor='brand-phone' className={fieldLabel}>Téléphone</label>
+                                    <input id='brand-phone' type='tel' autoComplete='tel' value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} placeholder='+33 6 12 34 56 78' className={fieldInput} />
+                                </div>
+                                <div>
+                                    <label htmlFor='brand-website' className={fieldLabel}>Site web</label>
+                                    <input id='brand-website' type='url' autoComplete='url' value={profileForm.website} onChange={(e) => setProfileForm({ ...profileForm, website: e.target.value })} placeholder='https://votresite.com' className={fieldInput} />
+                                </div>
+                                <div>
+                                    <label htmlFor='brand-description' className={fieldLabel}>Description</label>
+                                    <textarea id='brand-description' value={profileForm.description} onChange={(e) => setProfileForm({ ...profileForm, description: e.target.value.slice(0, 280) })} placeholder='Présentez votre marque en quelques mots...' rows={4} className={`${fieldInput} resize-none`} />
+                                    <p className='text-xs text-gray-400 mt-1 text-right'>{profileForm.description.length}/280</p>
+                                </div>
+                                <div className='flex justify-end'>
+                                    <button type='button' onClick={handleSaveProfileInfo} disabled={savingInfo} className={primaryBtn}>
+                                        {savingInfo ? 'Enregistrement...' : 'Enregistrer'}
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                    ) : (
-                        <div className='text-center py-12'>
-                            <svg className='w-16 h-16 text-gray-400 mx-auto mb-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z'/>
-                            </svg>
-                            <p className='text-gray-500 text-lg'>Aucun achat pour le moment</p>
-                            <p className='text-gray-400 text-sm mt-2'>Vos collaborations apparaîtront ici</p>
-                        </div>
-                    )}
-                </div>
+                </AccordionSection>
             </div>
         </div>
+        </MotionConfig>
     )
 }
 
@@ -556,6 +572,8 @@ const MyProfile = () => {
     const { currentUser, userData, userType, refreshUserData } = useAuth()
     const [loading, setLoading] = useState(false)
     const [message, setMessage] = useState({ type: '', text: '' })
+    const [openSections, setOpenSections] = useState({ collabs: true, public: false, account: false })
+    const toggleSection = (key) => setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }))
     const popupRef = useRef(null)
     const [collaborations, setCollaborations] = useState([])
     const [loadingCollabs, setLoadingCollabs] = useState(true)
@@ -1043,10 +1061,13 @@ const MyProfile = () => {
         try {
             const photo = profilePhotos.find(p => p.id === photoId)
             
-            // Supprimer de Firebase Storage
-            if (photo.path) {
-                const photoRef = ref(storage, photo.path)
-                await deleteObject(photoRef)
+            // Supprimer de Firebase Storage (un fichier déjà absent ne bloque pas le retrait de la liste)
+            if (photo?.path) {
+                try {
+                    await deleteObject(ref(storage, photo.path))
+                } catch (storageError) {
+                    if (storageError?.code !== 'storage/object-not-found') throw storageError
+                }
             }
             
             const updatedPhotos = profilePhotos.filter(p => p.id !== photoId)
@@ -1132,10 +1153,13 @@ const MyProfile = () => {
 
     if (userType !== 'influencer') {
         return (
-            <div className='max-w-4xl mx-auto py-10'>
-                <div className='bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded'>
-                    Connectez-vous pour accéder à votre profil et gérer vos collaborations.
-                </div>
+            <div className='pt-10 pb-20'>
+                <SEO title='Mon profil' noindex />
+                <EmptyState
+                    title='Connectez-vous pour accéder à votre profil'
+                    text='Retrouvez vos collaborations, vos informations et vos paiements.'
+                    action={{ label: 'Se connecter', onClick: () => navigate('/login', { state: { from: '/my-profile' } }) }}
+                />
             </div>
         )
     }
@@ -1143,479 +1167,311 @@ const MyProfile = () => {
     const totalReceived = collaborations.reduce((sum, collab) => sum + (collab.baseAmount ?? collab.amount ?? 0), 0)
     const completedCollaborations = collaborations.filter(c => c.status === 'completed').length
     const pendingCollaborations = collaborations.filter(c => c.status === 'pending').length
+    const pendingRequests = collaborations.filter(c => c.status === 'pending_acceptance').length
+    const tiktokUsername = socialAccounts.tiktok.username || userData?.socialAccounts?.tiktok?.username
 
     return (
-        <div className='max-w-6xl mx-auto py-10 px-4'>
+        <MotionConfig reducedMotion='user'>
+        <div className='pt-8 md:pt-12 pb-20'>
             <SEO title='Mon profil' noindex />
-            {/* En-tête avec statistiques */}
-            <div className='bg-white rounded-xl shadow-md p-6 mb-6'>
-                <div className='flex items-center gap-6 mb-6'>
-                    {userData?.photoURL ? (
-                        <img 
-                            src={userData.photoURL} 
-                            alt="Photo de profil"
-                            className='w-20 h-20 rounded-full object-cover border-4 border-primary shadow-lg'
-                        />
-                    ) : (
-                        <div className='w-20 h-20 bg-primary rounded-full flex items-center justify-center text-white text-3xl font-bold'>
-                            {userData?.name?.charAt(0) || currentUser.email.charAt(0).toUpperCase()}
-                        </div>
-                    )}
-                    <div className='flex-1'>
-                        <h1 className='text-3xl font-bold text-gray-900'>{userData?.name || 'Mon Profil'}</h1>
-                        <p className='text-gray-600 mt-1'>{currentUser.email}</p>
-                        <p className='text-sm text-gray-500 mt-2'>@{userData?.username || 'username'}</p>
-                    </div>
-                </div>
 
-                {/* Statistiques rapides */}
-                <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
-                    <div className='bg-green-50 rounded-lg p-4'>
-                        <p className='text-gray-600 text-sm'>Total Reçu</p>
-                        <p className='text-2xl font-bold text-green-600'>{totalReceived.toLocaleString('fr-FR')} €</p>
-                    </div>
-                    <div className='bg-yellow-50 rounded-lg p-4'>
-                        <p className='text-gray-600 text-sm'>Collaborations en cours</p>
-                        <p className='text-2xl font-bold text-yellow-600'>{pendingCollaborations}</p>
-                    </div>
-                    <div className='bg-blue-50 rounded-lg p-4'>
-                        <p className='text-gray-600 text-sm'>Collaborations terminées</p>
-                        <p className='text-2xl font-bold text-blue-600'>{completedCollaborations}</p>
-                    </div>
-                </div>
-            </div>
+            <ProfileHeader
+                photoURL={userData?.photoURL}
+                initial={userData?.name?.charAt(0) || currentUser.email.charAt(0).toUpperCase()}
+                eyebrow='Espace créateur'
+                title={tiktokUsername ? `@${tiktokUsername}` : (userData?.name || 'Mon profil')}
+                subtitle={currentUser.email}
+                stats={[
+                    { label: 'Total reçu', value: `${totalReceived.toLocaleString('fr-FR')} €` },
+                    { label: 'En cours', value: pendingCollaborations },
+                    { label: 'Terminées', value: completedCollaborations }
+                ]}
+                action={{ label: 'Voir mon profil public', onClick: () => navigate(`/influencer/${currentUser.uid}`) }}
+            />
 
-            {/* Sections affichées sur la même page */}
-            <div>
-                    {/* Message de feedback */}
-                    {message.text && (
-                        <div className={`mb-6 px-4 py-3 rounded ${
-                            message.type === 'success' 
-                                ? 'bg-green-100 border border-green-400 text-green-700' 
-                                : 'bg-red-100 border border-red-400 text-red-700'
-                        }`}>
+            <AnimatePresence>
+                {message.text && (
+                    <motion.div
+                        role={message.type === 'success' ? 'status' : 'alert'}
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className='overflow-hidden'
+                    >
+                        <div className={`mb-6 px-4 py-3 rounded-2xl text-sm font-medium ${message.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-700'}`}>
                             {message.text}
                         </div>
-                    )}
-
-                    {/* Informations de base */}
-                    <div className='bg-white rounded-lg shadow-md p-6 mb-6'>
-                        <h2 className='text-xl font-semibold mb-4'>Informations personnelles</h2>
-                        <div className='space-y-2'>
-                            <p><span className='font-medium'>Nom:</span> {userData?.name}</p>
-                            <p><span className='font-medium'>Email:</span> {currentUser?.email}</p>
-                            <p><span className='font-medium'>Ville:</span> {userData?.city}, {userData?.country}</p>
-                            <p><span className='font-medium'>Catégorie:</span> {userData?.category}</p>
-                        </div>
-                    </div>
-
-                    <div className='bg-white rounded-lg shadow-md p-6 mb-6'>
-                        <h2 className='text-xl font-semibold mb-1'>Coordonnées bancaires (RIB)</h2>
-                        <p className='text-sm text-gray-600 mb-4'>
-                            Renseignez votre RIB pour recevoir vos virements. Une fois une collaboration validée par vous et la marque, nous vous versons 85% du montant par virement bancaire.
-                        </p>
-
-                        {bankDetailsSaved && !editingBankDetails ? (
-                            <div className='flex items-center justify-between gap-4 bg-gray-50 rounded-lg p-4'>
-                                <div>
-                                    <p className='text-sm font-medium text-gray-900'>{bankDetails.accountHolderName}</p>
-                                    <p className='text-sm text-gray-600 font-mono'>
-                                        •••• •••• •••• {bankDetails.iban.slice(-4)}
-                                    </p>
-                                </div>
-                                <button
-                                    onClick={() => setEditingBankDetails(true)}
-                                    className='px-4 py-2 text-sm bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300'
-                                >
-                                    Modifier
-                                </button>
-                            </div>
-                        ) : (
-                            <div className='space-y-4'>
-                                <div>
-                                    <label className='block text-sm font-medium text-gray-700 mb-2'>Titulaire du compte</label>
-                                    <input
-                                        type='text'
-                                        value={bankDetails.accountHolderName}
-                                        onChange={(e) => setBankDetails({ ...bankDetails, accountHolderName: e.target.value })}
-                                        className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent'
-                                        placeholder='Nom et prénom'
-                                    />
-                                </div>
-                                <div>
-                                    <label className='block text-sm font-medium text-gray-700 mb-2'>IBAN</label>
-                                    <input
-                                        type='text'
-                                        value={bankDetails.iban}
-                                        onChange={(e) => setBankDetails({ ...bankDetails, iban: e.target.value })}
-                                        className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent font-mono'
-                                        placeholder='FR76 XXXX XXXX XXXX XXXX XXXX XXX'
-                                    />
-                                </div>
-                                <div>
-                                    <label className='block text-sm font-medium text-gray-700 mb-2'>BIC / SWIFT (optionnel)</label>
-                                    <input
-                                        type='text'
-                                        value={bankDetails.bic}
-                                        onChange={(e) => setBankDetails({ ...bankDetails, bic: e.target.value })}
-                                        className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent font-mono'
-                                        placeholder='BNPAFRPPXXX'
-                                    />
-                                </div>
-                                <div className='flex gap-2'>
-                                    <button
-                                        onClick={handleSaveBankDetails}
-                                        disabled={savingBankDetails}
-                                        className='px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50'
-                                    >
-                                        {savingBankDetails ? 'Enregistrement...' : 'Enregistrer le RIB'}
-                                    </button>
-                                    {bankDetailsSaved && (
-                                        <button
-                                            onClick={() => setEditingBankDetails(false)}
-                                            className='px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300'
-                                        >
-                                            Annuler
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* TikTok */}
-                    <div className='bg-white rounded-lg shadow-md p-6 mb-6'>
-                <div className='flex items-center justify-between mb-4'>
-                    <div className='flex items-center gap-3'>
-                        <div className='w-12 h-12 bg-black rounded-lg flex items-center justify-center'>
-                            <svg className='w-6 h-6 text-white' fill='currentColor' viewBox='0 0 24 24'>
-                                <path d='M12.53.02C13.84 0 15.14.01 16.44 0c.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.10-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z'/>
-                            </svg>
-                        </div>
-                        <div>
-                            <h3 className='text-lg font-semibold'>TikTok</h3>
-                            {socialAccounts.tiktok.connected && (
-                                <p className='text-sm text-gray-600'>@{socialAccounts.tiktok.username}</p>
-                            )}
-                        </div>
-                    </div>
-                    
-                    {socialAccounts.tiktok.connected ? (
-                        <button
-                            onClick={() => disconnectSocial('tiktok')}
-                            disabled={loading}
-                            className='px-4 py-2 border border-red-500 text-red-500 rounded-lg hover:bg-red-50 disabled:opacity-50'
-                        >
-                            Déconnecter
-                        </button>
-                    ) : (
-                        <button
-                            onClick={connectTikTok}
-                            disabled={loading}
-                            className='px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-50'
-                        >
-                            {loading ? 'Connexion...' : 'Connecter'}
-                        </button>
-                    )}
-                </div>
-                
-                {socialAccounts.tiktok.connected && (
-                    <div className='bg-gray-50 p-4 rounded-lg'>
-                        <div className='grid grid-cols-2 gap-4'>
-                            <div>
-                                <p className='text-sm text-gray-600'>Abonnés</p>
-                                <p className='text-2xl font-bold text-black'>
-                                    {formatNumber(socialAccounts.tiktok.followers)}
-                                </p>
-                            </div>
-                            <div>
-                                <p className='text-sm text-gray-600'>Dernière mise à jour</p>
-                                <p className='text-sm font-medium'>
-                                    {formatDate(socialAccounts.tiktok.lastUpdated)}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
+                    </motion.div>
                 )}
-                    </div>
+            </AnimatePresence>
 
-                    {/* Info mise à jour automatique */}
-                    <div className='bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6'>
-                    <div className='flex items-start gap-3'>
-                        <svg className='w-5 h-5 text-blue-600 mt-0.5' fill='currentColor' viewBox='0 0 20 20'>
-                            <path fillRule='evenodd' d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z' clipRule='evenodd' />
-                        </svg>
-                        <div>
-                            <h4 className='font-semibold text-blue-900 mb-1'>Mise à jour automatique</h4>
-                            <p className='text-sm text-blue-700'>
-                                Vos statistiques sont automatiquement mises à jour chaque jour. Vous n'avez pas besoin de vous reconnecter !
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                </div>
+            <div className='space-y-3'>
+                <AccordionSection
+                    id='collabs'
+                    title='Collaborations'
+                    description='Demandes des marques et collaborations en cours'
+                    badge={pendingRequests}
+                    open={openSections.collabs}
+                    onToggle={() => toggleSection('collabs')}
+                >
+                        {loadingCollabs ? (
+                            <div className='flex justify-center py-16'><div className='w-10 h-10 rounded-full border-2 border-gray-200 border-t-gray-900 animate-spin' aria-label='Chargement' /></div>
+                        ) : collaborations.length > 0 ? (
+                            <ul className='space-y-3'>
+                                {collaborations.map((collab) => {
+                                    const badge = getCollabStatusBadge(collab.status)
+                                    const inProgress = collab.paymentStatus === 'funds_held' && collab.payoutStatus !== 'paid'
+                                    return (
+                                        <li key={collab.id} className='rounded-3xl border border-gray-200 bg-white p-5 sm:p-6 hover:border-gray-400 transition-colors duration-200'>
+                                            <div className='flex flex-col sm:flex-row sm:items-start justify-between gap-4'>
+                                                <div className='min-w-0'>
+                                                    <div className='flex flex-wrap items-center gap-2 mb-1'>
+                                                        <h3 className='text-lg font-semibold text-gray-900 truncate'>{collab.brandName || 'Marque'}</h3>
+                                                        <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${badge.className}`}>{badge.label}</span>
+                                                    </div>
+                                                    <p className='text-sm text-gray-600'>{collab.description || collab.package || 'Collaboration'}</p>
+                                                    <p className='text-xs text-gray-400 mt-1'>{collab.createdAt?.toDate?.()?.toLocaleDateString('fr-FR') || 'Date inconnue'}</p>
+                                                    {collab.status !== 'pending_acceptance' && collab.status !== 'declined' && collab.status !== 'accepted_awaiting_payment' && (
+                                                        <PaymentDetails collab={collab} />
+                                                    )}
+                                                </div>
+                                                <p className='text-2xl font-bold text-gray-900 whitespace-nowrap'>{(collab.baseAmount ?? collab.amount)?.toLocaleString('fr-FR') || '0'} €</p>
+                                            </div>
 
-                <div className='bg-white rounded-lg shadow-md p-6'>
-                    <h2 className='text-xl font-semibold mb-4'>Mes Collaborations ({collaborations.length})</h2>
-                    {loadingCollabs ? (
-                        <div className='text-center py-8'>
-                            <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto'></div>
-                        </div>
-                    ) : collaborations.length > 0 ? (
-                        <div className='space-y-4'>
-                            {collaborations.map((collab) => (
-                                <div
-                                    key={collab.id}
-                                    onClick={() => navigate('/messages', { state: { brandId: collab.brandId } })}
-                                    className='border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition'
-                                >
-                                    <div className='flex justify-between items-start'>
-                                        <div className='flex-1'>
-                                            <h3 className='font-semibold text-gray-900'>{collab.brandName || 'Marque'}</h3>
-                                            <p className='text-sm text-gray-600 mt-1'>{collab.description || 'Collaboration'}</p>
-                                            <p className='text-xs text-gray-500 mt-2'>
-                                                {collab.createdAt?.toDate?.()?.toLocaleDateString('fr-FR') || 'Date inconnue'}
-                                            </p>
-                                        </div>
-                                        <div className='text-right'>
-                                            <p className='font-bold text-green-600'>{(collab.baseAmount ?? collab.amount)?.toLocaleString('fr-FR') || '0'} €</p>
-                                            <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full mt-2 ${getCollabStatusBadge(collab.status).className}`}>
-                                                {getCollabStatusBadge(collab.status).label}
-                                            </span>
-                                            {collab.status !== 'pending_acceptance' && collab.status !== 'declined' && collab.status !== 'accepted_awaiting_payment' && (
-                                                <p className='text-xs text-gray-500 mt-2'>
-                                                    Paiement: {collab.paymentStatus === 'funds_held'
-                                                        ? 'Fonds en attente'
-                                                        : collab.paymentStatus || 'N/A'}
-                                                </p>
-                                            )}
-                                            {collab.paymentStatus === 'funds_held' && (
-                                                <>
-                                                    <p className='text-xs text-gray-500 mt-1'>
-                                                        Validation marque: {collab.brandApproved ? 'Oui' : 'Non'}
-                                                    </p>
-                                                    <p className='text-xs text-gray-500 mt-1'>
-                                                        Validation influenceur: {collab.influencerApproved ? 'Oui' : 'Non'}
-                                                    </p>
-                                                </>
-                                            )}
-                                            {collab.payoutStatus === 'ready_for_transfer' && (
-                                                <p className='text-xs text-orange-600 font-medium mt-1'>
-                                                    Versement: en attente de virement
-                                                </p>
-                                            )}
-                                            {collab.payoutStatus === 'paid' && (
-                                                <p className='text-xs text-green-600 font-medium mt-1'>
-                                                    Versement: effectué
-                                                </p>
-                                            )}
-
-                                            {collab.status === 'pending_acceptance' && (
-                                                <div className='flex gap-2 mt-3 justify-end'>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation()
-                                                            respondToCollaborationRequest(collab.id, false)
-                                                        }}
-                                                        disabled={respondingCollabId === collab.id}
-                                                        className='px-3 py-2 text-xs font-semibold rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50'
-                                                    >
-                                                        Refuser
-                                                    </button>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation()
-                                                            respondToCollaborationRequest(collab.id, true)
-                                                        }}
-                                                        disabled={respondingCollabId === collab.id}
-                                                        className='px-3 py-2 text-xs font-semibold rounded-md bg-primary text-white hover:bg-primary/90 disabled:opacity-50'
-                                                    >
-                                                        {respondingCollabId === collab.id ? '...' : 'Accepter'}
-                                                    </button>
+                                            {inProgress && (
+                                                <div className='mt-4 flex items-start gap-3 rounded-2xl bg-primary/10 px-4 py-3 text-sm text-gray-900'>
+                                                    <svg className='w-5 h-5 text-primary-dark flex-shrink-0 mt-0.5' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' /></svg>
+                                                    <p>Vidéo terminée ? Déposez-la dans la conversation : la marque pourra la valider ou vous demander des modifications.</p>
                                                 </div>
                                             )}
 
-                                            {collab.paymentStatus === 'funds_held' && !collab.influencerApproved && (
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation()
-                                                        approveCollaborationAsInfluencer(collab.id)
-                                                    }}
-                                                    disabled={approvingCollabId === collab.id}
-                                                    className='mt-3 px-3 py-2 text-xs font-semibold rounded-md bg-primary text-white hover:bg-primary/90 disabled:opacity-50'
-                                                >
-                                                    {approvingCollabId === collab.id ? 'Validation...' : 'Valider et demander le versement'}
+                                            <div className='flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-100'>
+                                                <button onClick={() => navigate('/messages', { state: { brandId: collab.brandId } })} className={inProgress ? pillBtnDark : pillBtn}>
+                                                    {inProgress ? 'Déposer ma vidéo' : 'Ouvrir la conversation'}
                                                 </button>
-                                            )}
-
-                                            {collab.paymentStatus === 'funds_held' && collab.payoutStatus !== 'ready_for_transfer' && collab.payoutStatus !== 'paid' && (
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation()
-                                                        disputeCollaborationAsInfluencer(collab.id)
-                                                    }}
-                                                    disabled={disputingCollabId === collab.id}
-                                                    className='mt-3 ml-2 px-3 py-2 text-xs font-semibold rounded-md border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50'
-                                                >
-                                                    {disputingCollabId === collab.id ? 'Traitement...' : 'Signaler un désaccord et rembourser'}
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className='text-center py-12'>
-                            <svg className='w-16 h-16 text-gray-400 mx-auto mb-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'/>
-                            </svg>
-                            <p className='text-gray-500 text-lg'>Aucune collaboration pour le moment</p>
-                            <p className='text-gray-400 text-sm mt-2'>Vos collaborations avec les marques apparaîtront ici</p>
-                        </div>
-                    )}
-                </div>
-
-                <div className='space-y-6'>
-                    <h2 className='text-xl font-semibold'>Gestion du Profil</h2>
-                    {/* Photo de profil principale */}
-                    <div className='bg-white rounded-lg shadow-md p-6'>
-                        <h2 className='text-xl font-semibold mb-6'>Photo de profil</h2>
-                        <PhotoUpload
-                            userId={currentUser.uid}
-                            currentPhotoURL={userData?.photoURL || ''}
-                            onPhotoUploaded={async (url) => {
-                                try {
-                                    await updateDoc(doc(db, 'influencers', currentUser.uid), {
-                                        photoURL: url,
-                                        updatedAt: new Date().toISOString()
-                                    })
-                                    await refreshUserData() // Rafraîchir les données
-                                    setMessage({ type: 'success', text: 'Photo de profil mise à jour' })
-                                } catch (error) {
-                                    console.error('Error updating photo:', error)
-                                    setMessage({ type: 'error', text: 'Erreur lors de la mise à jour' })
-                                }
-                            }}
-                            label="Photo de profil principale"
-                            folder="profile_photos"
-                        />
-                    </div>
-
-                    {/* Portfolio de photos */}
-                    <div className='bg-white rounded-lg shadow-md p-6'>
-                        <h2 className='text-xl font-semibold mb-6'>Portfolio</h2>
-                        <p className='text-gray-600 mb-6'>
-                            Ajoutez vos meilleures photos pour montrer votre style aux marques
-                        </p>
-                        <PortfolioGallery
-                            userId={currentUser.uid}
-                            photos={profilePhotos}
-                            onPhotosUpdated={async (updatedPhotos) => {
-                                try {
-                                    setProfilePhotos(updatedPhotos)
-                                    await updateDoc(doc(db, 'influencers', currentUser.uid), {
-                                        profilePhotos: updatedPhotos,
-                                        updatedAt: new Date().toISOString()
-                                    })
-                                    setMessage({ type: 'success', text: 'Portfolio mis à jour' })
-                                } catch (error) {
-                                    console.error('Error updating portfolio:', error)
-                                    setMessage({ type: 'error', text: 'Erreur lors de la mise à jour' })
-                                }
-                            }}
-                            maxPhotos={12}
-                            maxSize={5}
-                        />
-                    </div>
-
-                    {/* Section Vidéos des marques */}
-                    <div className='bg-white rounded-lg shadow-md p-6'>
-                        <div className='flex items-center justify-between mb-4'>
-                            <div>
-                                <h2 className='text-xl font-semibold'>Collaborations Vidéo</h2>
-                                <p className='text-sm text-gray-600 mt-1'>Partagez vos collaborations avec les marques</p>
-                            </div>
-                            <button
-                                onClick={handleAddVideo}
-                                className='px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors'
-                            >
-                                + Ajouter une vidéo
-                            </button>
-                        </div>
-                        
-                        {brandVideos.length > 0 ? (
-                            <div className='space-y-4'>
-                                {brandVideos.map((video) => (
-                                    <div key={video.id} className='border border-gray-200 rounded-lg p-4'>
-                                        <div className='flex justify-between items-start'>
-                                            <div className='flex-1'>
-                                                <h3 className='font-semibold text-gray-900'>{video.brandName}</h3>
-                                                <a
-                                                    href={video.url}
-                                                    target='_blank'
-                                                    rel='noopener noreferrer'
-                                                    className='text-sm text-primary hover:underline mt-1 inline-block'
-                                                >
-                                                    {video.url}
-                                                </a>
-                                                <p className='text-xs text-gray-500 mt-2'>
-                                                    Ajoutée le {new Date(video.addedAt).toLocaleDateString('fr-FR')}
-                                                </p>
+                                                {collab.status === 'pending_acceptance' && (
+                                                    <>
+                                                        <button onClick={() => respondToCollaborationRequest(collab.id, true)} disabled={respondingCollabId === collab.id} className={pillBtnDark}>
+                                                            {respondingCollabId === collab.id ? '...' : 'Accepter'}
+                                                        </button>
+                                                        <button onClick={() => respondToCollaborationRequest(collab.id, false)} disabled={respondingCollabId === collab.id} className={pillBtn}>
+                                                            Refuser
+                                                        </button>
+                                                    </>
+                                                )}
+                                                {collab.paymentStatus === 'funds_held' && !collab.influencerApproved && (
+                                                    <button onClick={() => approveCollaborationAsInfluencer(collab.id)} disabled={approvingCollabId === collab.id} className={pillBtn}>
+                                                        {approvingCollabId === collab.id ? 'Validation...' : 'Valider et demander le versement'}
+                                                    </button>
+                                                )}
+                                                {collab.paymentStatus === 'funds_held' && collab.payoutStatus !== 'ready_for_transfer' && collab.payoutStatus !== 'paid' && (
+                                                    <button onClick={() => disputeCollaborationAsInfluencer(collab.id)} disabled={disputingCollabId === collab.id} className={pillBtnDanger}>
+                                                        {disputingCollabId === collab.id ? 'Traitement...' : 'Signaler un désaccord et rembourser'}
+                                                    </button>
+                                                )}
                                             </div>
-                                            <button
-                                                onClick={() => handleDeleteVideo(video.id)}
-                                                className='text-red-500 hover:text-red-700 p-2'
-                                            >
-                                                <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16' />
-                                                </svg>
+                                        </li>
+                                    )
+                                })}
+                            </ul>
+                        ) : (
+                            <EmptyState
+                                title='Aucune collaboration pour le moment'
+                                text='Les demandes des marques apparaîtront ici. Complétez votre profil public pour être plus visible.'
+                                action={{ label: 'Compléter mon profil public', onClick: () => setOpenSections((prev) => ({ ...prev, public: true })) }}
+                            />
+                        )}
+                </AccordionSection>
+
+                <AccordionSection
+                    id='public'
+                    title='Profil public'
+                    description='Photo, prix, portfolio et vidéos visibles par les marques'
+                    open={openSections.public}
+                    onToggle={() => toggleSection('public')}
+                >
+                    <div className='grid lg:grid-cols-2 gap-4'>
+                        <Card title='Photo de profil' text='Elle apparaît sur votre profil et dans les résultats de recherche.'>
+                            <PhotoUpload
+                                userId={currentUser.uid}
+                                currentPhotoURL={userData?.photoURL || ''}
+                                onPhotoUploaded={async (url) => {
+                                    try {
+                                        await updateDoc(doc(db, 'influencers', currentUser.uid), {
+                                            photoURL: url,
+                                            updatedAt: new Date().toISOString()
+                                        })
+                                        await refreshUserData() // Rafraîchir les données
+                                        setMessage({ type: 'success', text: 'Photo de profil mise à jour' })
+                                    } catch (error) {
+                                        console.error('Error updating photo:', error)
+                                        setMessage({ type: 'error', text: 'Erreur lors de la mise à jour' })
+                                    }
+                                }}
+                                label='Photo de profil principale'
+                                folder='profile_photos'
+                            />
+                        </Card>
+
+                        <Card title='Tarification' text='Vous touchez 100 % de ce prix : les frais de service sont payés par la marque.'>
+                            <label htmlFor='price-tiktok' className={fieldLabel}>Prix d’une vidéo TikTok</label>
+                            <div className='relative'>
+                                <input
+                                    id='price-tiktok'
+                                    type='number'
+                                    inputMode='numeric'
+                                    value={pricing.tiktok_video}
+                                    onChange={(e) => setPricing({ ...pricing, tiktok_video: parseInt(e.target.value) || 0 })}
+                                    className={`${fieldInput} pr-10 text-lg font-semibold`}
+                                    min='0'
+                                />
+                                <span className='absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold'>€</span>
+                            </div>
+                            <button onClick={handleUpdatePricing} className={`${primaryBtn} w-full mt-4`}>Enregistrer le prix</button>
+                        </Card>
+
+                        <Card className='lg:col-span-2' title='Portfolio' text='Ajoutez vos meilleures photos pour montrer votre style aux marques.'>
+                            <PortfolioGallery
+                                userId={currentUser.uid}
+                                photos={profilePhotos}
+                                onPhotosUpdated={async (updatedPhotos) => {
+                                    try {
+                                        setProfilePhotos(updatedPhotos)
+                                        await updateDoc(doc(db, 'influencers', currentUser.uid), {
+                                            profilePhotos: updatedPhotos,
+                                            updatedAt: new Date().toISOString()
+                                        })
+                                        setMessage({ type: 'success', text: 'Portfolio mis à jour' })
+                                    } catch (error) {
+                                        console.error('Error updating portfolio:', error)
+                                        setMessage({ type: 'error', text: 'Erreur lors de la mise à jour' })
+                                    }
+                                }}
+                                maxPhotos={12}
+                                maxSize={5}
+                            />
+                        </Card>
+
+                        <Card
+                            className='lg:col-span-2'
+                            title='Collaborations vidéo'
+                            text='Partagez vos collaborations passées avec des marques : elles apparaissent sur votre profil public.'
+                            action={<button onClick={handleAddVideo} className={pillBtnDark}>+ Ajouter une vidéo</button>}
+                        >
+                            {brandVideos.length > 0 ? (
+                                <ul className='grid sm:grid-cols-2 gap-3'>
+                                    {brandVideos.map((video) => (
+                                        <li key={video.id} className='flex items-start justify-between gap-3 rounded-2xl border border-gray-200 p-4'>
+                                            <div className='min-w-0'>
+                                                <p className='font-semibold text-gray-900 truncate'>{video.brandName}</p>
+                                                <a href={video.url} target='_blank' rel='noopener noreferrer' className='text-sm text-gray-600 underline underline-offset-4 break-all line-clamp-1'>{video.url}</a>
+                                                <p className='text-xs text-gray-400 mt-1'>Ajoutée le {new Date(video.addedAt).toLocaleDateString('fr-FR')}</p>
+                                            </div>
+                                            <button onClick={() => handleDeleteVideo(video.id)} aria-label={`Supprimer la vidéo ${video.brandName}`} className='cursor-pointer w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 flex-shrink-0 transition-colors duration-200'>
+                                                <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16' /></svg>
                                             </button>
-                                        </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <p className='text-sm text-gray-500 text-center py-6'>Aucune vidéo pour le moment.</p>
+                            )}
+                        </Card>
+                    </div>
+                </AccordionSection>
+
+                <AccordionSection
+                    id='account'
+                    title='Compte & paiements'
+                    description='Informations, compte TikTok et RIB'
+                    open={openSections.account}
+                    onToggle={() => toggleSection('account')}
+                >
+                    <div className='grid lg:grid-cols-2 gap-4'>
+                        <Card title='Informations personnelles' text='Visibles uniquement par vous et par l’équipe Collabzz.'>
+                            <dl className='divide-y divide-gray-100'>
+                                {[
+                                    ['Nom', userData?.name],
+                                    ['Email', currentUser?.email],
+                                    ['Ville', [userData?.city, userData?.country].filter(Boolean).join(', ')],
+                                    ['Catégorie', userData?.category]
+                                ].map(([label, value]) => (
+                                    <div key={label} className='flex justify-between gap-4 py-3 text-sm'>
+                                        <dt className='text-gray-500'>{label}</dt>
+                                        <dd className='font-medium text-gray-900 text-right break-all'>{value || '—'}</dd>
                                     </div>
                                 ))}
-                            </div>
-                        ) : (
-                            <div className='text-center py-8 text-gray-500'>
-                                <svg className='w-16 h-16 mx-auto mb-4 text-gray-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' />
-                                </svg>
-                                <p>Aucune vidéo pour le moment</p>
-                                <p className='text-sm text-gray-400 mt-2'>Ajoutez des vidéos de vos collaborations avec les marques</p>
-                            </div>
-                        )}
-                    </div>
+                            </dl>
+                        </Card>
 
-                    {/* Section Prix */}
-                    <div className='bg-white rounded-lg shadow-md p-6'>
-                        <h2 className='text-xl font-semibold mb-4'>Tarification</h2>
-                        <div className='space-y-4'>
-                            <div>
-                                <label className='block text-sm font-medium text-gray-700 mb-2'>
-                                    🎥 Vidéo TikTok
-                                </label>
-                                <div className='flex items-center gap-2'>
-                                    <input
-                                        type='number'
-                                        value={pricing.tiktok_video}
-                                        onChange={(e) => setPricing({...pricing, tiktok_video: parseInt(e.target.value) || 0})}
-                                        className='flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent'
-                                        min='0'
-                                    />
-                                    <span className='text-gray-600 font-medium'>€</span>
+                        <Card title='Compte TikTok' text='Vos statistiques sont mises à jour automatiquement chaque jour.'>
+                            <div className='flex items-center justify-between gap-4'>
+                                <div className='flex items-center gap-3 min-w-0'>
+                                    <span className='w-12 h-12 bg-black rounded-2xl flex items-center justify-center flex-shrink-0'>
+                                        <svg className='w-6 h-6 text-white' fill='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path d='M12.53.02C13.84 0 15.14.01 16.44 0c.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.10-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z' /></svg>
+                                    </span>
+                                    <div className='min-w-0'>
+                                        <p className='font-semibold text-gray-900'>TikTok</p>
+                                        <p className='text-sm text-gray-500 truncate'>{socialAccounts.tiktok.connected ? `@${socialAccounts.tiktok.username}` : 'Non connecté'}</p>
+                                    </div>
                                 </div>
+                                {socialAccounts.tiktok.connected ? (
+                                    <button onClick={() => disconnectSocial('tiktok')} disabled={loading} className={pillBtnDanger}>Déconnecter</button>
+                                ) : (
+                                    <button onClick={connectTikTok} disabled={loading} className={pillBtnDark}>{loading ? 'Connexion...' : 'Connecter'}</button>
+                                )}
                             </div>
+                            {socialAccounts.tiktok.connected && (
+                                <dl className='grid grid-cols-2 gap-3 mt-5'>
+                                    <div className='flex flex-col-reverse rounded-2xl bg-gray-50 p-4'>
+                                        <dt className='text-xs text-gray-500 mt-1'>Abonnés</dt>
+                                        <dd className='text-2xl font-bold text-gray-900'>{formatNumber(socialAccounts.tiktok.followers)}</dd>
+                                    </div>
+                                    <div className='flex flex-col-reverse rounded-2xl bg-gray-50 p-4'>
+                                        <dt className='text-xs text-gray-500 mt-1'>Dernière mise à jour</dt>
+                                        <dd className='text-sm font-semibold text-gray-900'>{formatDate(socialAccounts.tiktok.lastUpdated)}</dd>
+                                    </div>
+                                </dl>
+                            )}
+                        </Card>
 
-                            <button
-                                onClick={handleUpdatePricing}
-                                className='w-full py-3 bg-primary text-white rounded-lg font-semibold hover:bg-primary/90 transition-colors mt-4'
-                            >
-                                Enregistrer les prix
-                            </button>
-                        </div>
+                        <Card className='lg:col-span-2' title='Coordonnées bancaires (RIB)' text='Renseignez votre RIB pour recevoir vos virements. Une fois une collaboration validée par vous et la marque, nous vous versons 100 % du prix que vous avez fixé.'>
+                            {bankDetailsSaved && !editingBankDetails ? (
+                                <div className='flex items-center justify-between gap-4 rounded-2xl bg-gray-50 p-4'>
+                                    <div>
+                                        <p className='text-sm font-semibold text-gray-900'>{bankDetails.accountHolderName}</p>
+                                        <p className='text-sm text-gray-600 font-mono'>•••• •••• •••• {bankDetails.iban.slice(-4)}</p>
+                                    </div>
+                                    <button onClick={() => setEditingBankDetails(true)} className={pillBtn}>Modifier</button>
+                                </div>
+                            ) : (
+                                <div className='grid sm:grid-cols-3 gap-4'>
+                                    <div>
+                                        <label htmlFor='rib-holder' className={fieldLabel}>Titulaire du compte</label>
+                                        <input id='rib-holder' type='text' autoComplete='name' value={bankDetails.accountHolderName} onChange={(e) => setBankDetails({ ...bankDetails, accountHolderName: e.target.value })} className={fieldInput} placeholder='Nom et prénom' />
+                                    </div>
+                                    <div>
+                                        <label htmlFor='rib-iban' className={fieldLabel}>IBAN</label>
+                                        <input id='rib-iban' type='text' value={bankDetails.iban} onChange={(e) => setBankDetails({ ...bankDetails, iban: e.target.value })} className={`${fieldInput} font-mono`} placeholder='FR76 XXXX XXXX XXXX XXXX XXXX XXX' />
+                                    </div>
+                                    <div>
+                                        <label htmlFor='rib-bic' className={fieldLabel}>BIC / SWIFT (optionnel)</label>
+                                        <input id='rib-bic' type='text' value={bankDetails.bic} onChange={(e) => setBankDetails({ ...bankDetails, bic: e.target.value })} className={`${fieldInput} font-mono`} placeholder='BNPAFRPPXXX' />
+                                    </div>
+                                    <div className='sm:col-span-3 flex gap-2 justify-end'>
+                                        {bankDetailsSaved && <button onClick={() => setEditingBankDetails(false)} className={pillBtn}>Annuler</button>}
+                                        <button onClick={handleSaveBankDetails} disabled={savingBankDetails} className={primaryBtn}>
+                                            {savingBankDetails ? 'Enregistrement...' : 'Enregistrer le RIB'}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </Card>
                     </div>
-                </div>
+                </AccordionSection>
             </div>
+        </div>
+        </MotionConfig>
     )
 }
 

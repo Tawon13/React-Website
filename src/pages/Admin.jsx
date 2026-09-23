@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { auth, db, MARK_PAYOUT_PAID_URL } from '../config/firebase'
 import SEO from '../components/SEO'
 import { collection, getDocs, doc, getDoc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore'
+import { privateProfileRef } from '../utils/privateProfile'
 import { useToast } from '../context/ToastContext'
 
 const ADMIN_EMAIL = 'bechagraamine@gmail.com'
@@ -46,24 +47,25 @@ const Admin = () => {
   const loadAdminData = async () => {
     try {
       // Charger les influenceurs
-      const influencersSnapshot = await getDocs(collection(db, 'influencers'))
-      console.log('Influencers snapshot size:', influencersSnapshot.size)
-      const influencersData = influencersSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        userType: 'influenceur'
+      // Données privées (nom, email, téléphone, SIRET...) : sous-document private/profile,
+      // lisible par l'admin uniquement. Fusionnées avec le profil public pour l'affichage.
+      const withPrivate = (collectionName, snapshot, userType) => Promise.all(snapshot.docs.map(async (docSnap) => {
+        let privateData = {}
+        try {
+          const privateSnap = await getDoc(privateProfileRef(db, collectionName, docSnap.id))
+          if (privateSnap.exists()) privateData = privateSnap.data()
+        } catch (error) {
+          console.error('Erreur lecture profil privé:', error)
+        }
+        return { id: docSnap.id, ...docSnap.data(), ...privateData, userType }
       }))
-      console.log('Influencers data:', influencersData)
+
+      const influencersSnapshot = await getDocs(collection(db, 'influencers'))
+      const influencersData = await withPrivate('influencers', influencersSnapshot, 'influenceur')
 
       // Charger les marques
       const brandsSnapshot = await getDocs(collection(db, 'brands'))
-      console.log('Brands snapshot size:', brandsSnapshot.size)
-      const brandsData = brandsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        userType: 'marque'
-      }))
-      console.log('Brands data:', brandsData)
+      const brandsData = await withPrivate('brands', brandsSnapshot, 'marque')
 
       // Combiner les deux : influenceurs en attente de validation en premier,
       // puis du compte le plus récent au plus ancien.

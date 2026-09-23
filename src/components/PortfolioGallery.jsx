@@ -75,16 +75,17 @@ const PortfolioGallery = ({
         try {
             setUploading(true)
 
-            // Supprimer du Storage
-            if (photoToDelete.path) {
-                const photoRef = ref(storage, photoToDelete.path)
-                await deleteObject(photoRef)
-            } else if (photoToDelete.fileName) {
-                const photoRef = ref(storage, `portfolio/${photoToDelete.fileName}`)
-                await deleteObject(photoRef)
-            } else if (photoToDelete.url?.includes('firebase')) {
-                const photoRef = ref(storage, photoToDelete.url)
-                await deleteObject(photoRef)
+            // Supprimer du Storage. Un fichier déjà absent (object-not-found) ne doit pas
+            // empêcher de retirer la photo de la liste, sinon elle reste bloquée pour toujours.
+            const storagePath = photoToDelete.path
+                || (photoToDelete.fileName ? `portfolio/${photoToDelete.fileName}` : null)
+                || (photoToDelete.url?.includes('firebase') ? photoToDelete.url : null)
+            if (storagePath) {
+                try {
+                    await deleteObject(ref(storage, storagePath))
+                } catch (storageError) {
+                    if (storageError?.code !== 'storage/object-not-found') throw storageError
+                }
             }
 
             // Mettre à jour la liste

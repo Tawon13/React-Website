@@ -1,8 +1,10 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { sendPasswordResetEmail } from 'firebase/auth'
 import { auth } from '../config/firebase'
-import socialMediaImage from '../assets/social_media_login.jpg'
+import { AnimatePresence, motion } from 'motion/react'
+import AuthLayout, { authInputClass, authLabelClass, authPrimaryBtn, authSecondaryBtn } from '../components/AuthLayout'
+import SEO from '../components/SEO'
 
 const ForgotPassword = () => {
     const navigate = useNavigate()
@@ -40,144 +42,83 @@ const ForgotPassword = () => {
         }
     }
 
+    const fade = { initial: { opacity: 0, x: 24 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: -24 }, transition: { duration: 0.3 } }
+
     return (
-        <div className='min-h-screen flex items-center justify-center p-4 sm:p-8 bg-gradient-to-br from-orange-400 via-orange-500 to-red-500'>
-            {/* Main Container */}
-            <div className='w-full max-w-6xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row'>
-                {/* Left Side - Image */}
-                <div className='hidden lg:flex lg:w-1/2 p-8'>
-                    <div className='w-full h-full rounded-2xl overflow-hidden'>
-                        <img 
-                            src={socialMediaImage} 
-                            alt='Social Media' 
-                            className='w-full h-full object-cover'
-                        />
-                    </div>
-                </div>
+        <AuthLayout panel='recovery' backLabel='Retour à la connexion' onBack={() => navigate('/login')}>
+            <SEO title='Mot de passe oublié' noindex />
+            <AnimatePresence mode='wait'>
+                {!success ? (
+                    <motion.div key='form' {...fade}>
+                        <div className='w-14 h-14 rounded-2xl bg-primary/15 text-primary-dark flex items-center justify-center mb-6'>
+                            <svg className='w-7 h-7' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z' /></svg>
+                        </div>
+                        <h1 className='text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight mb-3'>Mot de passe oublié ?</h1>
+                        <p className='text-gray-600 mb-8 leading-relaxed'>
+                            Entrez votre adresse email et nous vous enverrons un lien pour réinitialiser votre mot de passe.
+                        </p>
 
-                {/* Right Side - Form */}
-                <div className='w-full lg:w-1/2 flex items-center justify-center p-8 lg:p-12'>
-                    <div className='w-full max-w-md'>
-                        {/* Back Button */}
-                        <button 
-                            onClick={() => navigate('/login')}
-                            className='mb-6 text-gray-600 hover:text-gray-900 transition-colors'
-                        >
-                            <svg className='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 19l-7-7 7-7' />
-                            </svg>
-                        </button>
-
-                        {!success ? (
-                            <>
-                                {/* Title */}
-                                <h1 className='text-3xl lg:text-4xl font-bold text-gray-900 mb-2'>
-                                    Mot de passe oublié ?
-                                </h1>
-                                <p className='text-gray-600 mb-8'>
-                                    Entrez votre adresse email et nous vous enverrons un lien pour réinitialiser votre mot de passe.
-                                </p>
-
-                                {/* Error Message */}
-                                {error && (
-                                    <div className='mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-xl text-sm'>
-                                        {error}
-                                    </div>
-                                )}
-
-                                {/* Form */}
-                                <form onSubmit={handleSubmit} className='space-y-6'>
-                                    {/* Email */}
-                                    <div>
-                                        <label className='block text-sm font-medium text-gray-700 mb-2'>
-                                            Adresse email
-                                        </label>
-                                        <input
-                                            type='email'
-                                            value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
-                                            className='w-full px-4 py-3 border border-gray-300 rounded-full focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none transition-all'
-                                            placeholder='votre@email.com'
-                                            required
-                                        />
-                                    </div>
-
-                                    {/* Submit Button */}
-                                    <button
-                                        type='submit'
-                                        disabled={loading}
-                                        className='w-full bg-gray-900 text-white py-3 rounded-full font-semibold hover:bg-gray-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed'
-                                    >
-                                        {loading ? 'Envoi en cours...' : 'Envoyer le lien'}
-                                    </button>
-                                </form>
-
-                                {/* Back to Login */}
-                                <div className='mt-6 text-center'>
-                                    <button
-                                        onClick={() => navigate('/login')}
-                                        className='text-sm text-gray-600 hover:text-gray-900 transition-colors'
-                                    >
-                                        Retour à la connexion
-                                    </button>
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                {/* Success Message */}
-                                <div className='text-center'>
-                                    <div className='w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4'>
-                                        <svg className='w-8 h-8 text-green-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M5 13l4 4L19 7' />
-                                        </svg>
-                                    </div>
-                                    <h1 className='text-3xl font-bold text-gray-900 mb-2'>
-                                        Email envoyé !
-                                    </h1>
-                                    <p className='text-gray-600 mb-4'>
-                                        Nous avons envoyé un email avec un code de vérification à <strong>{email}</strong>.
-                                    </p>
-                                    <div className='bg-gray-50 border border-gray-200 rounded-2xl p-4 mb-6 text-left'>
-                                        <p className='font-semibold text-sm text-gray-900 mb-2'>Deux options :</p>
-                                        <ul className='space-y-2 text-sm text-gray-700'>
-                                            <li className='flex items-start'>
-                                                <span className='mr-2'>1.</span>
-                                                <span>Cliquez sur le lien dans l'email</span>
-                                            </li>
-                                            <li className='flex items-start'>
-                                                <span className='mr-2'>2.</span>
-                                                <span>Ou copiez le code de vérification et entrez-le ci-dessous</span>
-                                            </li>
-                                        </ul>
-                                    </div>
-                                    <button
-                                        onClick={() => navigate('/reset-password')}
-                                        className='w-full bg-gray-900 text-white py-3 rounded-full font-semibold hover:bg-gray-800 transition-all mb-3'
-                                    >
-                                        Entrer le code manuellement
-                                    </button>
-                                    <button
-                                        onClick={() => navigate('/login')}
-                                        className='w-full bg-white border-2 border-gray-900 text-gray-900 py-3 rounded-full font-semibold hover:bg-gray-50 transition-all'
-                                    >
-                                        Retour à la connexion
-                                    </button>
-                                    <p className='text-sm text-gray-500 mt-4'>
-                                        Vous n'avez pas reçu l'email ?{' '}
-                                        <button
-                                            onClick={() => setSuccess(false)}
-                                            className='text-gray-900 font-semibold underline hover:text-primary transition-colors'
-                                        >
-                                            Renvoyer
-                                        </button>
-                                    </p>
-                                </div>
-                            </>
+                        {error && (
+                            <div role='alert' className='mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm'>{error}</div>
                         )}
-                    </div>
-                </div>
-            </div>
-        </div>
+
+                        <form onSubmit={handleSubmit} className='space-y-6'>
+                            <div>
+                                <label htmlFor='reset-email' className={authLabelClass}>Adresse email</label>
+                                <input
+                                    id='reset-email'
+                                    type='email'
+                                    autoComplete='email'
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    className={authInputClass}
+                                    placeholder='nom@exemple.com'
+                                    autoFocus
+                                    required
+                                />
+                            </div>
+                            <button type='submit' disabled={loading} className={authPrimaryBtn}>
+                                {loading && <span className='w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin' aria-hidden='true'></span>}
+                                {loading ? 'Envoi en cours...' : 'Envoyer le lien'}
+                            </button>
+                        </form>
+                    </motion.div>
+                ) : (
+                    <motion.div key='sent' {...fade}>
+                        <motion.div
+                            initial={{ scale: 0.6, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{ type: 'spring', stiffness: 400, damping: 18, delay: 0.1 }}
+                            className='w-14 h-14 rounded-2xl bg-green-100 text-green-700 flex items-center justify-center mb-6'
+                        >
+                            <svg className='w-7 h-7' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M5 13l4 4L19 7' /></svg>
+                        </motion.div>
+                        <h1 className='text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight mb-3'>Email envoyé !</h1>
+                        <p className='text-gray-600 mb-6 leading-relaxed' role='status'>
+                            Nous avons envoyé un email à <strong className='text-gray-900'>{email}</strong>.
+                        </p>
+                        <ol className='rounded-2xl bg-gray-50 border border-gray-200 p-5 mb-8 space-y-3 text-sm text-gray-700'>
+                            <li className='flex gap-3'>
+                                <span className='w-6 h-6 rounded-full bg-gray-900 text-white text-xs font-bold flex items-center justify-center flex-shrink-0'>1</span>
+                                {"Cliquez sur le lien dans l'email,"}
+                            </li>
+                            <li className='flex gap-3'>
+                                <span className='w-6 h-6 rounded-full bg-gray-900 text-white text-xs font-bold flex items-center justify-center flex-shrink-0'>2</span>
+                                ou copiez le code de vérification et saisissez-le manuellement.
+                            </li>
+                        </ol>
+                        <div className='space-y-3'>
+                            <button onClick={() => navigate('/reset-password')} className={authPrimaryBtn}>Entrer le code manuellement</button>
+                            <button onClick={() => navigate('/login')} className={authSecondaryBtn}>Retour à la connexion</button>
+                        </div>
+                        <p className='text-sm text-gray-500 mt-6 text-center'>
+                            {"Vous n'avez pas reçu l'email ? Pensez à vérifier vos spams, ou "}
+                            <button onClick={() => setSuccess(false)} className='cursor-pointer font-semibold text-gray-900 underline underline-offset-4'>renvoyez-le</button>.
+                        </p>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </AuthLayout>
     )
 }
 

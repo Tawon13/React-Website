@@ -1,22 +1,31 @@
-import React from 'react'
-import { assets } from '../assets/assets'
 import { useNavigate } from 'react-router-dom'
+import { Reveal, darkBtn } from './PageKit'
 
 const Banner = () => {
+  const navigate = useNavigate()
+  const goTo = (path) => {
+    navigate(path)
+    window.scrollTo(0, 0)
+  }
 
-    const navigate = useNavigate()
   return (
-    <div className='relative flex rounded-lg px-6 sm:px-10 md:px-14 lg:px-12 my-20 md:mx-10 overflow-hidden' style={{ backgroundImage: `url(${assets.photo_back})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
-        <div className='absolute inset-0 bg-black/20 rounded-lg' style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }} />
-        
-        <div className='relative flex-1 py-8 sm:py-10 md:py-16 lg:py-24 lg:pl-5 z-10'>
-            <div className='text-xl sm:text-2xl md:text-3xl lg:text-5xl font-semibold text-white' >
-                <p>Collaborer avec des Influenceurs</p>
-                <p className='mt-4'>N'a jamais été aussi simple !</p>
-            </div>
-            <button onClick={()=> {navigate('/login'); scrollTo(0,0)}} className='bg-white text-sm sm:text-base text-gray600 px-8 py-3 rounded-full my-6 hover:scale-105 transition-all'>Créer mon compte</button>
-        </div>
-    </div>
+    <Reveal className='relative overflow-hidden rounded-3xl bg-primary px-6 py-14 md:py-20 md:px-16 grid md:grid-cols-12 gap-8 items-center'>
+      <div className='absolute -top-24 -right-16 w-80 h-80 bg-white/30 rounded-full blur-3xl' aria-hidden='true'></div>
+      <h2 className='relative md:col-span-8 text-3xl md:text-5xl font-bold text-gray-900 leading-tight'>
+        Collaborer avec des influenceurs {"n'a"} jamais été aussi simple !
+      </h2>
+      <div className='relative md:col-span-4 flex flex-col gap-3'>
+        <button onClick={() => goTo('/login?isSignUp=true')} className={`${darkBtn} focus-visible:ring-gray-900 focus-visible:ring-offset-primary`}>
+          Créer mon compte
+        </button>
+        <button
+          onClick={() => goTo('/for-creators')}
+          className='cursor-pointer border border-gray-900 text-gray-900 px-7 py-3.5 rounded-full font-semibold hover:bg-gray-900/10 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900'
+        >
+          Je suis créateur
+        </button>
+      </div>
+    </Reveal>
   )
 }
 

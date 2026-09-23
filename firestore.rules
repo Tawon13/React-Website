@@ -28,17 +28,39 @@ service cloud.firestore {
       return convData.paymentUnlocked == true || convData.createdAt < timestamp.date(2026, 9, 7);
     }
 
+    // Données personnelles : jamais dans les profils publics (lisibles par tout le monde),
+    // mais dans {collection}/{uid}/private/profile. Liste synchronisée avec
+    // src/utils/privateProfile.js et PRIVATE_PROFILE_FIELDS dans functions/main.py.
+    function influencerPrivateFields() {
+      return ['name', 'email', 'phone'];
+    }
+    function brandPrivateFields() {
+      return ['name', 'email', 'fullName', 'contactPerson', 'phone', 'address', 'siret'];
+    }
+
     // Règles pour les influenceurs
     match /influencers/{influencerId} {
-      // Tout le monde peut lire les profils d'influenceurs
+      // Tout le monde peut lire les profils d'influenceurs (profil public uniquement)
       allow read: if true;
-      // Création du profil par l'influenceur lui-même, toujours non approuvé au départ
-      allow create: if isOwner(influencerId) && request.resource.data.approved == false;
+      // Création du profil par l'influenceur lui-même, toujours non approuvé au départ,
+      // sans données personnelles (elles vont dans private/profile)
+      allow create: if isOwner(influencerId) &&
+                       request.resource.data.approved == false &&
+                       !request.resource.data.keys().hasAny(influencerPrivateFields());
       // L'influenceur peut modifier son profil, sauf le champ "approved" (réservé à l'admin)
+      // et sans y (ré)écrire de données personnelles
       allow update: if isAdmin() ||
                        (isOwner(influencerId) &&
-                        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['approved']));
+                        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['approved']) &&
+                        !request.resource.data.diff(resource.data).affectedKeys().hasAny(influencerPrivateFields()));
       allow delete: if isOwner(influencerId) || isAdmin();
+
+      // Nom, email, téléphone : titulaire du compte et admin uniquement
+      match /private/{docId} {
+        allow read: if isOwner(influencerId) || isAdmin();
+        allow create, update: if isOwner(influencerId);
+        allow delete: if isOwner(influencerId) || isAdmin();
+      }
     }
 
     // Coordonnées bancaires (RIB) des influenceurs: jamais publiques,
@@ -51,12 +73,22 @@ service cloud.firestore {
     
     // Règles pour les marques
     match /brands/{brandId} {
-      // Tout le monde peut lire les profils de marques
+      // Tout le monde peut lire les profils de marques (profil public uniquement)
       allow read: if true;
-      // Seule la marque peut créer/modifier son propre profil
-      allow write: if isOwner(brandId);
+      // Seule la marque peut créer/modifier son propre profil, sans données personnelles
+      allow create: if isOwner(brandId) &&
+                       !request.resource.data.keys().hasAny(brandPrivateFields());
+      allow update: if isOwner(brandId) &&
+                       !request.resource.data.diff(resource.data).affectedKeys().hasAny(brandPrivateFields());
       // L'admin peut aussi supprimer un compte marque
       allow delete: if isOwner(brandId) || isAdmin();
+
+      // Email, nom complet, téléphone, adresse, SIRET : titulaire du compte et admin uniquement
+      match /private/{docId} {
+        allow read: if isOwner(brandId) || isAdmin();
+        allow create, update: if isOwner(brandId);
+        allow delete: if isOwner(brandId) || isAdmin();
+      }
     }
     
     // Règles pour les collaborations
@@ -81,6 +113,33 @@ service cloud.firestore {
       allow read, write: if false;
     }
     
+    function conversationData(conversationId) {
+      return get(/databases/$(database)/documents/conversations/$(conversationId)).data;
+    }
+
+    function isConversationParticipant(conversationId) {
+      return request.auth.uid == conversationData(conversationId).brandId ||
+             request.auth.uid == conversationData(conversationId).influencerId;
+    }
+
+    // Dépôt de vidéo : seul l'influenceur de la conversation peut livrer une vidéo, qui
+    // part toujours en attente de validation par la marque.
+    function isValidDeliveryCreate(conversationId) {
+      return request.resource.data.get('type', 'text') != 'video_delivery' ||
+             (request.auth.uid == conversationData(conversationId).influencerId &&
+              request.resource.data.reviewStatus == 'pending');
+    }
+
+    // Validation d'une vidéo par la marque : uniquement les champs de revue, une seule fois.
+    function isValidDeliveryReview(conversationId) {
+      return resource.data.get('type', 'text') == 'video_delivery' &&
+             resource.data.reviewStatus == 'pending' &&
+             request.auth.uid == conversationData(conversationId).brandId &&
+             request.resource.data.reviewStatus in ['approved', 'changes_requested'] &&
+             request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['reviewStatus', 'reviewFeedback', 'reviewedAt', 'read']);
+    }
+
     // Règles pour les conversations
     match /conversations/{conversationId} {
       // Les participants peuvent lire leurs conversations
@@ -112,11 +171,21 @@ service cloud.firestore {
                          (request.auth.uid == get(/databases/$(database)/documents/conversations/$(conversationId)).data.brandId ||
                           request.auth.uid == get(/databases/$(database)/documents/conversations/$(conversationId)).data.influencerId) &&
                          request.auth.uid == request.resource.data.senderId &&
-                         isMessagingUnlocked(get(/databases/$(database)/documents/conversations/$(conversationId)).data);
-        
-        // Les participants peuvent mettre à jour leurs propres messages
-        allow update: if isAuthenticated() &&
-                         request.auth.uid == resource.data.senderId;
+                         isMessagingUnlocked(get(/databases/$(database)/documents/conversations/$(conversationId)).data) &&
+                         isValidDeliveryCreate(conversationId);
+
+        // - l'expéditeur peut modifier son message, sauf les champs de validation vidéo
+        //   (un influenceur ne peut pas valider sa propre vidéo) ;
+        // - le destinataire peut seulement le marquer comme lu ;
+        // - la marque peut valider une vidéo livrée ou demander des modifications, une seule
+        //   fois par version (la vidéo doit être encore « pending »).
+        allow update: if isAuthenticated() && (
+                         (request.auth.uid == resource.data.senderId &&
+                          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['reviewStatus', 'reviewFeedback', 'reviewedAt', 'type'])) ||
+                         (isConversationParticipant(conversationId) &&
+                          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])) ||
+                         isValidDeliveryReview(conversationId)
+                       );
       }
     }
     
@@ -124,8 +193,9 @@ service cloud.firestore {
     match /contacts/{contactId} {
       // Tout le monde peut créer un contact
       allow create: if true;
-      // Seuls les admins peuvent lire/modifier (à définir selon tes besoins)
-      allow read, update, delete: if isAuthenticated();
+      // Messages du formulaire (nom, email, contenu) : admin uniquement. Auparavant
+      // n'importe quel utilisateur connecté pouvait les lire, modifier ou supprimer.
+      allow read, update, delete: if isAdmin();
     }
     
     // Règles pour les admins (si tu as une collection admin)

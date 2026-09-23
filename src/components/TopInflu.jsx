@@ -1,56 +1,75 @@
-import React, { useContext, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useContext, useMemo } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { motion } from 'motion/react'
 import { AppContext } from '../context/AppContext'
+import { Reveal, Icon, ICONS } from './PageKit'
+import { useCanSeeStats } from '../hooks/useCanSeeStats'
+
+const compactFormat = new Intl.NumberFormat('fr-FR', { notation: 'compact', maximumFractionDigits: 1 })
 
 const TopDoctors = () => {
+  const navigate = useNavigate()
+  const { doctors, doctorsLoading } = useContext(AppContext)
+  const canSeeStats = useCanSeeStats()
 
-    const navigate = useNavigate()
-    const {doctors} = useContext(AppContext)
-
-    // Les profils les plus suivis du site : 4 sur ordinateur, le dernier étant masqué sur mobile.
-    const topInfluencers = useMemo(
-      () => [...doctors]
-        .sort((a, b) => (b.followers?.tiktok || 0) - (a.followers?.tiktok || 0))
-        .slice(0, 4),
-      [doctors]
-    )
+  // Les 4 profils les plus suivis du site.
+  const topInfluencers = useMemo(
+    () => [...doctors]
+      .sort((a, b) => (b.followers?.tiktok || 0) - (a.followers?.tiktok || 0))
+      .slice(0, 4),
+    [doctors]
+  )
 
   return (
-    <div className='flex flex-col items-center gap-4 my-12 sm:my-16 text-gray900 px-4 sm:px-6 md:mx-10'>
-      <h1 className='text-2xl sm:text-3xl font-medium text-center'>Nos Influenceurs(se) du Moment</h1>
-      <p className='w-full sm:w-2/3 md:w-1/3 text-center text-sm'>
-        Parcourez notre longue liste d'influenceurs de confiance.
-      </p>
+    <section aria-labelledby='top-title'>
+      <Reveal className='flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-10'>
+        <div>
+          <p className='text-sm font-semibold uppercase tracking-wider text-primary-dark mb-3'>Tendances</p>
+          <h2 id='top-title' className='text-3xl md:text-4xl font-bold text-gray-900'>Nos influenceurs du moment</h2>
+        </div>
+        <button
+          onClick={() => { navigate('/talents'); window.scrollTo(0, 0) }}
+          className='cursor-pointer group inline-flex items-center gap-2 self-start sm:self-auto font-semibold text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded'
+        >
+          Voir tous les talents
+          <svg className='w-4 h-4 transition-transform duration-200 group-hover:translate-x-1' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'>
+            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M17 8l4 4m0 0l-4 4m4-4H3' />
+          </svg>
+        </button>
+      </Reveal>
 
-      <div className='w-full max-w-5xl grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-5 gap-y-6'>
-        {topInfluencers.map((item, index) => (
-          <div
-            onClick={() => {navigate(`/influencer/${item._id}`); scrollTo(0,0)}}
-            className={`border border-blue-200 rounded-xl overflow-hidden cursor-pointer hover:translate-y-[-10px] transition-all duration-500 ${index === 3 ? 'hidden sm:block' : ''}`}
-            key={item._id}
-          >
-            <img className='bg-blue-50 w-full aspect-square object-cover' src={item.image} alt={item.tiktokUsername ? `@${item.tiktokUsername}` : 'Influenceur'} />
-            <div className='p-3 sm:p-4'>
-              <div className='flex items-center gap-2 text-xs sm:text-sm text-center text-green500'>
-                <p className='w-2 h-2 bg-green-500 rounded-full'></p>
-                <p>Disponible</p>
-              </div>
-              {item.tiktokUsername && (
-                <p className='text-gray900 text-base sm:text-lg font-medium mt-1 truncate'>@{item.tiktokUsername}</p>
-              )}
-              <p className='text-grey600 text-sm truncate'>{item.speciality}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-      
-      <button 
-        onClick={()=>{navigate('/talents'); scrollTo(0,0)}} 
-        className='bg-blue-50 text-gray600 px-8 sm:px-12 py-2.5 sm:py-3 rounded-full mt-6 sm:mt-10 text-sm sm:text-base hover:bg-blue-100 transition-colors'
-      >
-        Découvrir
-      </button>
-    </div>
+      <ul className='grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5'>
+        {doctorsLoading
+          ? Array.from({ length: 4 }).map((_, i) => <li key={i} className='aspect-[3/4] rounded-3xl bg-gray-100 animate-pulse' />)
+          : topInfluencers.map((item, index) => (
+            <Reveal as='li' key={item._id} delay={index * 0.08}>
+              <motion.div whileHover={{ y: -6 }} transition={{ type: 'spring', stiffness: 400, damping: 30 }}>
+                <Link
+                  to={`/influencer/${item._id}`}
+                  onClick={() => window.scrollTo(0, 0)}
+                  className='group relative block aspect-[3/4] rounded-3xl overflow-hidden bg-gray-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary'
+                >
+                  <img
+                    src={item.image}
+                    alt={item.tiktokUsername ? `@${item.tiktokUsername}` : 'Influenceur'}
+                    className='w-full h-full object-cover transition-transform duration-500 group-hover:scale-105'
+                  />
+                  <span className='absolute top-3 left-3 inline-flex items-center gap-1 rounded-full bg-white/90 backdrop-blur px-2.5 py-1 text-xs font-semibold text-gray-900'>
+                    <Icon path={ICONS.check} className='w-3.5 h-3.5 text-green-600' /> Vérifié
+                  </span>
+                  <span className='absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-4 pt-16 text-white'>
+                    {item.tiktokUsername && <span className='block text-base sm:text-lg font-semibold truncate'>@{item.tiktokUsername}</span>}
+                    <span className='flex items-center justify-between gap-2 text-xs sm:text-sm text-white/80'>
+                      <span className='truncate'>{item.speciality}</span>
+                      {canSeeStats && item.followers?.tiktok > 0 && <span className='whitespace-nowrap'>{compactFormat.format(item.followers.tiktok)} abonnés</span>}
+                    </span>
+                  </span>
+                </Link>
+              </motion.div>
+            </Reveal>
+          ))}
+      </ul>
+    </section>
   )
 }
 

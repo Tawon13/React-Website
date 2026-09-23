@@ -39,33 +39,37 @@ const FAQ = () => {
   }
 
   return (
-    <div className='my-20 px-4 sm:px-10 md:px-14 lg:px-20'>
+    <section aria-labelledby='faq-title' className='grid lg:grid-cols-12 gap-10'>
       <Helmet>
         <script type='application/ld+json'>{JSON.stringify(faqSchema)}</script>
       </Helmet>
 
-      <h2 className='text-2xl sm:text-3xl font-medium text-center mb-2'>Questions fréquentes</h2>
-      <p className='text-gray-600 text-sm text-center mb-10'>
-        {"Tout ce qu'il faut savoir avant de lancer votre première collaboration."}
-      </p>
+      <div className='lg:col-span-4'>
+        <div className='lg:sticky lg:top-28'>
+          <h2 id='faq-title' className='text-3xl md:text-4xl font-bold text-gray-900 mb-3'>Questions fréquentes</h2>
+          <p className='text-gray-600 leading-relaxed'>
+            {"Tout ce qu'il faut savoir avant de lancer votre première collaboration."}
+          </p>
+        </div>
+      </div>
 
-      <div className='max-w-3xl mx-auto flex flex-col gap-4'>
+      <div className='lg:col-span-8 flex flex-col gap-3'>
         {FAQ_ITEMS.map((item, index) => {
           const isOpen = openIndex === index
           return (
             <div
               key={item.question}
-              className={`bg-white rounded-xl overflow-hidden transition-shadow duration-300 ${isOpen ? 'shadow-lg' : 'shadow-md hover:shadow-lg'}`}
+              className={`rounded-2xl border overflow-hidden transition-colors duration-300 ${isOpen ? 'border-gray-900 bg-white' : 'border-gray-200 bg-gray-50 hover:border-gray-300'}`}
             >
               <button
                 onClick={() => setOpenIndex(isOpen ? null : index)}
                 aria-expanded={isOpen}
                 aria-controls={`faq-answer-${index}`}
-                className='w-full flex items-center justify-between gap-4 text-left p-5 sm:p-6'
+                className='cursor-pointer w-full flex items-center justify-between gap-4 text-left p-5 sm:p-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary rounded-2xl'
               >
                 <h3 className='text-base sm:text-lg font-semibold text-gray-900'>{item.question}</h3>
                 <svg
-                  className={`w-5 h-5 flex-shrink-0 text-primary transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+                  className={`w-5 h-5 flex-shrink-0 text-primary-dark transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
                   fill='none'
                   stroke='currentColor'
                   viewBox='0 0 24 24'
@@ -81,7 +85,7 @@ const FAQ = () => {
                 className={`grid transition-all duration-300 ease-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
               >
                 <div className='overflow-hidden'>
-                  <p className='px-5 sm:px-6 pb-5 sm:pb-6 text-gray-600 text-sm leading-relaxed'>
+                  <p className='px-5 sm:px-6 pb-5 sm:pb-6 text-gray-600 leading-relaxed'>
                     {item.answer}
                   </p>
                 </div>
@@ -90,7 +94,7 @@ const FAQ = () => {
           )
         })}
       </div>
-    </div>
+    </section>
   )
 }
 

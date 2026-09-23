@@ -2,11 +2,13 @@ import { createContext, useEffect, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { assets } from "../assets/assets";
+import { computeTikTokStats } from "../utils/tiktokStats";
 
 export const AppContext = createContext()
 
 export const normalizeInfluencer = (docSnap) => {
     const data = docSnap.data() || {}
+    const { avgViews, engagementRate } = computeTikTokStats(data.socialAccounts?.tiktok)
 
     return {
         _id: docSnap.id,
@@ -24,6 +26,8 @@ export const normalizeInfluencer = (docSnap) => {
         followers: {
             tiktok: data.socialAccounts?.tiktok?.followers || 0
         },
+        avgViews,
+        engagementRate,
         createdAt: data.createdAt || null
     }
 }

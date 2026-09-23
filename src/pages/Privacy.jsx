@@ -1,13 +1,14 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import SEO from '../components/SEO';
+import { PAGE_SEO } from '../constants/seo'
 
 const Privacy = () => {
   const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <SEO title="Politique de confidentialité" path="/privacy" />
+      <SEO {...PAGE_SEO.privacy} />
       <div className="max-w-4xl mx-auto bg-white shadow-md rounded-lg p-8">
         <button
           onClick={() => navigate(-1)}

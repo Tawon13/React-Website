@@ -22,3 +22,8 @@ service-account.json
 # OS
 .DS_Store
 Thumbs.db
+# Sauvegardes locales de migration (contiennent des données personnelles)
+.private-backup/
+
+# Captures et journaux de tests Playwright
+.playwright-mcp/

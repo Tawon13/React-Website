@@ -10,9 +10,10 @@
   font-family: Poppins;
 }
 
-/* Prevent horizontal scroll */
+/* Prevent horizontal scroll. "clip" plutôt que "hidden" : hidden transforme body en
+   conteneur de défilement et casse position: sticky sur tout le site. */
 html, body {
-  overflow-x: hidden;
+  overflow-x: clip;
   max-width: 100vw;
 }
 
