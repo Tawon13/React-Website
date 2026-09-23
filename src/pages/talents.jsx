@@ -4,7 +4,6 @@ import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { AppContext } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
-import { INFLUENCER_CATEGORIES } from '../constants/categories'
 import { pickBestMatch } from '../utils/matching'
 import SEO from '../components/SEO'
 
@@ -24,6 +23,8 @@ const Talents = () => {
 	const maxPrice = searchParams.get('maxPrice')
 	const sort = searchParams.get('sort')
 	const activeCategory = speciality || categoryParam
+	const typeParam = searchParams.get('type')
+	const activeType = typeParam === 'ugc' ? 'ugc' : 'influenceur'
 	const hasActiveFilters = Boolean(activeCategory || maxPrice || sort)
 
 	// Critères de recommandation pour une marque : soit reçus juste après l'onboarding
@@ -57,25 +58,16 @@ const Talents = () => {
 		return pickBestMatch(doctors, brandCriteria)
 	}, [doctors, brandCriteria, hasActiveFilters])
 
-	// N'affiche que les catégories réellement représentées par au moins un influenceur.
-	// La catégorie active est conservée même si elle est vide, pour qu'un filtre ouvert
-	// depuis une URL directe reste visible et désélectionnable.
-	const availableCategories = useMemo(() => {
-		const usedCategories = new Set(
-			doctors.map((doc) => doc.speciality?.toLowerCase()).filter(Boolean)
-		)
-		return INFLUENCER_CATEGORIES.filter(
-			(cat) => usedCategories.has(cat.toLowerCase()) || activeCategory?.toLowerCase() === cat.toLowerCase()
-		)
-	}, [doctors, activeCategory])
-
-	// Change de catégorie tout en conservant les autres filtres actifs (tri, prix).
-	const goToCategory = (categoryValue) => {
+	// Bascule entre Influenceurs et Créateurs UGC, en conservant les autres filtres actifs.
+	const goToType = (type) => {
 		const params = new URLSearchParams(searchParams)
-		params.delete('category')
-		const path = categoryValue ? `/talents/${categoryValue}` : '/talents'
+		if (type === 'ugc') {
+			params.set('type', 'ugc')
+		} else {
+			params.delete('type')
+		}
 		const qs = params.toString()
-		navigate(qs ? `${path}?${qs}` : path)
+		navigate(qs ? `${location.pathname}?${qs}` : location.pathname)
 	}
 
   const applyFilter = () => {
@@ -84,6 +76,8 @@ const Talents = () => {
     if (activeCategory) {
       filtered = filtered.filter(doc => doc.speciality?.toLowerCase() === activeCategory.toLowerCase())
     }
+
+    filtered = filtered.filter(doc => (doc.creatorType || 'influenceur') === activeType)
 
     if (maxPrice) {
       const max = Number(maxPrice)
@@ -104,7 +98,7 @@ const Talents = () => {
 
   useEffect(() =>{
     applyFilter()
-  },[doctors, activeCategory, maxPrice, sort])
+  },[doctors, activeCategory, maxPrice, sort, activeType])
 
   // Le profil recommandé est épinglé en premier, sans être dupliqué plus bas dans la grille.
   const displayedDoc = recommended
@@ -119,7 +113,30 @@ const Talents = () => {
 				path='/talents'
 			/>
 			<h1 className='text-3xl font-medium text-center mb-2'>Nos Talents</h1>
-			<p className='text-gray-600 text-center mb-8'>Parcourez notre liste complète d'influenceurs de confiance.</p>
+			<p className='text-gray-600 text-center mb-6'>Parcourez notre liste complète d'influenceurs de confiance.</p>
+
+			<div className='flex justify-center gap-2 mb-8'>
+				<button
+					onClick={() => goToType('influenceur')}
+					className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
+						activeType === 'influenceur'
+							? 'bg-gray-900 text-white'
+							: 'bg-white border border-gray-200 text-gray-700 hover:border-gray-300'
+					}`}
+				>
+					Influenceurs
+				</button>
+				<button
+					onClick={() => goToType('ugc')}
+					className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
+						activeType === 'ugc'
+							? 'bg-gray-900 text-white'
+							: 'bg-white border border-gray-200 text-gray-700 hover:border-gray-300'
+					}`}
+				>
+					Créateurs UGC
+				</button>
+			</div>
 
 			{recommended && (
 				<div className='max-w-2xl mx-auto mb-8 bg-primary/5 border border-primary/20 rounded-xl px-5 py-4 text-center'>
@@ -129,37 +146,7 @@ const Talents = () => {
 				</div>
 			)}
 
-			<div className='flex flex-col sm:flex-row items-start gap-5 mt-5'>
-				{/* Filter sidebar */}
-				<div className='w-full sm:w-56 flex-shrink-0'>
-					<h2 className='hidden sm:block text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3'>Catégorie</h2>
-					<div className='flex sm:flex-col gap-2 overflow-x-auto sm:overflow-visible pb-2 sm:pb-0 scrollbar-hide'>
-						<button
-							onClick={() => goToCategory(null)}
-							className={`px-4 py-2 rounded-full sm:rounded-lg text-sm font-medium whitespace-nowrap transition-all flex-shrink-0 ${
-								!activeCategory
-									? 'bg-gray-900 text-white'
-									: 'bg-white border border-gray-200 text-gray-700 hover:border-gray-300'
-							}`}
-						>
-							Toutes catégories
-						</button>
-						{availableCategories.map((cat) => (
-							<button
-								key={cat}
-								onClick={() => goToCategory(cat)}
-								className={`px-4 py-2 rounded-full sm:rounded-lg text-sm font-medium whitespace-nowrap transition-all flex-shrink-0 ${
-									activeCategory?.toLowerCase() === cat.toLowerCase()
-										? 'bg-gray-900 text-white'
-										: 'bg-white border border-gray-200 text-gray-700 hover:border-gray-300'
-								}`}
-							>
-								{cat}
-							</button>
-						))}
-					</div>
-				</div>
-
+			<div className='mt-5'>
 				{/* Talents Grid */}
 				<div className='w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 gap-y-6'>
 					{displayedDoc.map((item) => {

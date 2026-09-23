@@ -116,6 +116,29 @@ def send_welcome_email(to_email, name, user_type, frontend_base_url):
     )
 
 
+def send_tiktok_connection_reminder_email(to_email, name, frontend_base_url):
+    """
+    Relance un influenceur qui s'est inscrit mais n'a pas encore connecté son compte TikTok.
+    """
+    subject = "Plus qu'une étape : connectez votre TikTok"
+    title = "🎵 Connectez votre compte TikTok"
+    body_html = f"""
+        <p>Bonjour {name},</p>
+        <p>Merci pour votre inscription sur Collabzz ! Il ne vous reste plus qu'à connecter votre compte TikTok pour finaliser votre profil.</p>
+        <p>Vos statistiques (abonnés, vues, engagement) seront affichées automatiquement sur votre profil : c'est ce que regardent les marques avant de vous proposer une collaboration.</p>
+        <p>Cela ne prend que quelques secondes.</p>
+    """
+
+    return _send_notification_email(
+        to_email=to_email,
+        subject=subject,
+        title=title,
+        body_html=body_html,
+        cta_url=f"{frontend_base_url}/my-profile",
+        cta_label="Connecter mon TikTok"
+    )
+
+
 def send_new_collaboration_request_email(influencer_email, influencer_name, brand_name, package, amount, frontend_base_url, brand_id):
     """
     Prévient l'influenceur par email qu'une marque lui a envoyé une nouvelle demande de collaboration.

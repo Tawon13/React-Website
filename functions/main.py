@@ -1261,6 +1261,67 @@ def daily_stats_update(event: scheduler_fn.ScheduledEvent) -> None:
 
 
 # ============================================
+# FONCTION PLANIFIÉE - Relance connexion TikTok
+# ============================================
+
+TIKTOK_REMINDER_DELAY_MINUTES = 30
+# Fenêtre de rattrapage : on ne relance que les inscriptions récentes,
+# pour ne pas écrire à tous les anciens comptes au premier déploiement.
+TIKTOK_REMINDER_LOOKBACK_HOURS = 3
+
+
+def _to_client_iso(dt: datetime) -> str:
+    """Même format que `new Date().toISOString()` côté client (champ createdAt)."""
+    return dt.astimezone(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
+
+
+@scheduler_fn.on_schedule(schedule="*/5 * * * *", timezone="Europe/Paris")
+def tiktok_connection_reminder(event: scheduler_fn.ScheduledEvent) -> None:
+    """
+    Envoie un email aux influenceurs inscrits depuis plus de 30 minutes
+    qui n'ont pas encore connecté leur compte TikTok. Un seul email par compte.
+    """
+    now = datetime.now(timezone.utc)
+    newest_signup = _to_client_iso(now - timedelta(minutes=TIKTOK_REMINDER_DELAY_MINUTES))
+    oldest_signup = _to_client_iso(now - timedelta(hours=TIKTOK_REMINDER_LOOKBACK_HOURS))
+
+    db = firestore.client()
+    candidates = db.collection('influencers') \
+        .where('createdAt', '>=', oldest_signup) \
+        .where('createdAt', '<=', newest_signup) \
+        .stream()
+
+    from lib.notifications import send_tiktok_connection_reminder_email
+
+    sent_count = 0
+    for influencer in candidates:
+        data = influencer.to_dict() or {}
+
+        if data.get('tiktokReminderSentAt'):
+            continue
+        if (data.get('socialAccounts') or {}).get('tiktok', {}).get('connected'):
+            continue
+        email = data.get('email')
+        if not email:
+            continue
+
+        result = send_tiktok_connection_reminder_email(
+            to_email=email,
+            name=((data.get('name') or '').split() or ['Influenceur'])[0],
+            frontend_base_url=FRONTEND_BASE_URL
+        )
+
+        # En cas d'échec, pas de marqueur : on réessaiera au prochain passage.
+        if result.get('success'):
+            influencer.reference.update({'tiktokReminderSentAt': firestore.SERVER_TIMESTAMP})
+            sent_count += 1
+        else:
+            print(f"❌ Relance TikTok non envoyée pour {influencer.id}: {result.get('error')}")
+
+    print(f"📧 Relances TikTok envoyées: {sent_count}")
+
+
+# ============================================
 # ROUTE HTTP - Formulaire de contact
 # ============================================
 

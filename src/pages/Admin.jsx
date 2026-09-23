@@ -172,6 +172,16 @@ const Admin = () => {
     }
   }
 
+  const handleSetCreatorType = async (influencerId, creatorType) => {
+    try {
+      await updateDoc(doc(db, 'influencers', influencerId), { creatorType })
+      setUsers((prev) => prev.map((u) => (u.id === influencerId ? { ...u, creatorType } : u)))
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du type de créateur:', error)
+      toast.error('Erreur lors de la mise à jour du type de créateur')
+    }
+  }
+
   const deleteContact = async (contactId) => {
     if (window.confirm('Êtes-vous sûr de vouloir supprimer ce message ?')) {
       try {
@@ -380,6 +390,7 @@ const Admin = () => {
                       <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Email</th>
                       <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Réseaux</th>
                       <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Validé</th>
+                      <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Type</th>
                       <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase'>Actions</th>
                     </tr>
                   </thead>
@@ -413,6 +424,16 @@ const Admin = () => {
                           }`}>
                             {user.approved === true ? 'Validé' : 'En attente'}
                           </span>
+                        </td>
+                        <td className='px-6 py-4 whitespace-nowrap'>
+                          <select
+                            value={user.creatorType === 'ugc' ? 'ugc' : 'influenceur'}
+                            onChange={(e) => handleSetCreatorType(user.id, e.target.value)}
+                            className='text-sm border border-gray-200 rounded-lg px-2 py-1 text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/40'
+                          >
+                            <option value='influenceur'>Influenceur</option>
+                            <option value='ugc'>Créateur UGC</option>
+                          </select>
                         </td>
                         <td className='px-6 py-4 whitespace-nowrap text-sm'>
                           <div className='flex items-center gap-3'>
