@@ -1,20 +1,42 @@
 {
   "cleanUrls": true,
   "images": {
-    "sizes": [128, 256, 384, 640, 828, 1080],
-    "formats": ["image/avif", "image/webp"],
+    "sizes": [
+      128,
+      256,
+      384,
+      640,
+      828,
+      1080
+    ],
+    "formats": [
+      "image/avif",
+      "image/webp"
+    ],
     "minimumCacheTTL": 86400,
     "remotePatterns": [
-      { "protocol": "https", "hostname": "firebasestorage.googleapis.com" },
-      { "protocol": "https", "hostname": "**.tiktokcdn.com" },
-      { "protocol": "https", "hostname": "**.tiktokcdn-us.com" },
-      { "protocol": "https", "hostname": "**.tiktokcdn-eu.com" }
+      {
+        "protocol": "https",
+        "hostname": "firebasestorage.googleapis.com"
+      },
+      {
+        "protocol": "https",
+        "hostname": "**.tiktokcdn.com"
+      },
+      {
+        "protocol": "https",
+        "hostname": "**.tiktokcdn-us.com"
+      },
+      {
+        "protocol": "https",
+        "hostname": "**.tiktokcdn-eu.com"
+      }
     ]
   },
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": "/"
     }
   ]
 }
