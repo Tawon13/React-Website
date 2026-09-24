@@ -18,6 +18,7 @@ import {
     VERIFY_EMAIL_CODE_URL
 } from '../config/firebase';
 import { trackEvent } from '../utils/analytics';
+import { hdPhotoURL } from '../utils/photoUrl';
 
 // Appelle une Cloud Function authentifiée (idToken du user Firebase) et lève une erreur
 // avec le message renvoyé par le backend si la requête échoue.
@@ -190,7 +191,7 @@ export const AuthProvider = ({ children }) => {
                 email: user.email,
                 userType: isInfluencer ? 'influencer' : 'brand',
                 name: user.displayName || '',
-                photoURL: user.photoURL || '',
+                photoURL: hdPhotoURL(user.photoURL) || '',
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             };
@@ -233,7 +234,7 @@ export const AuthProvider = ({ children }) => {
                 email: user.email,
                 userType: isInfluencer ? 'influencer' : 'brand',
                 name: user.displayName || '',
-                photoURL: user.photoURL || '',
+                photoURL: hdPhotoURL(user.photoURL) || '',
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             };

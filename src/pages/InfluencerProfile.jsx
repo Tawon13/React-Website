@@ -14,6 +14,7 @@ import { useToast } from '../context/ToastContext'
 import { AnimatePresence, motion, MotionConfig } from 'motion/react'
 import { Reveal } from '../components/PageKit'
 import SmartImage from '../components/SmartImage'
+import { hdPhotoURL } from '../utils/photoUrl'
 
 const ADMIN_EMAIL = 'bechagraamine@gmail.com'
 
@@ -226,7 +227,7 @@ const InfluencerProfile = () => {
                     setFirebaseInfluencerId(docSnap.id)
                     // Charger la photo de profil uploadée
                     if (data.photoURL) {
-                        setFirebaseProfilePhoto(data.photoURL)
+                        setFirebaseProfilePhoto(hdPhotoURL(data.photoURL))
                     }
                     if (data.socialAccounts) {
                         setSocialData(data.socialAccounts)

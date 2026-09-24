@@ -3,6 +3,7 @@ import { collection, getDocs } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { assets } from "../assets/assets";
 import { computeTikTokStats } from "../utils/tiktokStats";
+import { hdPhotoURL } from "../utils/photoUrl";
 
 export const AppContext = createContext()
 
@@ -13,7 +14,7 @@ export const normalizeInfluencer = (docSnap) => {
     return {
         _id: docSnap.id,
         name: data.name || 'Influenceur',
-        image: data.photoURL || data.socialAccounts?.tiktok?.avatarUrl || assets.profile_pic,
+        image: hdPhotoURL(data.photoURL) || data.socialAccounts?.tiktok?.avatarUrl || assets.profile_pic,
         speciality: data.category || 'Créateur de contenu',
         creatorType: data.creatorType === 'ugc' ? 'ugc' : 'influenceur',
         tiktokUsername: data.socialAccounts?.tiktok?.username || '',
