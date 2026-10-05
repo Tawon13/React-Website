@@ -1238,46 +1238,64 @@ def mark_collaboration_paid_handler(req: https_fn.Request) -> https_fn.Response:
 # FONCTION PLANIFIÉE - Mise à jour quotidienne
 # ============================================
 
-@scheduler_fn.on_schedule(schedule="*/30 * * * *", timezone="Europe/Paris")
+def _sync_tiktok_stats(user_id: str, tiktok_tokens: dict) -> bool:
+    """Met à jour un créateur sans jamais faire échouer la boucle des autres.
+
+    En cas d'échec, les dernières stats restent affichées et l'erreur est notée sur la
+    fiche (`syncError`) ; elle est effacée à la mise à jour réussie suivante.
+    """
+    from lib.tiktok import update_tiktok_stats
+
+    doc_ref = firestore.client().collection('influencers').document(user_id)
+    try:
+        result = update_tiktok_stats(user_id, tiktok_tokens)
+        doc_ref.update({
+            'socialAccounts.tiktok.syncError': firestore.DELETE_FIELD,
+            'socialAccounts.tiktok.syncErrorAt': firestore.DELETE_FIELD,
+        })
+        print(f"✅ TikTok mis à jour pour {user_id}: {result.get('followers')} abonnés")
+        return True
+    except Exception as exc:
+        print(f"❌ Erreur TikTok pour {user_id}: {exc}")
+        try:
+            doc_ref.update({
+                'socialAccounts.tiktok.syncError': str(exc)[:300],
+                'socialAccounts.tiktok.syncErrorAt': firestore.SERVER_TIMESTAMP,
+            })
+        except Exception as write_exc:
+            print(f"⚠️ Impossible de noter l'erreur pour {user_id}: {write_exc}")
+        return False
+
+
+@scheduler_fn.on_schedule(schedule="*/30 * * * *", timezone="Europe/Paris", timeout_sec=540)
 def daily_stats_update(event: scheduler_fn.ScheduledEvent) -> None:
     """
-    Mise à jour quotidienne des statistiques TikTok
-    S'exécute tous les jours à 2h du matin (heure de Paris)
+    Mise à jour des statistiques TikTok de tous les créateurs connectés (toutes les 30 min).
     """
-    print("🚀 Début de la mise à jour quotidienne des stats")
+    from concurrent.futures import ThreadPoolExecutor
+    from lib.token_store import get_user_tokens
+
+    print("🚀 Début de la mise à jour des stats")
 
     db = firestore.client()
 
-    # Récupérer tous les influenceurs avec au moins un compte connecté
-    influencers = db.collection('influencers').stream()
+    targets = []
+    for influencer in db.collection('influencers').stream():
+        tiktok = (influencer.to_dict().get('socialAccounts') or {}).get('tiktok') or {}
+        if not tiktok.get('connected'):
+            continue
+        tiktok_tokens = get_user_tokens(influencer.id).get('tiktok')
+        if tiktok_tokens:
+            targets.append((tiktok.get('lastUpdated'), influencer.id, tiktok_tokens))
 
-    update_count = 0
-    error_count = 0
+    # Les profils les plus anciens d'abord : si le temps manque, ce sont eux qui passent.
+    oldest = datetime.min.replace(tzinfo=timezone.utc)
+    targets.sort(key=lambda target: target[0] if isinstance(target[0], datetime) else oldest)
 
-    from lib.token_store import get_user_tokens
-    from lib.tiktok import update_tiktok_stats
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        results = list(pool.map(lambda target: _sync_tiktok_stats(target[1], target[2]), targets))
 
-    for influencer in influencers:
-        user_id = influencer.id
-        data = influencer.to_dict()
-
-        social_accounts = data.get('socialAccounts', {})
-        user_tokens = get_user_tokens(user_id)
-
-        # Mettre à jour TikTok si connecté
-        if social_accounts.get('tiktok', {}).get('connected'):
-            tiktok_tokens = user_tokens.get('tiktok', {})
-            if tiktok_tokens:
-                print(f"🎵 Mise à jour TikTok pour {user_id}")
-                result = update_tiktok_stats(user_id, tiktok_tokens)
-                if result.get('success'):
-                    update_count += 1
-                    print(f"✅ TikTok mis à jour: {result.get('followers')} abonnés")
-                else:
-                    error_count += 1
-                    print(f"❌ Erreur TikTok: {result.get('error')}")
-    
-    print(f"✨ Mise à jour terminée: {update_count} succès, {error_count} erreurs")
+    print(f"✨ Mise à jour terminée: {sum(results)} succès, {len(results) - sum(results)} erreurs")
 
 
 # ============================================

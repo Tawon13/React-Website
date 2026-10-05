@@ -319,10 +319,17 @@ def update_tiktok_stats(user_id: str, tokens: dict) -> dict:
         refresh_res = requests.post(
             TIKTOK_TOKEN_URL,
             data=refresh_payload,
-            headers={"Content-Type": "application/x-www-form-urlencoded"}
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            timeout=20
         )
         refresh_res.raise_for_status()
         refreshed = refresh_res.json()
+
+        # TikTok répond 200 avec un champ "error" quand l'accès a été retiré ou a expiré.
+        if not refreshed.get("access_token"):
+            raise Exception(
+                f"Rafraîchissement TikTok refusé : {refreshed.get('error') or refreshed}"
+            )
 
         access_token = refreshed["access_token"]
         refresh_token = refreshed["refresh_token"]
