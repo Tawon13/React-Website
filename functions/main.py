@@ -971,6 +971,10 @@ def stripe_webhook_handler(req: https_fn.Request) -> https_fn.Response:
 
                 for collab_id in collab_ids:
                     collab_ref = db_client.collection('collaborations').document(collab_id)
+                    # Une autre session a pu être payée entre-temps (marque qui clique deux fois sur Payer).
+                    current = (collab_ref.get().to_dict() or {}).get('paymentStatus')
+                    if current in ('funds_held', 'refunded'):
+                        continue
                     collab_ref.update({
                         'paymentStatus': 'not_requested',
                         'updatedAt': firestore.SERVER_TIMESTAMP
