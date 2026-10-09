@@ -2,6 +2,7 @@ import { useContext, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { AppContext } from '../context/AppContext'
+import { influencerPath } from '../utils/profileSlug'
 import { Reveal, Icon, ICONS } from './PageKit'
 import { useCanSeeStats } from '../hooks/useCanSeeStats'
 import SmartImage from './SmartImage'
@@ -46,7 +47,7 @@ const TopDoctors = () => {
             <Reveal as='li' key={item._id} delay={index * 0.08}>
               <motion.div whileHover={{ y: -6 }} transition={{ type: 'spring', stiffness: 400, damping: 30 }}>
                 <Link
-                  to={`/influencer/${item._id}`}
+                  to={influencerPath(item.slug || item._id)}
                   onClick={() => window.scrollTo(0, 0)}
                   className='group relative block aspect-[3/4] rounded-3xl overflow-hidden bg-gray-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary'
                 >

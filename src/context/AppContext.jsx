@@ -4,6 +4,7 @@ import { db } from "../config/firebase";
 import { assets } from "../assets/assets";
 import { computeTikTokStats } from "../utils/tiktokStats";
 import { hdPhotoURL } from "../utils/photoUrl";
+import { assignSlugs } from "../utils/profileSlug";
 
 export const AppContext = createContext()
 
@@ -44,7 +45,9 @@ const AppContextProvider = (props) => {
             try {
                 const snapshot = await getDocs(collection(db, 'influencers'))
                 const approvedDocs = snapshot.docs.filter((docSnap) => docSnap.data()?.approved === true)
-                setDoctors(approvedDocs.map(normalizeInfluencer))
+                const influencers = approvedDocs.map(normalizeInfluencer)
+                setDoctors(assignSlugs(influencers, (inf) => inf._id, (inf) => inf.tiktokUsername)
+                    .map(({ item, slug }) => ({ ...item, slug })))
             } catch (error) {
                 console.error('Erreur lors du chargement des influenceurs:', error)
             } finally {

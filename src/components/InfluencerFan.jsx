@@ -4,6 +4,7 @@ import {
   AnimatePresence, motion, useMotionValue, useMotionValueEvent, useReducedMotion, useScroll, useSpring, useTransform
 } from 'motion/react'
 import { AppContext } from '../context/AppContext'
+import { influencerPath } from '../utils/profileSlug'
 import { assets } from '../assets/assets'
 import { useCanSeeStats, SIGNUP_FOR_STATS_PATH } from '../hooks/useCanSeeStats'
 import SmartImage from './SmartImage'
@@ -187,7 +188,7 @@ const InfluencerDetail = ({ item, onClose }) => {
             </p>
             <button
               type='button'
-              onClick={() => { navigate(`/influencer/${item._id}`); window.scrollTo(0, 0) }}
+              onClick={() => { navigate(influencerPath(item.slug || item._id)); window.scrollTo(0, 0) }}
               className='cursor-pointer bg-gray-900 text-white px-6 py-3 rounded-full font-semibold hover:bg-gray-800 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2'
             >
               Voir le profil

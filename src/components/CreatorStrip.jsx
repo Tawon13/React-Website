@@ -2,6 +2,7 @@ import { useContext, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react'
 import { AppContext } from '../context/AppContext'
+import { influencerPath } from '../utils/profileSlug'
 import { assets } from '../assets/assets'
 import { useCanSeeStats } from '../hooks/useCanSeeStats'
 import SmartImage from './SmartImage'
@@ -39,7 +40,7 @@ const CreatorStrip = ({ children, max = 10 }) => {
             : creators.map((item) => (
               <li key={item._id}>
                 <Link
-                  to={`/influencer/${item._id}`}
+                  to={influencerPath(item.slug || item._id)}
                   onClick={() => window.scrollTo(0, 0)}
                   className='group relative block w-40 sm:w-48 h-56 sm:h-64 rounded-2xl overflow-hidden bg-gray-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary'
                 >

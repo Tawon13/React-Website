@@ -10,6 +10,7 @@ import {
     CATEGORY_SEO, DEFAULT_DESCRIPTION, DEFAULT_IMAGE, PAGE_SEO, SITE_NAME, SITE_URL,
     formatTitle, influencerSeo
 } from '../src/constants/seo.js'
+import { assignSlugs } from '../src/utils/profileSlug.js'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const DIST = join(ROOT, 'dist')
@@ -56,7 +57,9 @@ const fetchApprovedInfluencers = async () => {
         }
         pageToken = body.nextPageToken || ''
     } while (pageToken)
-    return influencers
+    // Mêmes slugs que côté site (AppContext), pour que canonical et sitemap correspondent.
+    return assignSlugs(influencers, (inf) => inf.id, (inf) => inf.tiktokUsername)
+        .map(({ item, slug }) => ({ ...item, slug }))
 }
 
 const renderHead = ({ title, description = DEFAULT_DESCRIPTION, path, image = DEFAULT_IMAGE }) => {

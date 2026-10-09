@@ -2,6 +2,7 @@ import { useContext } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion, MotionConfig } from 'motion/react'
 import { AppContext } from '../context/AppContext'
+import { influencerPath } from '../utils/profileSlug'
 import { useFavorites } from '../context/FavoritesContext'
 import SEO from '../components/SEO'
 import SmartImage from '../components/SmartImage'
@@ -108,7 +109,7 @@ const Favorites = () => {
 											</svg>
 										</button>
 										<Link
-											to={`/influencer/${item._id}`}
+											to={influencerPath(item.slug || item._id)}
 											onClick={() => window.scrollTo(0, 0)}
 											className='group block rounded-3xl overflow-hidden bg-white border border-gray-200 transition-shadow duration-300 hover:shadow-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary'
 										>

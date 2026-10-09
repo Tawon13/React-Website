@@ -4,6 +4,7 @@ import { AnimatePresence, motion, MotionConfig } from 'motion/react'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { AppContext } from '../context/AppContext'
+import { influencerPath } from '../utils/profileSlug'
 import { useAuth } from '../context/AuthContext'
 import { pickBestMatch } from '../utils/matching'
 import SEO from '../components/SEO'
@@ -330,7 +331,7 @@ const Talents = () => {
 									transition={{ layout: { type: 'spring', stiffness: 350, damping: 34 }, duration: 0.3, delay: Math.min(index, 8) * 0.03 }}
 								>
 									<Link
-										to={`/influencer/${item._id}`}
+										to={influencerPath(item.slug || item._id)}
 										onClick={() => window.scrollTo(0, 0)}
 										className={`group block rounded-3xl overflow-hidden bg-white border transition-shadow duration-300 hover:shadow-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary ${isRecommended ? 'border-primary ring-2 ring-primary/40' : 'border-gray-200'}`}
 									>

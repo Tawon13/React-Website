@@ -4,6 +4,7 @@ import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { useAuth } from '../context/AuthContext'
 import { AppContext } from '../context/AppContext'
+import { influencerPath } from '../utils/profileSlug'
 import { pickBestMatch } from '../utils/matching'
 import SEO from '../components/SEO'
 
@@ -64,7 +65,7 @@ const BrandRecommendation = () => {
                         </p>
 
                         <div
-                            onClick={() => navigate(`/influencer/${bestMatch._id}`)}
+                            onClick={() => navigate(influencerPath(bestMatch.slug || bestMatch._id))}
                             className='bg-white rounded-2xl shadow-lg overflow-hidden text-left hover:shadow-xl transition-shadow mb-6 cursor-pointer'
                         >
                             <img

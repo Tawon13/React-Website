@@ -2,6 +2,7 @@
 // scripts/prerender-seo.mjs (build), pour que les balises pré-rendues et celles
 // posées par Helmet restent identiques.
 import { INFLUENCER_CATEGORIES } from './categories.js'
+import { influencerPath } from '../utils/profileSlug.js'
 
 export const SITE_NAME = 'Collabzz'
 export const SITE_URL = 'https://www.collabzz.com'
@@ -80,12 +81,12 @@ export const categorySeo = (category) => ({
 
 export const CATEGORY_SEO = INFLUENCER_CATEGORIES.map(categorySeo)
 
-export const influencerSeo = ({ id, tiktokUsername, category, city, image }) => {
+export const influencerSeo = ({ id, slug, tiktokUsername, category, city, image }) => {
     // Nom et prénom réels jamais affichés publiquement : on montre le pseudo TikTok à la place.
     const displayName = tiktokUsername ? `@${tiktokUsername}` : (category || 'Créateur de contenu')
     const niche = category ? `influenceur ${category}` : 'créateur de contenu'
     return {
-        path: `/influencer/${id}`,
+        path: influencerPath(slug || id),
         title: displayName,
         description: `Découvrez le profil de ${displayName}, ${niche}${city ? ` basé(e) à ${city}` : ''}, sur Collabzz : audience, tarifs et collaboration en quelques clics.`,
         image: image || DEFAULT_IMAGE

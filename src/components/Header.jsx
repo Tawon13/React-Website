@@ -2,6 +2,7 @@ import { useContext, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react'
 import { AppContext } from '../context/AppContext'
+import { influencerPath } from '../utils/profileSlug'
 import { assets } from '../assets/assets'
 import { INFLUENCER_CATEGORIES } from '../constants/categories'
 import { Icon, ICONS } from './PageKit'
@@ -28,7 +29,7 @@ const PhotoColumn = ({ items, y, offset = '' }) => (
         transition={{ duration: 0.7, delay: 0.3 + i * 0.12, ease }}
       >
         <Link
-          to={`/influencer/${item._id}`}
+          to={influencerPath(item.slug || item._id)}
           onClick={() => window.scrollTo(0, 0)}
           tabIndex={-1}
           className='group relative block aspect-[3/4] rounded-2xl overflow-hidden bg-white/10'

@@ -15,13 +15,22 @@ import { AnimatePresence, motion, MotionConfig } from 'motion/react'
 import { Reveal } from '../components/PageKit'
 import SmartImage from '../components/SmartImage'
 import { hdPhotoURL } from '../utils/photoUrl'
+import { influencerPath } from '../utils/profileSlug'
 
 const ADMIN_EMAIL = 'bechagraamine@gmail.com'
 
 const InfluencerProfile = () => {
-    const { influencerId } = useParams()
+    const { influencerId: routeParam } = useParams()
     const navigate = useNavigate()
     const { doctors, doctorsLoading } = useContext(AppContext)
+    // L'URL contient le slug (/influencer/sarah2icy) ou, pour les anciens liens, l'ID Firebase.
+    const routeMatch = useMemo(
+        () => doctors.find((inf) => inf.slug === routeParam || inf._id === routeParam) || null,
+        [doctors, routeParam]
+    )
+    // Tant que la liste publique charge, un slug n'est pas encore résolu : on attend avant
+    // d'interroger Firestore. Hors liste (profil non validé, aperçu admin), c'est un ID.
+    const influencerId = routeMatch?._id ?? (doctorsLoading ? null : routeParam)
     const { currentUser, userType } = useAuth()
     const { addToCart } = useCart()
     const toast = useToast()
@@ -192,6 +201,13 @@ const InfluencerProfile = () => {
     useEffect(() => {
         window.scrollTo(0, 0)
     }, [influencerId])
+
+    // Ancien lien /influencer/<ID> : on remplace l'adresse par celle avec le slug.
+    useEffect(() => {
+        if (routeMatch?.slug && routeParam !== routeMatch.slug) {
+            navigate(influencerPath(routeMatch.slug), { replace: true })
+        }
+    }, [routeMatch, routeParam, navigate])
 
     // Recherche synchrone (déjà en mémoire) dans la liste des influenceurs approuvés.
     useEffect(() => {
@@ -561,7 +577,7 @@ const InfluencerProfile = () => {
         <MotionConfig reducedMotion='user'>
         <div className='pt-8 md:pt-12 pb-20'>
             <SEO
-                {...influencerSeo({ id: influencerId, tiktokUsername: influencer.tiktokUsername, category: influencer.speciality, city: influencer.city, image: displayAvatar })}
+                {...influencerSeo({ id: influencerId, slug: routeMatch?.slug, tiktokUsername: influencer.tiktokUsername, category: influencer.speciality, city: influencer.city, image: displayAvatar })}
                 noindex={!isApprovedProfile}
             />
             {!isApprovedProfile && currentUser?.email === ADMIN_EMAIL && (
