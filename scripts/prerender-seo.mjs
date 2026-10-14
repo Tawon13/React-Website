@@ -108,17 +108,36 @@ const main = async () => {
         ...Object.values(PAGE_SEO),
         ...CATEGORY_SEO.map((page) => ({ ...page, changefreq: 'weekly', priority: '0.7' })),
         ...GUIDE_SEO.map((page) => ({ ...page, changefreq: 'monthly', priority: '0.7' })),
-        ...influencers.map((inf) => ({ ...influencerSeo(inf), changefreq: 'weekly', priority: '0.6', lastmod: inf.lastmod }))
+        ...influencers.map((inf) => ({
+            ...influencerSeo(inf),
+            changefreq: 'weekly',
+            priority: '0.6',
+            lastmod: inf.lastmod,
+            // Sans pseudo TikTok : titre générique et URL = ID Firebase, page trop pauvre pour le sitemap.
+            inSitemap: Boolean(inf.tiktokUsername)
+        }))
     ]
+
+    // Anciennes adresses /influencer/<ID Firebase> (avant les slugs) : même <head> que le profil,
+    // avec le canonical vers l'adresse lisible pour que Google y transfère l'ancienne URL.
+    // Pas dans le sitemap ; côté navigateur, le profil redirige vers le slug.
+    const legacyAliases = influencers
+        .filter((inf) => inf.slug !== inf.id)
+        .map((inf) => ({ ...influencerSeo(inf), file: influencerSeo({ ...inf, slug: inf.id }).path }))
 
     for (const page of pages) {
         const file = outputFile(page.path)
         mkdirSync(dirname(file), { recursive: true })
         writeFileSync(file, template.replace(markerRe, renderHead(page)))
     }
+    for (const alias of legacyAliases) {
+        const file = outputFile(alias.file)
+        mkdirSync(dirname(file), { recursive: true })
+        writeFileSync(file, template.replace(markerRe, renderHead(alias)))
+    }
 
     const today = new Date().toISOString().slice(0, 10)
-    const urls = pages.map((page) => [
+    const urls = pages.filter((page) => page.inSitemap !== false).map((page) => [
         '  <url>',
         `    <loc>${escapeHtml(`${SITE_URL}${page.path}`)}</loc>`,
         `    <lastmod>${page.lastmod || today}</lastmod>`,
@@ -129,7 +148,7 @@ const main = async () => {
     writeFileSync(join(DIST, 'sitemap.xml'),
         `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`)
 
-    console.log(`[prerender-seo] ${pages.length} pages pré-rendues (${influencers.length} profils influenceurs), sitemap mis à jour.`)
+    console.log(`[prerender-seo] ${pages.length} pages pré-rendues (${influencers.length} profils influenceurs, ${legacyAliases.length} anciennes adresses), sitemap : ${urls.length} URL.`)
 }
 
 main().catch((error) => {

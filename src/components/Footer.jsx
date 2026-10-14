@@ -1,5 +1,6 @@
 import { assets } from '../assets/assets'
 import { Link } from 'react-router-dom'
+import CategoryLinks from './CategoryLinks'
 
 // Réseaux sociaux de Collabzz (aussi déclarés dans le balisage Organization de index.html).
 const SOCIAL_LINKS = [
@@ -30,7 +31,7 @@ const FOOTER_LINKS = [
 const Footer = () => {
   return (
     <div className='px-4 sm:px-6 md:mx-10'>
-        <div className='flex flex-col sm:grid grid-cols-1 md:grid-cols-[3fr_1fr_1fr] gap-8 sm:gap-10 md:gap-14 my-10 mt-20 sm:mt-30 md:mt-40 text-sm'>
+        <div className='flex flex-col sm:grid grid-cols-1 md:grid-cols-[2fr_1fr_1.6fr_1fr] gap-8 sm:gap-10 md:gap-14 my-10 mt-20 sm:mt-30 md:mt-40 text-sm'>
             {/*------------Left Section------------*/}
             <div>
                 <img className='mb-4 sm:mb-5 w-32 sm:w-36 md:w-40' src={assets.logo} alt="Collabzz" />
@@ -50,6 +51,12 @@ const Footer = () => {
                 </ul>
             </div>
             
+            {/*------------Catégories------------*/}
+            <div>
+                <p className='text-lg sm:text-xl font-medium mb-4 sm:mb-5'>INFLUENCEURS</p>
+                <CategoryLinks className='grid grid-cols-2 gap-x-4 gap-y-2 text-gray600' linkClassName='hover:text-gray-900' />
+            </div>
+
             {/*------------Right Section------------*/}
             <div>
                 <p className='text-lg sm:text-xl font-medium mb-4 sm:mb-5'>CONTACTEZ-NOUS</p>

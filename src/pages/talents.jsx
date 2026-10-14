@@ -12,6 +12,7 @@ import { PAGE_SEO, categorySeo } from '../constants/seo'
 import { INFLUENCER_CATEGORIES } from '../constants/categories'
 import { useCanSeeStats } from '../hooks/useCanSeeStats'
 import SmartImage from '../components/SmartImage'
+import CategoryLinks from '../components/CategoryLinks'
 
 const compactFormat = new Intl.NumberFormat('fr-FR', { notation: 'compact', maximumFractionDigits: 1 })
 
@@ -113,6 +114,14 @@ const Talents = () => {
 		const qs = params.toString()
 		navigate(qs ? `${location.pathname}?${qs}` : location.pathname)
 	}
+
+	const otherTypePath = (() => {
+		const params = new URLSearchParams(searchParams)
+		if (activeType === 'ugc') params.delete('type')
+		else params.set('type', 'ugc')
+		const qs = params.toString()
+		return qs ? `${location.pathname}?${qs}` : location.pathname
+	})()
 
 	// Change le tri en conservant les autres filtres actifs ; le tri par défaut n'apparaît pas dans l'URL.
 	const goToSort = (sortValue) => {
@@ -392,17 +401,28 @@ const Talents = () => {
 
 			{/* Passage à l'autre catégorie de talents, en fin de liste. */}
 			<div className='mt-12 flex justify-center'>
-				<button
-					type='button'
-					onClick={() => { goToType(activeType === 'ugc' ? 'influenceur' : 'ugc'); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
+				{/* Vrai lien (et non un bouton) pour que Google découvre aussi les profils UGC. */}
+				<Link
+					to={otherTypePath}
+					onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
 					className='cursor-pointer group inline-flex items-center gap-2 rounded-full border-2 border-primary px-8 py-3.5 font-semibold text-gray-900 hover:bg-primary transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2'
 				>
 					{activeType === 'ugc' ? 'Voir aussi nos influenceurs' : 'Voir aussi nos créateurs UGC'}
 					<svg className='w-4 h-4 transition-transform duration-200 group-hover:translate-x-1' fill='none' stroke='currentColor' viewBox='0 0 24 24' aria-hidden='true'>
 						<path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M17 8l4 4m0 0l-4 4m4-4H3' />
 					</svg>
-				</button>
+				</Link>
 			</div>
+
+			{/* Accès direct à chaque catégorie (maillage interne vers les pages /talents/<catégorie>). */}
+			<nav aria-labelledby='categories-title' className='mt-16 rounded-3xl bg-gray-50 border border-gray-200 p-6 sm:p-8'>
+				<h2 id='categories-title' className='text-xl sm:text-2xl font-bold text-gray-900 mb-5'>Influenceurs par catégorie</h2>
+				<CategoryLinks
+					prefix='Influenceurs '
+					className='flex flex-wrap gap-2'
+					linkClassName='inline-block rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors duration-200 hover:border-gray-900 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+				/>
+			</nav>
 		</div>
 		</MotionConfig>
 	)
