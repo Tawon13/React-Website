@@ -13,6 +13,21 @@ const PRICE_TIERS = [
   { tier: 'Méga-influenceur', followers: 'Plus d\'1 million d\'abonnés', price: '10 000 € et plus' }
 ]
 
+// Tarifs réellement affichés sur Collabzz (prix d'une vidéo TikTok, profils validés),
+// relevés le 14/10/2026. Seules les tranches d'au moins 10 créateurs sont publiées.
+const COLLABZZ_PRICES = {
+  date: 'octobre 2026',
+  creators: 63,
+  median: 215,
+  p25: 150,
+  p75: 330,
+  tiers: [
+    { label: "Moins de 1 000 abonnés (surtout créateurs UGC)", median: 150 },
+    { label: '1 000 à 10 000 abonnés', median: 215 },
+    { label: '50 000 à 250 000 abonnés', median: 350 }
+  ]
+}
+
 const linkClass = 'font-semibold text-gray-900 underline decoration-primary decoration-2 underline-offset-4 hover:decoration-gray-900'
 
 const CombienCouteInfluenceurTiktok = () => {
@@ -53,6 +68,20 @@ const CombienCouteInfluenceurTiktok = () => {
       <p>
         {"Ces chiffres sont des ordres de grandeur : deux créateurs de même taille peuvent facturer du simple au triple. Sur TikTok, les tarifs sont souvent un peu plus bas que sur Instagram à audience égale, parce que la portée d'une vidéo dépend davantage de l'algorithme que du nombre d'abonnés."}
       </p>
+
+      <aside className='my-8 rounded-2xl bg-primary/10 border border-primary/30 p-6'>
+        <p className='font-semibold text-gray-900 mb-2'>
+          {`Les prix réels sur Collabzz (${COLLABZZ_PRICES.date})`}
+        </p>
+        <p className='mb-3'>
+          {`Sur les ${COLLABZZ_PRICES.creators} créateurs TikTok validés qui affichent un tarif, le prix médian d'une vidéo est de ${COLLABZZ_PRICES.median} €, et la moitié d'entre eux demandent entre ${COLLABZZ_PRICES.p25} et ${COLLABZZ_PRICES.p75} €. Prix médian par taille de compte :`}
+        </p>
+        <ul className='!mb-0'>
+          {COLLABZZ_PRICES.tiers.map((tier) => (
+            <li key={tier.label}>{`${tier.label} : ${tier.median} €`}</li>
+          ))}
+        </ul>
+      </aside>
 
       <h2>Ce qui fait vraiment varier le prix</h2>
       <h3>Les vues moyennes, plus que les abonnés</h3>
