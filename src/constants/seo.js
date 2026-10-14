@@ -55,6 +55,13 @@ export const PAGE_SEO = {
         changefreq: 'monthly',
         priority: '0.5'
     },
+    guides: {
+        path: '/guides',
+        title: "Guides du marketing d'influence TikTok",
+        description: "Tarifs des influenceurs, budget de campagne, choix des créateurs : les guides Collabzz pour réussir vos collaborations avec des influenceurs TikTok.",
+        changefreq: 'weekly',
+        priority: '0.7'
+    },
     terms: {
         path: '/terms',
         title: "Conditions d'utilisation",
@@ -68,6 +75,13 @@ export const PAGE_SEO = {
         description: 'Comment Collabzz collecte, utilise et protège vos données personnelles (RGPD).',
         changefreq: 'yearly',
         priority: '0.3'
+    },
+    mentionsLegales: {
+        path: '/mentions-legales',
+        title: 'Mentions légales',
+        description: "Mentions légales du site Collabzz : éditeur, hébergeur et contact.",
+        changefreq: 'yearly',
+        priority: '0.2'
     }
 }
 

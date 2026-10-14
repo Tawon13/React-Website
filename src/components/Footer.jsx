@@ -1,5 +1,5 @@
 import { assets } from '../assets/assets'
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 
 // Réseaux sociaux de Collabzz (aussi déclarés dans le balisage Organization de index.html).
 const SOCIAL_LINKS = [
@@ -15,15 +15,25 @@ const SOCIAL_LINKS = [
   }
 ]
 
+// Vrais liens <a href> (et non des onClick) : Google ne suit que les liens explorables.
+const FOOTER_LINKS = [
+  { to: '/', label: 'Accueil' },
+  { to: '/talents', label: 'Influenceurs' },
+  { to: '/guides', label: 'Guides' },
+  { to: '/about', label: 'À propos' },
+  { to: '/contact', label: 'Contact' },
+  { to: '/privacy', label: 'Confidentialité' },
+  { to: '/terms', label: 'Conditions' },
+  { to: '/mentions-legales', label: 'Mentions légales' }
+]
+
 const Footer = () => {
-  const navigate = useNavigate()
-  
   return (
     <div className='px-4 sm:px-6 md:mx-10'>
         <div className='flex flex-col sm:grid grid-cols-1 md:grid-cols-[3fr_1fr_1fr] gap-8 sm:gap-10 md:gap-14 my-10 mt-20 sm:mt-30 md:mt-40 text-sm'>
             {/*------------Left Section------------*/}
             <div>
-                <img className='mb-4 sm:mb-5 w-32 sm:w-36 md:w-40' src={assets.logo} alt="" />
+                <img className='mb-4 sm:mb-5 w-32 sm:w-36 md:w-40' src={assets.logo} alt="Collabzz" />
                 <p className='w-full md:w-2/3 text-gray600 leading-6 text-sm'>
                     Collabzz connecte les marques avec les meilleurs influenceurs. 
                     Simplifiez vos collaborations et boostez votre visibilité en quelques clics.
@@ -34,12 +44,9 @@ const Footer = () => {
             <div>
                 <p className='text-lg sm:text-xl font-medium mb-4 sm:mb-5'>ENTREPRISE</p>
                 <ul className='flex flex-col gap-2 text-gray600'>
-                    <li onClick={() => navigate('/')} className='cursor-pointer hover:text-gray-900'>Accueil</li>
-                    <li onClick={() => navigate('/about')} className='cursor-pointer hover:text-gray-900'>À propos</li>
-                    <li onClick={() => navigate('/contact')} className='cursor-pointer hover:text-gray-900'>Contact</li>
-                    <li onClick={() => navigate('/privacy')} className='cursor-pointer hover:text-gray-900'>Confidentialité</li>
-                    <li onClick={() => navigate('/terms')} className='cursor-pointer hover:text-gray-900'>Conditions</li>
-                    <li onClick={() => navigate('/mentions-legales')} className='cursor-pointer hover:text-gray-900'>Mentions légales</li>
+                    {FOOTER_LINKS.map((link) => (
+                        <li key={link.to}><Link to={link.to} className='hover:text-gray-900'>{link.label}</Link></li>
+                    ))}
                 </ul>
             </div>
             

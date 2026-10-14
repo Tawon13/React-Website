@@ -31,6 +31,8 @@ const BrandOnboarding = lazy(() => import('./pages/BrandOnboarding'))
 const BrandRecommendation = lazy(() => import('./pages/BrandRecommendation'))
 const InfluencerOnboarding = lazy(() => import('./pages/InfluencerOnboarding'))
 const NotFound = lazy(() => import('./pages/NotFound'))
+const Guides = lazy(() => import('./pages/Guides'))
+const Guide = lazy(() => import('./pages/Guide'))
 
 const PageLoader = () => (
   <div className='flex justify-center py-32' role='status' aria-label='Chargement de la page'>
@@ -69,6 +71,8 @@ const App = () => {
               <Route path='/brand-recommendation' element={<BrandRecommendation />} />
               <Route path='/about' element={<About />} />
               <Route path='/contact' element={<Contact />} />
+              <Route path='/guides' element={<Guides />} />
+              <Route path='/guides/:slug' element={<Guide />} />
               <Route path='/my-profile' element={<MyProfile />} />
               <Route path='/my-appointments' element={<MyAppointment />} />
               <Route path='/appointment/:docId' element={<Appointments />} />

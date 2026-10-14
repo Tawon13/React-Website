@@ -10,6 +10,7 @@ import {
     CATEGORY_SEO, DEFAULT_DESCRIPTION, DEFAULT_IMAGE, PAGE_SEO, SITE_NAME, SITE_URL,
     formatTitle, influencerSeo
 } from '../src/constants/seo.js'
+import { GUIDE_SEO } from '../src/constants/guides.js'
 import { assignSlugs } from '../src/utils/profileSlug.js'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -106,6 +107,7 @@ const main = async () => {
     const pages = [
         ...Object.values(PAGE_SEO),
         ...CATEGORY_SEO.map((page) => ({ ...page, changefreq: 'weekly', priority: '0.7' })),
+        ...GUIDE_SEO.map((page) => ({ ...page, changefreq: 'monthly', priority: '0.7' })),
         ...influencers.map((inf) => ({ ...influencerSeo(inf), changefreq: 'weekly', priority: '0.6', lastmod: inf.lastmod }))
     ]
 

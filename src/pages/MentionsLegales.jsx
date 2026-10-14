@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import SEO from '../components/SEO';
+import { PAGE_SEO } from '../constants/seo';
 import LegalLayout from '../components/LegalLayout';
 
 const SECTIONS = [
@@ -17,7 +18,7 @@ const SECTIONS = [
 const MentionsLegales = () => {
   return (
     <>
-      <SEO title="Mentions légales" path="/mentions-legales" />
+      <SEO {...PAGE_SEO.mentionsLegales} />
       <LegalLayout title="Mentions légales" updated="9 septembre 2026" current="/mentions-legales" sections={SECTIONS}>
           <section id="section-1">
             <h2>
