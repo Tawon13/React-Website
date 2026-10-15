@@ -16,6 +16,7 @@ import { Reveal } from '../components/PageKit'
 import SmartImage from '../components/SmartImage'
 import { hdPhotoURL } from '../utils/photoUrl'
 import { influencerPath } from '../utils/profileSlug'
+import { brandPrice } from '../constants/fees'
 
 const ADMIN_EMAIL = 'bechagraamine@gmail.com'
 
@@ -811,7 +812,8 @@ const InfluencerProfile = () => {
                 <aside className='lg:col-span-4 order-1 lg:order-2'>
                     <div className='lg:sticky lg:top-28 rounded-3xl border border-gray-200 bg-white p-6 shadow-xl shadow-gray-900/5'>
                         <p className='text-sm text-gray-500'>Prix de la prestation</p>
-                        <p className='text-4xl font-bold text-gray-900 tracking-tight mb-5'>{currentPrice} €</p>
+                        <p className='text-4xl font-bold text-gray-900 tracking-tight'>{brandPrice(currentPrice)} €</p>
+                        <p className='text-xs text-gray-500 mb-5'>Frais d’agence inclus</p>
 
                         <fieldset className='mb-5'>
                             <legend className='text-sm font-semibold text-gray-900 mb-2'>Prestation</legend>

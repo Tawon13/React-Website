@@ -7,7 +7,7 @@ import { AppContext } from '../context/AppContext'
 import { assets } from '../assets/assets'
 import CreatorStrip from '../components/CreatorStrip'
 import { useCanSeeStats } from '../hooks/useCanSeeStats'
-import { Reveal, Icon, ICONS, StepsTimeline, FeeBreakdown, darkBtn, outlineBtn, goldBtn } from '../components/PageKit'
+import { Reveal, Icon, ICONS, StepsTimeline, darkBtn, outlineBtn, goldBtn } from '../components/PageKit'
 import SmartImage from '../components/SmartImage'
 
 const compactFormat = new Intl.NumberFormat('fr-FR', { notation: 'compact', maximumFractionDigits: 1 })
@@ -35,6 +35,7 @@ const FEATURES = [
 
 const PRICING_POINTS = [
   "Accès illimité au catalogue d'influenceurs",
+  'Prix affichés tout compris, frais d’agence inclus',
   'Messagerie sécurisée avec les créateurs',
   'Paiement uniquement lors d’une collaboration'
 ]
@@ -193,7 +194,7 @@ const ForBrands = () => {
           </CreatorStrip>
 
           {/* Tarification transparente */}
-          <section aria-labelledby='pricing-title' className='grid lg:grid-cols-2 gap-10 lg:gap-16 items-center'>
+          <section aria-labelledby='pricing-title' className='max-w-2xl'>
             <Reveal>
               <h2 id='pricing-title' className='text-3xl md:text-4xl font-bold text-gray-900 mb-4'>Tarification transparente</h2>
               <p className='text-lg text-gray-600 mb-8'>
@@ -208,9 +209,6 @@ const ForBrands = () => {
                   </li>
                 ))}
               </ul>
-            </Reveal>
-            <Reveal delay={0.1}>
-              <FeeBreakdown audience='brand' />
             </Reveal>
           </section>
 

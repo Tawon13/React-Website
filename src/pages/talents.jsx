@@ -21,8 +21,8 @@ const compactFormat = new Intl.NumberFormat('fr-FR', { notation: 'compact', maxi
 // passent en fin de liste plutôt que d'être comptés comme 0.
 const SORT_OPTIONS = [
 	{ value: 'popular', label: "Le + d'abonnés", getValue: (doc) => doc.followers?.tiktok, order: 'desc' },
-	{ value: 'price_asc', label: 'Les - chers', getValue: (doc) => Number(doc.fees), order: 'asc' },
-	{ value: 'price_desc', label: 'Les + chers', getValue: (doc) => Number(doc.fees), order: 'desc' },
+	{ value: 'price_asc', label: 'Les - chers', getValue: (doc) => Number(doc.brandFees), order: 'asc' },
+	{ value: 'price_desc', label: 'Les + chers', getValue: (doc) => Number(doc.brandFees), order: 'desc' },
 	{ value: 'engagement', label: "Le + de taux d'engagement", getValue: (doc) => doc.engagementRate, order: 'desc' },
 	{ value: 'views', label: 'Le + de vues moyennes', getValue: (doc) => doc.avgViews, order: 'desc' },
 	{ value: 'recent', label: 'Les plus récents', getValue: (doc) => new Date(doc.createdAt || 0).getTime(), order: 'desc' }
@@ -155,7 +155,7 @@ const Talents = () => {
     if (maxPrice) {
       const max = Number(maxPrice)
       if (Number.isFinite(max)) {
-        filtered = filtered.filter(doc => Number(doc.fees) <= max)
+        filtered = filtered.filter(doc => Number(doc.brandFees) <= max)
       }
     }
 
@@ -374,7 +374,7 @@ const Talents = () => {
 											<p className='text-gray-900 text-base sm:text-lg font-semibold truncate'>{displayName}</p>
 											<p className='text-gray-500 text-sm truncate'>{item.speciality}</p>
 											<div className='flex items-end justify-between gap-2 mt-3'>
-												<p className='text-gray-900 text-lg font-bold whitespace-nowrap'>{item.fees} €</p>
+												<p className='text-gray-900 text-lg font-bold whitespace-nowrap'>{item.brandFees} €</p>
 												{canSeeStats && item.engagementRate != null && (
 													<p className='text-xs text-gray-500 text-right whitespace-nowrap'>
 														<span className='block font-semibold text-gray-900 text-sm'>{item.engagementRate.toLocaleString('fr-FR')} %</span>

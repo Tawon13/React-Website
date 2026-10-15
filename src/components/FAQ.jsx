@@ -4,7 +4,7 @@ import { Helmet } from 'react-helmet-async'
 const FAQ_ITEMS = [
   {
     question: "Combien coûte Collabzz ?",
-    answer: "L'inscription et la recherche d'influenceurs sont entièrement gratuites : aucun abonnement ni frais cachés. Chaque créateur fixe librement le tarif affiché sur son profil, auquel s'ajoutent 15% de frais de service lors de votre commande. Le créateur perçoit toujours 100% du prix qu'il a fixé."
+    answer: "L'inscription et la recherche d'influenceurs sont entièrement gratuites : aucun abonnement ni frais cachés. Le prix affiché sur chaque profil est le prix final : nos frais d'agence sont déjà inclus, vous ne payez rien de plus lors de votre commande."
   },
   {
     question: "Comment se déroule une collaboration ?",

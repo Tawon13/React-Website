@@ -78,7 +78,7 @@ const BrandRecommendation = () => {
                                     <p className='text-xl font-semibold text-gray-900'>@{bestMatch.tiktokUsername}</p>
                                 )}
                                 <p className='text-gray-600 mt-1'>{bestMatch.speciality}</p>
-                                <p className='text-primary text-lg font-semibold mt-3'>{bestMatch.fees}€ / vidéo</p>
+                                <p className='text-primary text-lg font-semibold mt-3'>{bestMatch.brandFees}€ / vidéo</p>
 
                                 <span className='inline-flex items-center gap-1.5 text-primary font-semibold mt-4'>
                                     Voir son profil

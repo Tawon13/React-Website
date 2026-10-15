@@ -184,7 +184,7 @@ const InfluencerDetail = ({ item, onClose }) => {
           <div className='mt-auto flex items-center justify-between gap-4'>
             <p className='text-gray-900'>
               <span className='text-sm text-gray-500 block'>Tarif</span>
-              <span className='text-xl font-bold'>{item.fees}€</span>
+              <span className='text-xl font-bold'>{item.brandFees}€</span>
             </p>
             <button
               type='button'

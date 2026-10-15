@@ -9,6 +9,7 @@ import hmac
 import base64
 import hashlib
 import json
+import math
 import secrets
 from datetime import datetime, timedelta, timezone
 import stripe
@@ -345,8 +346,10 @@ def create_collaboration_request_handler(req: https_fn.Request) -> https_fn.Resp
             # Le prix de base vient toujours du profil de l'influenceur (jamais du client)
             # pour éviter qu'une marque ne modifie le prix envoyé au serveur.
             base_amount = float(influencer_data.get('pricing', {}).get('tiktok_video') or influencer_data.get('fees') or 800)
-            service_fee_amount = round(base_amount * SERVICE_FEE_RATE, 2)
-            total_amount = round(base_amount + service_fee_amount, 2)
+            # Prix marque frais d'agence inclus, arrondi à l'euro : même calcul que
+            # brandPrice() côté site (Math.round), pour facturer exactement le prix affiché.
+            total_amount = float(math.floor(base_amount * (1 + SERVICE_FEE_RATE) + 0.5))
+            service_fee_amount = round(total_amount - base_amount, 2)
 
             if base_amount <= 0:
                 continue

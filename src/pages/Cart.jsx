@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { CREATE_COLLABORATION_REQUEST_URL } from '../config/firebase'
 import SEO from '../components/SEO'
 import { trackEvent } from '../utils/analytics'
-import { SERVICE_FEE_RATE } from '../constants/fees'
+import { brandPrice } from '../constants/fees'
 import { useToast } from '../context/ToastContext'
 import { warmUpFunction } from '../utils/warmup'
 import SmartImage from '../components/SmartImage'
@@ -15,7 +15,7 @@ import { influencerPathById } from '../utils/profileSlug'
 
 const Cart = () => {
     const navigate = useNavigate()
-    const { cartItems, removeFromCart, updateQuantity, clearCart, getTotal } = useCart()
+    const { cartItems, removeFromCart, updateQuantity, clearCart } = useCart()
     const { currentUser, userType } = useAuth()
     const toast = useToast()
     const { doctors } = useContext(AppContext)
@@ -43,9 +43,8 @@ const Cart = () => {
         warmUpFunction(CREATE_COLLABORATION_REQUEST_URL)
     }, [])
 
-    const subtotal = getTotal()
-    const serviceFee = subtotal * SERVICE_FEE_RATE
-    const grandTotal = subtotal + serviceFee
+    // Prix affichés frais d'agence inclus, ligne par ligne, comme le calcule le serveur.
+    const grandTotal = cartItems.reduce((sum, item) => sum + brandPrice(item.price) * item.quantity, 0)
 
     const handleSendRequest = async () => {
         if (!currentUser) {
@@ -155,7 +154,7 @@ const Cart = () => {
                             <AnimatePresence mode='popLayout'>
                                 {cartItems.map((item, index) => {
                                     const info = describeItem(item)
-                                    const lineTotal = item.price * item.quantity * (1 + SERVICE_FEE_RATE)
+                                    const lineTotal = brandPrice(item.price) * item.quantity
                                     return (
                                         <motion.li
                                             key={item.id}
@@ -205,7 +204,7 @@ const Cart = () => {
                                                     <div className='text-right'>
                                                         <p className='text-xl font-bold text-gray-900 whitespace-nowrap tabular-nums'>{fmt(lineTotal)} €</p>
                                                         <p className='text-xs text-gray-500 whitespace-nowrap'>
-                                                            {item.price} €{item.quantity > 1 ? ` × ${item.quantity}` : ''} + frais (15 %)
+                                                            {item.quantity > 1 ? `${brandPrice(item.price)} € × ${item.quantity} · ` : ''}Frais d’agence inclus
                                                         </p>
                                                     </div>
                                                 </div>
@@ -242,17 +241,14 @@ const Cart = () => {
                                 <h2 className='text-xl font-bold mb-5'>Récapitulatif</h2>
                                 <dl className='space-y-3 text-sm'>
                                     <div className='flex justify-between text-gray-300'>
-                                        <dt>Prix des créateurs</dt>
-                                        <dd className='tabular-nums'>{fmt(subtotal)} €</dd>
-                                    </div>
-                                    <div className='flex justify-between text-gray-300'>
-                                        <dt>Frais de service (15 %)</dt>
-                                        <dd className='tabular-nums'>{fmt(serviceFee)} €</dd>
+                                        <dt>{itemCount > 1 ? `${itemCount} collaborations` : '1 collaboration'}</dt>
+                                        <dd className='tabular-nums'>{fmt(grandTotal)} €</dd>
                                     </div>
                                     <div className='flex justify-between items-baseline pt-4 mt-1 border-t border-white/10'>
                                         <dt className='font-semibold'>Total</dt>
                                         <dd className='text-3xl font-bold tabular-nums'>{fmt(grandTotal)} €</dd>
                                     </div>
+                                    <p className='text-xs text-gray-400 text-right'>Frais d’agence inclus</p>
                                 </dl>
 
                                 <button

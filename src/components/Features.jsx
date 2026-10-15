@@ -112,7 +112,7 @@ const SelectScreen = ({ creators, canSeeStats }) => {
       <motion.div {...pop(4)} className='flex items-center justify-between rounded-xl border border-gray-200 px-4 py-2.5'>
         <div>
           <p className='text-xs text-gray-500'>Vidéo TikTok</p>
-          <p className='text-sm font-semibold text-gray-900'>{creator?.fees} €</p>
+          <p className='text-sm font-semibold text-gray-900'>{creator?.brandFees} €</p>
         </div>
         <span className='rounded-full bg-gray-900 text-white text-xs font-semibold px-4 py-2'>Contacter</span>
       </motion.div>
@@ -135,7 +135,7 @@ const OfferScreen = ({ creators }) => (
       <p className='text-xs font-semibold uppercase tracking-wide text-primary-dark'>Proposition</p>
       <div className='mt-1 flex items-center justify-between'>
         <p className='font-semibold text-gray-900'>1 vidéo TikTok · sous 7 jours</p>
-        <p className='font-bold text-gray-900'>{creators[0]?.fees} €</p>
+        <p className='font-bold text-gray-900'>{creators[0]?.brandFees} €</p>
       </div>
       <span className='mt-2.5 inline-block rounded-full bg-gray-900 text-white text-xs font-semibold px-4 py-2'>Accepter la proposition</span>
     </motion.div>
@@ -153,7 +153,7 @@ const PayScreen = ({ creators }) => (
       </div>
       <div>
         <p className='text-xs text-gray-400'>Montant protégé</p>
-        <p className='font-bold'>{creators[0]?.fees} € conservés en sécurité</p>
+        <p className='font-bold'>{creators[0]?.brandFees} € conservés en sécurité</p>
       </div>
     </motion.div>
     <ol className='space-y-2'>

@@ -5,6 +5,7 @@ import { assets } from "../assets/assets";
 import { computeTikTokStats } from "../utils/tiktokStats";
 import { hdPhotoURL } from "../utils/photoUrl";
 import { assignSlugs } from "../utils/profileSlug";
+import { brandPrice } from "../constants/fees";
 
 export const AppContext = createContext()
 
@@ -23,6 +24,8 @@ export const normalizeInfluencer = (docSnap) => {
         country: data.country || '',
         about: data.about || "Ce créateur n'a pas encore complété sa description.",
         fees: data.pricing?.tiktok_video || 800,
+        // Prix affiché aux marques, frais d'agence inclus (fees reste le prix du créateur)
+        brandFees: brandPrice(data.pricing?.tiktok_video || 800),
         rating: data.rating || 5,
         reviews: data.reviews || 0,
         followers: {

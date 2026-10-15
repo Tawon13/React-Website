@@ -128,7 +128,7 @@ const Favorites = () => {
 											<div className='p-4'>
 												<p className='text-gray-900 text-base sm:text-lg font-semibold truncate'>{displayName}</p>
 												<p className='text-gray-500 text-sm truncate'>{item.speciality}</p>
-												<p className='text-gray-900 text-lg font-bold mt-3 whitespace-nowrap'>{item.fees} €</p>
+												<p className='text-gray-900 text-lg font-bold mt-3 whitespace-nowrap'>{item.brandFees} €</p>
 											</div>
 										</Link>
 									</motion.li>
